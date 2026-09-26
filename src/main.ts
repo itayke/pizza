@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { COLORS, STARTING_UNLOCKED } from './config';
+import { COLORS, MAX_RESOLUTION, STARTING_UNLOCKED } from './config';
 import { Viewport } from './core/Viewport';
 import { KitchenScene } from './scenes/KitchenScene';
 
@@ -12,7 +12,7 @@ async function start(): Promise<void> {
     background: COLORS.letterbox,
     antialias: true,
     autoDensity: true,
-    resolution: window.devicePixelRatio,
+    resolution: Math.min(window.devicePixelRatio, MAX_RESOLUTION),
   });
   document.body.appendChild(app.canvas);
 

@@ -42,7 +42,6 @@ Meta game: later.
 
 - Dough source: placeholder bowl, not in the sketch.
 - Serve by dragging the peel handle instead of a button?
-- Held objects visibly trail the cursor; check render performance.
 
 ## Dev
 

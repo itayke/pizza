@@ -3,6 +3,8 @@
 
 export const DESIGN_WIDTH = 1920;
 export const DESIGN_HEIGHT = 1080;
+// Caps device pixel ratio; high-DPI screens otherwise render a much larger buffer
+export const MAX_RESOLUTION = 1;
 
 export const COLORS = {
   letterbox: 0x3b2418,
