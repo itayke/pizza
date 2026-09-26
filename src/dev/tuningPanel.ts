@@ -29,6 +29,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   dough.addBinding(DOUGH, 'spread', { min: 0.05, max: 1.5 });
   dough.addBinding(DOUGH, 'radialInner', { min: 0, max: 0.95 });
   dough.addBinding(DOUGH, 'radialPower', { min: 0.25, max: 4 });
+  dough.addBinding(DOUGH, 'sizePower', { min: 0, max: 4 });
   dough.addBinding(DOUGH, 'overRimFactor', { min: 0, max: 1 });
   dough.addBinding(DOUGH, 'overRimPower', { min: 0, max: 5 });
   dough.addBinding(DOUGH, 'easeRate', { min: 1, max: 40 });

@@ -98,7 +98,7 @@ export class Dough extends Container {
     const n = this.target.length;
     for (let i = 0; i < n; i++) {
       const diff = wrapAngle((i / n) * TAU - angle);
-      const weight = radial * Math.exp(-(diff * diff) / twoSigmaSq) * overRimMultiplier(this.target[i]);
+      const weight = radial * Math.exp(-(diff * diff) / twoSigmaSq) * sizeMultiplier(this.target[i]) * overRimMultiplier(this.target[i]);
       this.target[i] = Math.min(cap, this.target[i] + amount * DOUGH.rimRadius * weight);
     }
   }
@@ -156,6 +156,11 @@ export class Dough extends Container {
 function radialWeight(fraction: number): number {
   const t = Math.min(1, Math.max(0, (fraction - DOUGH.radialInner) / (1 - DOUGH.radialInner)));
   return t ** DOUGH.radialPower;
+}
+
+/** Growth slows as the dough gets bigger; 1 at the start radius. */
+function sizeMultiplier(radius: number): number {
+  return (DOUGH.rimRadius * DOUGH.startRatio / radius) ** DOUGH.sizePower;
 }
 
 /** Past the rim, growth drops to overRimFactor at once, then slows further toward the cap. */

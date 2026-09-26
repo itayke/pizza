@@ -65,16 +65,18 @@ export const DOUGH = {
   // Press this far past the dough edge still counts (past the cap with reachOutside)
   grabSlack: 76,
   reachOutside: false,
-  tapImpulse: 0.2,
-  holdGrowthPerSecond: 1.52,
+  tapImpulse: 0.251,
+  holdGrowthPerSecond: 1.41,
   // Angular falloff of a press, in radians
   spread: 0.73,
   // Radial falloff: presses closer to center than this fraction of the edge do nothing, ramping to full at the edge
   radialInner: 0.29,
   radialPower: 2,
+  // Growth slows with dough size everywhere; 0 is off, 1 roughly conserves area
+  sizePower: 1,
   // Past the rim, growth drops to this fraction immediately, then slows by overRimPower toward the cap
   overRimFactor: 0.5,
-  overRimPower: 2,
+  overRimPower: 0.5,
   // How fast the drawn edge catches up to its target, per second
   easeRate: 15.36,
   // Fraction of the rim circle covered before sauce becomes available
