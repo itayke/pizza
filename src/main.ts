@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { COLORS } from './config';
+import { COLORS, STARTING_UNLOCKED } from './config';
 import { Viewport } from './core/Viewport';
 import { KitchenScene } from './scenes/KitchenScene';
 
@@ -15,7 +15,7 @@ async function start(): Promise<void> {
   document.body.appendChild(app.canvas);
 
   const viewport = new Viewport();
-  viewport.addChild(new KitchenScene());
+  viewport.addChild(new KitchenScene(new Set(STARTING_UNLOCKED)));
   app.stage.addChild(viewport);
 
   viewport.fit(app.screen.width, app.screen.height);

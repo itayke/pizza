@@ -1,27 +1,23 @@
 # Castle Pizza (working title)
 
-A landscape, touch-and-mouse pizza-making game. Pick ingredients from the bins, knead dough, paint sauce and cheese, add toppings, then have the dragon bake it just right and serve.
+Landscape pizza-making game for touch and mouse. TypeScript + PixiJS + Vite.
 
-Built with TypeScript, [PixiJS v8](https://pixijs.com/) and [Vite](https://vite.dev/).
+## Scripts
 
-## Getting started
+- `npm run dev` — dev server, LAN-exposed for tablet testing
+- `npm run build` — typecheck + production build
+- `npm run preview` — serve the build
 
-```bash
-npm install
-npm run dev        # dev server, also exposed on the LAN for testing on a tablet
-npm run build      # typecheck + production build into dist/
-npm run preview    # serve the production build
-```
+Ports are set in `vite.config.ts`.
 
-## Project layout
+## Layout
 
-```
-src/
-  main.ts              app bootstrap
-  config.ts            all tunables (layout, colors, gameplay values)
-  core/Viewport.ts     fixed 1920×1080 design space, letterboxed to fit the screen
-  scenes/KitchenScene.ts  main play screen (greybox for now)
-  style.css            full-screen canvas, gesture blocking, rotate-device hint
-```
+- `src/main.ts` — bootstrap
+- `src/config.ts` — all tunables
+- `src/core/` — engine-level helpers (viewport scaling)
+- `src/scenes/` — screens
+- `src/stations/` — interactive props (bins, peel, dragon)
+- `src/ui/` — UI helpers
+- `ref/` — reference art (not shipped)
 
-See [PLAN.md](PLAN.md) for the design and milestones.
+Design and milestones: [PLAN.md](PLAN.md).
