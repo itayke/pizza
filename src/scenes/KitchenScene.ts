@@ -1,4 +1,4 @@
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Point, type FederatedPointerEvent } from 'pixi.js';
 import {
   BAKE_METER,
   BINS,
@@ -12,16 +12,27 @@ import {
   SERVE_BUTTON,
   type IngredientId,
 } from '../config';
+import { easeInQuad } from '../core/easing';
 import { Dough } from '../stations/Dough';
+import { DoughBowl, makeDoughBall } from '../stations/DoughBowl';
 import { IngredientBin } from '../stations/IngredientBin';
 import { makeLabel } from '../ui/makeLabel';
 
 const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.outline };
 
+type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
+
 /** Greybox layout of the main play screen. Placeholder shapes until real art lands. */
 export class KitchenScene extends Container {
   readonly dough = new Dough();
+  private readonly bowl = new DoughBowl();
+  private readonly heldBall = makeDoughBall();
   private readonly bins: IngredientBin[] = [];
+  private readonly pointer = new Point();
+  private readonly peelCenter = new Point(PEEL.x + PEEL.width / 2, PEEL.y + PEEL.height / 2);
+  private readonly dropFrom = new Point();
+  private dropElapsed = 0;
+  private doughPhase: DoughPhase = 'inBowl';
   private sauceReady = false;
 
   constructor(unlocked: ReadonlySet<IngredientId>) {
@@ -29,21 +40,78 @@ export class KitchenScene extends Container {
     this.addChild(new Graphics().rect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT).fill(COLORS.table));
     this.buildBins(unlocked);
     this.buildPeel();
-    this.dough.position.set(PEEL.x + PEEL.width / 2, PEEL.y + PEEL.height / 2);
-    this.addChild(this.dough);
+    this.dough.position.copyFrom(this.peelCenter);
+    this.addChild(this.dough, this.bowl);
     this.buildBakeMeter();
     this.buildDragon();
     this.buildServeButton();
-    this.applyAvailability();
+    this.heldBall.eventMode = 'none';
+    this.addChild(this.heldBall);
+
+    // Track the pointer everywhere so the held ball can follow it
+    this.eventMode = 'static';
+    this.on('globalpointermove', this.trackPointer, this);
+    this.bowl.on('pointerdown', this.pickUpDough, this);
+
+    this.resetDough();
+  }
+
+  /** Back to an empty peel with the dough ball in its bowl. */
+  resetDough(): void {
+    this.doughPhase = 'inBowl';
+    this.bowl.setFilled(true);
+    this.heldBall.visible = false;
+    this.dough.reset();
+    this.dough.setPlaced(false);
   }
 
   update(dt: number): void {
+    if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
-    const sauceReady = this.dough.coverage >= DOUGH.sauceCoverage;
+
+    const sauceReady = this.doughPhase === 'onPeel' && this.dough.coverage >= DOUGH.sauceCoverage;
     if (sauceReady !== this.sauceReady) {
       this.sauceReady = sauceReady;
       this.applyAvailability();
     }
+  }
+
+  private trackPointer(e: FederatedPointerEvent): void {
+    this.toLocal(e.global, undefined, this.pointer);
+    // Move in the event itself, not next frame, so the held ball sticks to the pointer
+    if (this.doughPhase === 'held') this.heldBall.position.copyFrom(this.pointer);
+  }
+
+  private pickUpDough(e: FederatedPointerEvent): void {
+    if (this.doughPhase !== 'inBowl') return;
+    this.trackPointer(e);
+    this.doughPhase = 'held';
+    this.bowl.setFilled(false);
+    this.heldBall.position.copyFrom(this.pointer);
+    this.heldBall.visible = true;
+  }
+
+  private dropDough(): void {
+    if (this.doughPhase !== 'held') return;
+    this.doughPhase = 'dropping';
+    this.dropFrom.copyFrom(this.heldBall.position);
+    this.dropElapsed = 0;
+  }
+
+  private updateDrop(dt: number): void {
+    this.dropElapsed += dt;
+    const t = Math.min(1, this.dropElapsed / DOUGH.dropDuration);
+    const k = easeInQuad(t);
+    this.heldBall.position.set(
+      this.dropFrom.x + (this.peelCenter.x - this.dropFrom.x) * k,
+      this.dropFrom.y + (this.peelCenter.y - this.dropFrom.y) * k,
+    );
+    if (t < 1) return;
+
+    this.doughPhase = 'onPeel';
+    this.heldBall.visible = false;
+    this.dough.setPlaced(true);
+    this.dough.slam();
   }
 
   private applyAvailability(): void {
@@ -81,6 +149,8 @@ export class KitchenScene extends Container {
       .circle(centerX, handleBottom - handleRadius, holeRadius)
       .fill(COLORS.table)
       .stroke(OUTLINE);
+    peel.eventMode = 'static';
+    peel.on('pointerdown', this.dropDough, this);
     this.addChild(peel);
   }
 

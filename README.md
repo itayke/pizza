@@ -14,7 +14,7 @@ Ports are set in `vite.config.ts`.
 
 - `src/main.ts` — bootstrap
 - `src/config.ts` — all tunables
-- `src/core/` — engine-level helpers (viewport scaling)
+- `src/core/` — engine-level helpers (viewport, easing)
 - `src/scenes/` — screens
 - `src/stations/` — interactive props (bins, peel, dragon)
 - `src/ui/` — UI helpers

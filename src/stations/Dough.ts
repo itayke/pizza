@@ -1,5 +1,6 @@
 import { Circle, Container, Graphics, Point, type FederatedPointerEvent } from 'pixi.js';
 import { COLORS, DOUGH } from '../config';
+import { easeOutCubic } from '../core/easing';
 
 const TAU = Math.PI * 2;
 
@@ -17,11 +18,11 @@ export class Dough extends Container {
   private readonly reach = new Circle();
   private pointerId: number | null = null;
   private polyBuffer: number[] = [];
+  private slamElapsed = Infinity;
 
   constructor() {
     super();
-    // Rim on top so the target stays visible through the dough
-    this.addChild(this.body, this.buildRim());
+    this.addChild(this.buildRim(), this.body);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -41,9 +42,25 @@ export class Dough extends Container {
     this.shown = new Float32Array(DOUGH.points).fill(start);
     this.polyBuffer = new Array(DOUGH.points * 2);
     this.pointerId = null;
+    this.slamElapsed = Infinity;
     this.updateReach();
     this.updateMetrics();
     this.draw();
+  }
+
+  /** Show the dough body and accept kneading, or hide it (rim stays visible). */
+  setPlaced(placed: boolean): void {
+    this.body.visible = placed;
+    this.eventMode = placed ? 'static' : 'none';
+    this.pointerId = null;
+  }
+
+  /** Impact on the peel: splat outward from the start size. */
+  slam(): void {
+    const start = DOUGH.rimRadius * DOUGH.startRatio;
+    this.shown.fill(start);
+    this.target.fill(start * (1 + DOUGH.slamGrowth));
+    this.slamElapsed = 0;
   }
 
   update(dt: number): void {
@@ -51,9 +68,18 @@ export class Dough extends Container {
     if (this.pointerId !== null && this.isPointerInReach()) {
       this.push(DOUGH.holdGrowthPerSecond * dt);
     }
-    const ease = 1 - Math.exp(-DOUGH.easeRate * dt);
-    for (let i = 0; i < this.shown.length; i++) {
-      this.shown[i] += (this.target[i] - this.shown[i]) * ease;
+    if (this.slamElapsed < DOUGH.slamDuration) {
+      this.slamElapsed += dt;
+      const k = easeOutCubic(Math.min(1, this.slamElapsed / DOUGH.slamDuration));
+      const start = DOUGH.rimRadius * DOUGH.startRatio;
+      for (let i = 0; i < this.shown.length; i++) {
+        this.shown[i] = start + (this.target[i] - start) * k;
+      }
+    } else {
+      const ease = 1 - Math.exp(-DOUGH.easeRate * dt);
+      for (let i = 0; i < this.shown.length; i++) {
+        this.shown[i] += (this.target[i] - this.shown[i]) * ease;
+      }
     }
     this.updateMetrics();
     this.draw();

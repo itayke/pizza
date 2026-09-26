@@ -10,6 +10,7 @@ export const COLORS = {
   bin: 0xd9b48a,
   outline: 0x2a1a10,
   peel: 0xd8a765,
+  bowl: 0xe9e4da,
   dough: 0xf3dcae,
   doughEdge: 0xc9a36b,
   rim: 0x5a3a24,
@@ -77,6 +78,10 @@ export const DOUGH = {
   // Past the rim, growth drops to this fraction immediately, then slows by overRimPower toward the cap
   overRimFactor: 0.5,
   overRimPower: 0.5,
+  // Placing: the held ball drops to the center, then splats outward by slamGrowth (fraction of start radius)
+  dropDuration: 0.15,
+  slamGrowth: 0.2,
+  slamDuration: 0.1,
   // How fast the drawn edge catches up to its target, per second
   easeRate: 15.36,
   // Fraction of the rim circle covered before sauce becomes available
@@ -88,10 +93,16 @@ export const DOUGH = {
   edgeWidth: 4,
 };
 
+export const DOUGH_BOWL = {
+  x: 190,
+  y: 550,
+  radius: 120,
+};
+
 export const DISABLED_ALPHA = 0.3;
 
 export const BAKE_METER = {
-  x: 140,
+  x: 1325,
   y: 330,
   width: 50,
   height: 440,

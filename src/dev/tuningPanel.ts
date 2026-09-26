@@ -8,7 +8,7 @@ const RESET_KEY = 'r';
 /** Dev-only live tuning. Edits config objects in place; values reset on reload. */
 export function createTuningPanel(scene: KitchenScene): void {
   const pane = new Pane({ title: 'Tuning' });
-  const resetDough = () => scene.dough.reset();
+  const resetDough = () => scene.resetDough();
 
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
   const save = pane.addButton({ title: 'Save to config.ts' });
@@ -32,6 +32,9 @@ export function createTuningPanel(scene: KitchenScene): void {
   dough.addBinding(DOUGH, 'sizePower', { min: 0, max: 4 });
   dough.addBinding(DOUGH, 'overRimFactor', { min: 0, max: 1 });
   dough.addBinding(DOUGH, 'overRimPower', { min: 0, max: 5 });
+  dough.addBinding(DOUGH, 'dropDuration', { min: 0.01, max: 1 });
+  dough.addBinding(DOUGH, 'slamGrowth', { min: 0, max: 1 });
+  dough.addBinding(DOUGH, 'slamDuration', { min: 0.01, max: 1 });
   dough.addBinding(DOUGH, 'easeRate', { min: 1, max: 40 });
   dough.addBinding(DOUGH, 'grabSlack', { min: 0, max: 150, step: 1 });
   dough.addBinding(DOUGH, 'reachOutside');

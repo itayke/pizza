@@ -6,9 +6,9 @@ No real failure. Mistakes are capped or look funny; scores are internal.
 
 ## Core loop
 
-Layout per `ref/kitchen-sketch.jpg`: split ingredient containers on top, pizza peel in the center, dragon on the right. Bake meter and Serve are placeholders on the left.
+Layout per `ref/kitchen-sketch.jpg`: split ingredient containers on top, pizza peel in the center, dragon on the right. Placeholders not in the sketch: dough bowl and Serve on the left, bake meter between peel and dragon.
 
-1. **Dough** — press/hold on the dough to spread it toward the rim drawn on the peel. Enough coverage enables sauce.
+1. **Dough** — tap the bowl to pick up a ball, tap the peel to slam it down (it splats out on impact), then press/hold to spread it toward the rim. Enough coverage enables sauce.
 2. **Sauce / Cheese** — tap or drag over the dough to paint.
 3. **Toppings** — tap to place one, hold to keep dropping.
 4. **Bake** — hold the dragon to breathe fire; land the meter in the target zone, past it the pizza chars.
@@ -37,12 +37,12 @@ Meta game: later.
 - Permissive: silly orders look funny rather than being blocked.
 - Bake target zone starts wide.
 - Dragon fires while held.
-- Dough starts on the peel (prototype).
 
 ## Open questions
 
-- Dough source: not in the sketch.
+- Dough source: placeholder bowl, not in the sketch.
 - Serve by dragging the peel handle instead of a button?
+- Held objects visibly trail the cursor; check render performance.
 
 ## Dev
 
