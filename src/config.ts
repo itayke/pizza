@@ -10,6 +10,9 @@ export const COLORS = {
   bin: 0xd9b48a,
   outline: 0x2a1a10,
   peel: 0xd8a765,
+  dough: 0xf3dcae,
+  doughEdge: 0xc9a36b,
+  rim: 0x5a3a24,
   meterBg: 0x2b2b2b,
   meterTarget: 0x6fcf5a,
   dragon: 0x2fb391,
@@ -51,6 +54,39 @@ export const PEEL = {
   handleLength: 230,
   holeRadius: 44,
 };
+
+// Kneading: press on the dough to spread it toward the rim. No failure: growth just stops past the rim.
+// Rates are in rim-radius units.
+export const DOUGH = {
+  rimRadius: 190,
+  capRatio: 1.1,
+  startRatio: 0.45,
+  points: 96,
+  // Press this far past the dough edge still counts (past the cap with reachOutside)
+  grabSlack: 76,
+  reachOutside: false,
+  tapImpulse: 0.2,
+  holdGrowthPerSecond: 1.52,
+  // Angular falloff of a press, in radians
+  spread: 0.73,
+  // Radial falloff: presses closer to center than this fraction of the edge do nothing, ramping to full at the edge
+  radialInner: 0.29,
+  radialPower: 2,
+  // Past the rim, growth drops to this fraction immediately, then slows by overRimPower toward the cap
+  overRimFactor: 0.5,
+  overRimPower: 2,
+  // How fast the drawn edge catches up to its target, per second
+  easeRate: 15.36,
+  // Fraction of the rim circle covered before sauce becomes available
+  sauceCoverage: 0.85,
+  rimDashes: 36,
+  rimDashFill: 0.5,
+  rimWidth: 4,
+  rimAlpha: 0.5,
+  edgeWidth: 4,
+};
+
+export const DISABLED_ALPHA = 0.3;
 
 export const BAKE_METER = {
   x: 140,

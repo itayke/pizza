@@ -18,6 +18,8 @@ Ports are set in `vite.config.ts`.
 - `src/scenes/` — screens
 - `src/stations/` — interactive props (bins, peel, dragon)
 - `src/ui/` — UI helpers
+- `src/dev/` — dev-only tools (tuning panel)
+- `tools/` — build/dev-server tooling (tuning save endpoint)
 - `ref/` — reference art (not shipped)
 
 Design and milestones: [PLAN.md](PLAN.md).

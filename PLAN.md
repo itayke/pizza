@@ -1,10 +1,14 @@
 # Castle Pizza — Plan
 
+## Principle
+
+No real failure. Mistakes are capped or look funny; scores are internal.
+
 ## Core loop
 
 Layout per `ref/kitchen-sketch.jpg`: split ingredient containers on top, pizza peel in the center, dragon on the right. Bake meter and Serve are placeholders on the left.
 
-1. **Dough** — place on peel, press/hold to knead; pressing pushes dough away from the pointer.
+1. **Dough** — press/hold on the dough to spread it toward the rim drawn on the peel. Enough coverage enables sauce.
 2. **Sauce / Cheese** — tap or drag over the dough to paint.
 3. **Toppings** — tap to place one, hold to keep dropping.
 4. **Bake** — hold the dragon to breathe fire; land the meter in the target zone, past it the pizza chars.
@@ -20,7 +24,7 @@ Meta game: later.
 
 ## Mechanic designs
 
-- **Dough** — radial polygon; presses push nearby radii outward, neighbors smoothed.
+- **Dough** — ring of radii, no volume. A press grows radii at its angle with angular falloff, scaled by how close to the edge it lands (none near center); growth slows past the rim and caps just beyond it. Coverage of the rim circle gates sauce; roundness vs. a perfect circle is the internal score.
 - **Sauce / Cheese** — brush stamps into a render texture masked by the dough; low-res CPU grid tracks coverage.
 - **Toppings** — sprites with rotation/scale jitter.
 - **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire as particles.
@@ -33,11 +37,16 @@ Meta game: later.
 - Permissive: silly orders look funny rather than being blocked.
 - Bake target zone starts wide.
 - Dragon fires while held.
+- Dough starts on the peel (prototype).
 
 ## Open questions
 
 - Dough source: not in the sketch.
 - Serve by dragging the peel handle instead of a button?
+
+## Dev
+
+Dev builds show a tuning panel (`src/dev/`) that edits config live; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`).
 
 ## Art
 
@@ -47,7 +56,7 @@ The sketch is reference only; final art may be generated from it, especially for
 
 - [x] 0. Scaffold — scaling, rotate hint, greybox layout
 - [ ] 1. Input & tools — bin selection, cursor icon, tap vs hold
-- [ ] 2. Dough kneading — playtest and tune first
+- [x] 2. Dough kneading — prototype; playtest and tune
 - [ ] 3. Sauce & cheese + coverage
 - [ ] 4. Toppings
 - [ ] 5. Dragon, fire, bake filter, meter

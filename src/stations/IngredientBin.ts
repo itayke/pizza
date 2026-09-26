@@ -1,15 +1,19 @@
 import { Container, Graphics } from 'pixi.js';
-import { BINS, COLORS, OUTLINE_WIDTH, type IngredientId } from '../config';
+import { BINS, COLORS, DISABLED_ALPHA, OUTLINE_WIDTH, type IngredientId } from '../config';
 import { makeLabel } from '../ui/makeLabel';
 
 /** One top container; shows its unlocked ingredients as a grid of compartments. */
 export class IngredientBin extends Container {
+  private readonly cells = new Map<IngredientId, Container>();
+  private available: ReadonlySet<IngredientId> = new Set();
+
   constructor(private readonly contents: readonly IngredientId[]) {
     super();
   }
 
   refresh(unlocked: ReadonlySet<IngredientId>): void {
-    this.removeChildren().forEach((child) => child.destroy());
+    this.removeChildren().forEach((child) => child.destroy({ children: true }));
+    this.cells.clear();
 
     const items = this.contents.filter((id) => unlocked.has(id));
     const rows = Math.max(1, Math.ceil(items.length / BINS.columns));
@@ -29,7 +33,23 @@ export class IngredientBin extends Container {
     items.forEach((id, i) => {
       const col = i % BINS.columns;
       const row = Math.floor(i / BINS.columns);
-      this.addChild(makeLabel(id, (col + 0.5) * cellWidth, (row + 0.5) * cellHeight));
+      const cell = new Container();
+      cell.addChild(makeLabel(id, (col + 0.5) * cellWidth, (row + 0.5) * cellHeight));
+      this.cells.set(id, cell);
+      this.addChild(cell);
     });
+    this.applyAvailability();
+  }
+
+  /** Ingredients not in the set are shown disabled. */
+  setAvailable(available: ReadonlySet<IngredientId>): void {
+    this.available = available;
+    this.applyAvailability();
+  }
+
+  private applyAvailability(): void {
+    for (const [id, cell] of this.cells) {
+      cell.alpha = this.available.has(id) ? 1 : DISABLED_ALPHA;
+    }
   }
 }

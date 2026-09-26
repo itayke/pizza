@@ -5,12 +5,14 @@ import {
   COLORS,
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
+  DOUGH,
   DRAGON,
   OUTLINE_WIDTH,
   PEEL,
   SERVE_BUTTON,
   type IngredientId,
 } from '../config';
+import { Dough } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
 import { makeLabel } from '../ui/makeLabel';
 
@@ -18,14 +20,35 @@ const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.outline };
 
 /** Greybox layout of the main play screen. Placeholder shapes until real art lands. */
 export class KitchenScene extends Container {
+  readonly dough = new Dough();
+  private readonly bins: IngredientBin[] = [];
+  private sauceReady = false;
+
   constructor(unlocked: ReadonlySet<IngredientId>) {
     super();
     this.addChild(new Graphics().rect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT).fill(COLORS.table));
     this.buildBins(unlocked);
     this.buildPeel();
+    this.dough.position.set(PEEL.x + PEEL.width / 2, PEEL.y + PEEL.height / 2);
+    this.addChild(this.dough);
     this.buildBakeMeter();
     this.buildDragon();
     this.buildServeButton();
+    this.applyAvailability();
+  }
+
+  update(dt: number): void {
+    this.dough.update(dt);
+    const sauceReady = this.dough.coverage >= DOUGH.sauceCoverage;
+    if (sauceReady !== this.sauceReady) {
+      this.sauceReady = sauceReady;
+      this.applyAvailability();
+    }
+  }
+
+  private applyAvailability(): void {
+    const available = new Set<IngredientId>(this.sauceReady ? ['sauce'] : []);
+    this.bins.forEach((bin) => bin.setAvailable(available));
   }
 
   private buildBins(unlocked: ReadonlySet<IngredientId>): void {
@@ -36,6 +59,7 @@ export class KitchenScene extends Container {
       const bin = new IngredientBin(contents);
       bin.position.set(gap + i * (BINS.width + gap), BINS.top);
       bin.refresh(unlocked);
+      this.bins.push(bin);
       this.addChild(bin);
     });
   }
