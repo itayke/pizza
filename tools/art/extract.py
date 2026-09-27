@@ -61,8 +61,9 @@ GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
 GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
 GAUGE_SCALE = 0.4
 
-# Sauce dab cursor: the round blob only, without the loose drops around it
-DAB_SOURCE = 'pizza_sauce_dab.png'
+# Held ingredient cursors: one sheet of pieces drawn to scale with each other, cut out by box (source px)
+HELD_SOURCE = 'pizza_placement_ingredients.jpeg'
+HELD_PIECES = {'held_sauce': (190, 730, 520, 1060)}
 
 
 def load(name):
@@ -342,11 +343,13 @@ def main():
     place('gauge_label', rgba(img, paper, lettering(img, paper, GAUGE_LABEL_BOX)), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
     place('gauge_needle', cutout(img, paper, largest(in_box(fg, GAUGE_NEEDLE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
 
-    # Sauce dab cursor: not placed in the layout
-    img = load(DAB_SOURCE)
+    # Held ingredient cursors: not placed in the layout, kept at sheet scale
+    img = load(HELD_SOURCE)
     paper = estimate_paper(img)
-    save('sauce_dab', cutout(img, paper, largest(foreground(img, paper, use_chroma=True))), 1)
-    record('sauce_dab', 'sauce_dab.png')
+    fg = foreground(img, paper, use_chroma=True)
+    for name, box in HELD_PIECES.items():
+        save(name, cutout(img, paper, largest(in_box(fg, box))), 1)
+        record(name, f'{name}.png')
 
     body = json.dumps(rects, indent=2)
     LAYOUT_TS.write_text(

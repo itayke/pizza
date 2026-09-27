@@ -161,12 +161,12 @@ export const ART = {
     "width": 98,
     "height": 337
   },
-  "sauce_dab": {
-    "file": "sauce_dab.png",
+  "held_sauce": {
+    "file": "held_sauce.png",
     "x": 0,
     "y": 0,
-    "width": 361,
-    "height": 358
+    "width": 288,
+    "height": 286
   }
 } as const;
 

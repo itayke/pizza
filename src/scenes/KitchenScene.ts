@@ -1,4 +1,4 @@
-import { Container, Graphics, Point, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
+import { Container, Graphics, Point, Sprite, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
 import {
   BAKE,
   BINS,
@@ -8,13 +8,13 @@ import {
   DOUGH,
   DRAGON,
   FIRE,
+  HELD,
   OUTLINE_WIDTH,
   PEEL,
-  SAUCE,
   SERVE_BUTTON,
   type IngredientId,
 } from '../config';
-import { artPoint, artSprite } from '../core/art';
+import { artPoint, artSprite, artTexture, type ArtName } from '../core/art';
 import { easeInQuad } from '../core/easing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
@@ -22,6 +22,8 @@ import { IngredientBin } from '../stations/IngredientBin';
 import { makeLabel } from '../ui/makeLabel';
 
 const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.ink };
+// Cursor art per ingredient in hand; others show nothing yet
+const HELD_ART: Partial<Record<IngredientId, ArtName>> = { sauce: 'held_sauce' };
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 
@@ -33,7 +35,7 @@ export class KitchenScene extends Container {
   private readonly gauge = new BakeGauge();
   private readonly background = artSprite('bg');
   private readonly heldBall = makeDoughBall();
-  private readonly dab = artSprite('sauce_dab');
+  private readonly held = new Sprite();
   private readonly fire = artSprite('fire');
   private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
@@ -71,10 +73,9 @@ export class KitchenScene extends Container {
     this.buildDragon();
     this.buildServeButton();
     this.heldBall.eventMode = 'none';
-    this.dab.anchor.set(0.5);
-    this.dab.scale.set(SAUCE.dabSize / this.dab.texture.height);
-    this.dab.eventMode = 'none';
-    this.addChild(this.heldBall, this.dab);
+    this.held.anchor.set(0.5);
+    this.held.eventMode = 'none';
+    this.addChild(this.heldBall, this.held);
 
     // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
@@ -137,7 +138,7 @@ export class KitchenScene extends Container {
     this.toLocal(e.global, undefined, this.pointer);
     // Move in the event itself, not next frame, so held things stick to the pointer
     if (this.doughPhase === 'held') this.heldBall.position.copyFrom(this.pointer);
-    if (this.tool) this.dab.position.copyFrom(this.pointer);
+    if (this.tool) this.held.position.copyFrom(this.pointer);
   }
 
   /** Tap a bin to take its ingredient, tap it again to put it back. */
@@ -150,8 +151,11 @@ export class KitchenScene extends Container {
   private setTool(tool: IngredientId | null): void {
     this.tool = tool;
     this.painting = false;
-    this.dab.visible = tool === 'sauce';
-    this.dab.position.copyFrom(this.pointer);
+    const art = tool && HELD_ART[tool];
+    this.held.visible = !!art;
+    if (art) this.held.texture = artTexture(art);
+    this.held.scale.set(HELD.scale);
+    this.held.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);
   }
 

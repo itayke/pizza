@@ -100,8 +100,6 @@ export const SAUCE = {
   brushRadius: 81,
   // Stamp spacing along a stroke, as a fraction of brushRadius
   stampSpacing: 1,
-  // Held sauce dab diameter, centered on the pointer
-  dabSize: 160,
   // Mask resolution (square), and how many times the sauce pattern repeats across the dough
   textureSize: 512,
   patternRepeat: 3,
@@ -116,6 +114,11 @@ export const SAUCE = {
   // Coverage grid cells per side; a stamp counts cells within this fraction of its radius
   coverageGrid: 32,
   coverageCore: 0.7,
+};
+
+// Ingredients in hand follow the pointer, drawn at this fraction of their sheet size so they keep their relative sizes
+export const HELD = {
+  scale: 0.56,
 };
 
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1
