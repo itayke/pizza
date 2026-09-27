@@ -86,6 +86,15 @@ export class Dough extends Container {
     this.sauce.flush();
   }
 
+  /** Spread to exactly the rim at once. */
+  flattenToRim(): void {
+    this.target.fill(DOUGH.rimRadius);
+    this.shown.fill(DOUGH.rimRadius);
+    this.slamElapsed = Infinity;
+    this.updateMetrics();
+    this.draw();
+  }
+
   /** Impact on the peel: splat outward from the start size. */
   slam(): void {
     const start = DOUGH.rimRadius * DOUGH.startRatio;

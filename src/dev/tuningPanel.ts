@@ -4,6 +4,7 @@ import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
 const RESET_KEY = 'r';
+const SKIP_KEY = 's';
 
 /** Dev-only live tuning. Edits config objects in place; values reset on reload. */
 export function createTuningPanel(scene: KitchenScene): void {
@@ -11,8 +12,11 @@ export function createTuningPanel(scene: KitchenScene): void {
   const resetDough = () => scene.resetDough();
 
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
+  pane.addButton({ title: `Skip step (${SKIP_KEY.toUpperCase()})` }).on('click', () => scene.skipStep());
   window.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() === RESET_KEY) resetDough();
+    const key = e.key.toLowerCase();
+    if (key === RESET_KEY) resetDough();
+    if (key === SKIP_KEY) scene.skipStep();
   });
 
   const dough = pane.addFolder({ title: 'Dough' });

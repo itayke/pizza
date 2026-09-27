@@ -47,7 +47,7 @@ Meta game: later.
 
 ## Dev
 
-Dev builds show a tuning panel (`src/dev/`) that edits config live; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`).
+Dev builds show a tuning panel (`src/dev/`) that edits config live; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`). Keys: R resets the dough, S skips ahead (place the dough, then roll it to the rim).
 
 ## Art
 

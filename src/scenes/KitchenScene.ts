@@ -101,6 +101,18 @@ export class KitchenScene extends Container {
     this.dough.setPlaced(false);
   }
 
+  /** Testing shortcut: place the dough, then roll it out to the rim. */
+  skipStep(): void {
+    if (this.doughPhase !== 'onPeel') {
+      this.doughPhase = 'onPeel';
+      this.heldBall.visible = false;
+      this.dough.setPlaced(true);
+      this.dough.slam();
+    } else {
+      this.dough.flattenToRim();
+    }
+  }
+
   update(dt: number): void {
     if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
