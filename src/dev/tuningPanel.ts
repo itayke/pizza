@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_GAUGE, DOUGH, SAUCE } from '../config';
+import { BAKE, BAKE_GAUGE, BIN_LAYOUT, DOUGH, DRAGON, FIRE, SAUCE } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -53,7 +53,28 @@ export function createTuningPanel(scene: KitchenScene): void {
   sauce.addBinding(SAUCE, 'bevelWidth', { min: 0, max: 40, step: 1 });
   sauce.addBinding(SAUCE, 'bevelShade', { min: 0, max: 1 });
 
+  const bins = pane.addFolder({ title: 'Bins' });
+  for (const key of Object.keys(BIN_LAYOUT) as (keyof typeof BIN_LAYOUT)[]) {
+    const isFlag = typeof BIN_LAYOUT[key] === 'boolean';
+    bins.addBinding(BIN_LAYOUT, key, isFlag ? {} : { min: -400, max: 400, step: 1 });
+  }
+  bins.on('change', () => scene.layoutBins());
+
+  const dragon = pane.addFolder({ title: 'Dragon' });
+  dragon.addBinding(DRAGON, 'x', { min: 1200, max: 2800, step: 1 });
+  dragon.addBinding(DRAGON, 'y', { min: 800, max: 2200, step: 1 });
+  dragon.addBinding(DRAGON, 'pivotX', { min: 0, max: 1 });
+  dragon.addBinding(DRAGON, 'pivotY', { min: 0, max: 1 });
+  dragon.addBinding(DRAGON, 'scale', { min: 0.5, max: 2.5 });
+  dragon.addBinding(DRAGON, 'angle', { min: -45, max: 45, step: 0.5 });
+  dragon.addBinding(FIRE, 'mouthX', { min: 0, max: 1 });
+  dragon.addBinding(FIRE, 'mouthY', { min: 0, max: 1 });
+  dragon.addBinding(FIRE, 'reach', { min: 0.2, max: 1.5 });
+  dragon.on('change', () => scene.layoutDragon());
+
   const bake = pane.addFolder({ title: 'Bake' });
+  bake.addBinding(BAKE_GAUGE, 'x', { min: 0, max: 2048, step: 1 });
+  bake.addBinding(BAKE_GAUGE, 'y', { min: 0, max: 1536, step: 1 });
   bake.addBinding(scene, 'bakeLevel', { readonly: true });
   bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
@@ -61,7 +82,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, DRAGON, FIRE, BIN_LAYOUT }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

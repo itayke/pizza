@@ -31,6 +31,19 @@ export const BINS = [
   { art: 'bin3', label: 'label_bin3', items: ['pineapple', 'olives'] },
 ] as const;
 
+// Per-bin nudge from its drawn spot, in design px, and whether it shows. Keys are `${art}X`, `${art}Y`, `${art}Enabled`.
+export const BIN_LAYOUT = {
+  bin1X: 0,
+  bin1Y: -27,
+  bin1Enabled: true,
+  bin2X: -27,
+  bin2Y: -33,
+  bin2Enabled: true,
+  bin3X: -28,
+  bin3Y: -47,
+  bin3Enabled: true,
+};
+
 // Center of the peel's face, as fractions of the peel art
 export const PEEL = {
   faceX: 0.5,
@@ -87,8 +100,8 @@ export const SAUCE = {
   brushRadius: 81,
   // Stamp spacing along a stroke, as a fraction of brushRadius
   stampSpacing: 1,
-  // Held ladle height; it hangs from the spill point at the pointer
-  ladleHeight: 400,
+  // Held sauce dab diameter, centered on the pointer
+  dabSize: 160,
   // Mask resolution (square), and how many times the sauce pattern repeats across the dough
   textureSize: 512,
   patternRepeat: 3,
@@ -112,9 +125,9 @@ export const BAKE = {
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
 export const BAKE_GAUGE = {
-  x: 1372,
+  x: 1420,
   y: 1450,
-  width: 400,
+  width: 370,
   hubX: 0.505,
   hubY: 0.93,
   pivotX: 0.47,
@@ -123,12 +136,23 @@ export const BAKE_GAUGE = {
   sweep: 1.45,
 };
 
+// Dragon: its pivot (fractions of the art) sits at (x, y), which may be past the design edge; scaled from its
+// drawn size and rotated about the pivot in degrees
+export const DRAGON = {
+  x: 1950,
+  y: 1200,
+  pivotX: 0.749,
+  pivotY: 0.716,
+  scale: 1.175,
+  angle: -12,
+};
+
 // Fire streams from the mouth (fractions of the dragon art) toward the dough while the dragon is held
 export const FIRE = {
   mouthX: 0.2,
-  mouthY: 0.18,
+  mouthY: 0.194,
   // Flame length as a fraction of the mouth-to-dough distance
-  reach: 0.9,
+  reach: 1.145,
   flickerAmount: 0.06,
   flickerSpeed: 30,
 };

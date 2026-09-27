@@ -1,4 +1,4 @@
-import { Container, Graphics, Point, Sprite, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
+import { Container, Graphics, Point, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
 import {
   BAKE,
   BINS,
@@ -6,6 +6,7 @@ import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
   DOUGH,
+  DRAGON,
   FIRE,
   OUTLINE_WIDTH,
   PEEL,
@@ -13,8 +14,7 @@ import {
   SERVE_BUTTON,
   type IngredientId,
 } from '../config';
-import { artPoint, artSprite, artTexture } from '../core/art';
-import { ART } from '../generated/artLayout';
+import { artPoint, artSprite } from '../core/art';
 import { easeInQuad } from '../core/easing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
@@ -33,8 +33,9 @@ export class KitchenScene extends Container {
   private readonly gauge = new BakeGauge();
   private readonly background = artSprite('bg');
   private readonly heldBall = makeDoughBall();
-  private readonly ladle = new Sprite(artTexture('sauce_ladle'));
+  private readonly dab = artSprite('sauce_dab');
   private readonly fire = artSprite('fire');
+  private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
   private readonly pointer = new Point();
   private readonly peelCenter: Point;
@@ -70,10 +71,10 @@ export class KitchenScene extends Container {
     this.buildDragon();
     this.buildServeButton();
     this.heldBall.eventMode = 'none';
-    this.ladle.anchor.set(ART.sauce_ladle.pivotX, ART.sauce_ladle.pivotY);
-    this.ladle.scale.set(SAUCE.ladleHeight / this.ladle.texture.height);
-    this.ladle.eventMode = 'none';
-    this.addChild(this.heldBall, this.ladle);
+    this.dab.anchor.set(0.5);
+    this.dab.scale.set(SAUCE.dabSize / this.dab.texture.height);
+    this.dab.eventMode = 'none';
+    this.addChild(this.heldBall, this.dab);
 
     // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
@@ -136,7 +137,7 @@ export class KitchenScene extends Container {
     this.toLocal(e.global, undefined, this.pointer);
     // Move in the event itself, not next frame, so held things stick to the pointer
     if (this.doughPhase === 'held') this.heldBall.position.copyFrom(this.pointer);
-    if (this.tool) this.ladle.position.copyFrom(this.pointer);
+    if (this.tool) this.dab.position.copyFrom(this.pointer);
   }
 
   /** Tap a bin to take its ingredient, tap it again to put it back. */
@@ -148,9 +149,9 @@ export class KitchenScene extends Container {
 
   private setTool(tool: IngredientId | null): void {
     this.tool = tool;
-    this.setPainting(false);
-    this.ladle.visible = tool === 'sauce';
-    this.ladle.position.copyFrom(this.pointer);
+    this.painting = false;
+    this.dab.visible = tool === 'sauce';
+    this.dab.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);
   }
 
@@ -158,18 +159,12 @@ export class KitchenScene extends Container {
   private startPainting(e: FederatedPointerEvent): void {
     if (!this.tool) return;
     this.trackPointer(e);
-    this.setPainting(true);
+    this.painting = true;
     this.strokeEnd.copyFrom(this.pointer);
   }
 
   private stopPainting(): void {
-    this.setPainting(false);
-  }
-
-  /** The ladle spills while pressed. */
-  private setPainting(painting: boolean): void {
-    this.painting = painting;
-    this.ladle.texture = artTexture(painting ? 'sauce_ladle_spill' : 'sauce_ladle');
+    this.painting = false;
   }
 
   private paintStroke(): void {
@@ -232,12 +227,17 @@ export class KitchenScene extends Container {
     if (this.tool && !this.available.has(this.tool)) this.setTool(null);
   }
 
+  layoutBins(): void {
+    this.bins.forEach((bin) => bin.layout());
+  }
+
   private buildBins(unlocked: ReadonlySet<IngredientId>): void {
     for (const spec of BINS) {
       const bin = new IngredientBin(spec, (id, e) => this.pickIngredient(id, e));
       bin.refresh(unlocked);
       this.bins.push(bin);
       this.addChild(bin);
+      bin.layout();
     }
   }
 
@@ -257,22 +257,42 @@ export class KitchenScene extends Container {
     this.addChild(peel);
   }
 
-  private buildDragon(): void {
+  /** Place the dragon from config and aim the fire from its mouth at the dough. */
+  layoutDragon(): void {
+    const { dragon, fire } = this;
+    dragon.anchor.set(DRAGON.pivotX, DRAGON.pivotY);
+    dragon.scale.set(DRAGON.scale);
+    dragon.position.set(DRAGON.x, DRAGON.y);
+    dragon.angle = DRAGON.angle;
+    // Mouth relative to the pivot, scaled and rotated with the dragon
+    const offsetX = (FIRE.mouthX - DRAGON.pivotX) * dragon.texture.width * DRAGON.scale;
+    const offsetY = (FIRE.mouthY - DRAGON.pivotY) * dragon.texture.height * DRAGON.scale;
+    const cos = Math.cos(dragon.rotation);
+    const sin = Math.sin(dragon.rotation);
+    const mouthX = DRAGON.x + offsetX * cos - offsetY * sin;
+    const mouthY = DRAGON.y + offsetX * sin + offsetY * cos;
     // Flame art has its round head on the left; the head sits in the mouth, tips reaching for the dough
-    const mouth = artPoint('dragon', FIRE.mouthX, FIRE.mouthY);
-    const dx = this.peelCenter.x - mouth.x;
-    const dy = this.peelCenter.y - mouth.y;
+    const dx = this.peelCenter.x - mouthX;
+    const dy = this.peelCenter.y - mouthY;
+    fire.position.set(mouthX, mouthY);
+    fire.rotation = Math.atan2(dy, dx);
+    this.fireScale = (Math.hypot(dx, dy) * FIRE.reach) / fire.texture.width;
+  }
+
+  private buildDragon(): void {
     this.fire.anchor.set(0, 0.5);
-    this.fire.position.set(mouth.x, mouth.y);
-    this.fire.rotation = Math.atan2(dy, dx);
-    this.fireScale = (Math.hypot(dx, dy) * FIRE.reach) / this.fire.texture.width;
     this.fire.eventMode = 'none';
     this.setFiring(false);
+    this.layoutDragon();
 
-    const dragon = artSprite('dragon');
+    const { dragon } = this;
     dragon.eventMode = 'static';
     dragon.cursor = 'pointer';
-    dragon.on('pointerdown', () => this.setFiring(true));
+    // Baking puts down whatever ingredient is in hand
+    dragon.on('pointerdown', () => {
+      this.setTool(null);
+      this.setFiring(true);
+    });
     for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
       dragon.on(end, () => this.setFiring(false));
     }

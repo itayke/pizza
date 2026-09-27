@@ -24,6 +24,8 @@ export class BakeGauge extends Container {
 
   /** 0 is raw, 1 is burnt. */
   setLevel(level: number): void {
+    // Follows config live for the tuning panel
+    this.position.set(BAKE_GAUGE.x, BAKE_GAUGE.y);
     this.needle.rotation = (level * 2 - 1) * BAKE_GAUGE.sweep;
   }
 }

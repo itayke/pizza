@@ -61,12 +61,8 @@ GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
 GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
 GAUGE_SCALE = 0.4
 
-# Sauce ladle: plain and spilling side by side on white; the drops' center is the cursor pivot
-LADLE_SOURCE = 'pizza_sauce_ladle.jpg'
-LADLE_FRAMES = ('sauce_ladle', 'sauce_ladle_spill')
-LADLE_PAPER_DELTA = 25  # channel difference from white that counts as drawn
-LADLE_MIN_HOLE = 20  # enclosed white smaller than this is filled, px; the handle hole stays open
-LADLE_MIN_SPECK = 20  # smaller islands are noise; drops are bigger, px
+# Sauce dab cursor: the round blob only, without the loose drops around it
+DAB_SOURCE = 'pizza_sauce_dab.png'
 
 
 def load(name):
@@ -227,44 +223,6 @@ def dough_pieces(record):
     )
 
 
-def ladle_frames():
-    """Both ladle drawings on one shared canvas, aligned on the ladle body, with the spill drops' center as pivot."""
-    img = load(LADLE_SOURCE)
-    paper = np.full_like(img, 255)
-    drawn = np.abs(img - paper).max(2) > LADLE_PAPER_DELTA
-    split = img.shape[1] // 2
-    frames = []
-    for half in (slice(0, split), slice(split, None)):
-        mask = drawn.copy()
-        mask[:, :half.start or 0] = False
-        if half.stop:
-            mask[:, half.stop:] = False
-        holes, n = ndimage.label(~mask)
-        sizes = ndimage.sum(~mask, holes, range(1, n + 1))
-        mask |= np.isin(holes, 1 + np.flatnonzero(sizes < LADLE_MIN_HOLE))
-        comps, n = ndimage.label(mask)
-        sizes = ndimage.sum(mask, comps, range(1, n + 1))
-        mask = np.isin(comps, 1 + np.flatnonzero(sizes >= LADLE_MIN_SPECK))
-        body = largest(mask)
-        frames.append((cutout(img, paper, mask), bbox(body), mask & ~body))
-
-    # Shift both onto a canvas where the bodies' top-left corners meet
-    boxes = [bbox(pixels[..., 3]) for pixels, _, _ in frames]
-    rel = [(l - bl, t - bt, r - bl, b - bt) for (l, t, r, b), (bl, bt, _, _) in zip(boxes, (f[1] for f in frames))]
-    left, top = min(r[0] for r in rel), min(r[1] for r in rel)
-    width, height = max(r[2] for r in rel) - left, max(r[3] for r in rel) - top
-    pivot = None
-    for name, (pixels, (bl, bt, _, _), drops), (l, t, r, b) in zip(LADLE_FRAMES, frames, boxes):
-        canvas = np.zeros((height, width, 4), np.uint8)
-        x, y = l - bl - left, t - bt - top
-        canvas[y:y + b - t, x:x + r - l] = pixels[t:b, l:r]
-        Image.fromarray(canvas, 'RGBA').save(OUT / f'{name}.png', optimize=True)
-        if drops.any():
-            dy, dx = ndimage.center_of_mass(drops)
-            pivot = ((dx - bl - left) / width, (dy - bt - top) / height)
-    return pivot
-
-
 def fit(mask, target, region):
     """Scale and offset placing mask best over target inside region (target px)."""
     d = FIT_DOWNSAMPLE
@@ -384,11 +342,11 @@ def main():
     place('gauge_label', rgba(img, paper, lettering(img, paper, GAUGE_LABEL_BOX)), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
     place('gauge_needle', cutout(img, paper, largest(in_box(fg, GAUGE_NEEDLE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
 
-    # Sauce ladle cursor: not placed in the layout, pivots on the spill point
-    pivot_x, pivot_y = ladle_frames()
-    for name in LADLE_FRAMES:
-        record(name, f'{name}.png')
-        rects[name].update(pivotX=round(pivot_x, 4), pivotY=round(pivot_y, 4))
+    # Sauce dab cursor: not placed in the layout
+    img = load(DAB_SOURCE)
+    paper = estimate_paper(img)
+    save('sauce_dab', cutout(img, paper, largest(foreground(img, paper, use_chroma=True))), 1)
+    record('sauce_dab', 'sauce_dab.png')
 
     body = json.dumps(rects, indent=2)
     LAYOUT_TS.write_text(
