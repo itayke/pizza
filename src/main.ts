@@ -11,6 +11,8 @@ async function start(): Promise<void> {
   await app.init({
     resizeTo: window,
     background: COLORS.paper,
+    // The dough mesh shader is GLSL only
+    preference: 'webgl',
     antialias: true,
     autoDensity: true,
     resolution: Math.min(window.devicePixelRatio, MAX_RESOLUTION),

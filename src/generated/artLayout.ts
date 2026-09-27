@@ -7,13 +7,6 @@ export const ART = {
     "width": 2048,
     "height": 1536
   },
-  "bowl": {
-    "file": "bowl.png",
-    "x": 99,
-    "y": 630,
-    "width": 476,
-    "height": 476
-  },
   "label_dough": {
     "file": "label_dough.png",
     "x": 225,
@@ -21,12 +14,26 @@ export const ART = {
     "width": 218,
     "height": 78
   },
-  "dough_texture": {
-    "file": "dough_texture.png",
+  "bowl": {
+    "file": "bowl.png",
+    "x": 99,
+    "y": 630,
+    "width": 476,
+    "height": 476
+  },
+  "dough_ball": {
+    "file": "dough_ball.png",
     "x": 0,
     "y": 0,
-    "width": 270,
-    "height": 270
+    "width": 690,
+    "height": 690
+  },
+  "dough_rolled": {
+    "file": "dough_rolled.png",
+    "x": 0,
+    "y": 0,
+    "width": 1024,
+    "height": 1016
   },
   "bin1": {
     "file": "bin1.png",

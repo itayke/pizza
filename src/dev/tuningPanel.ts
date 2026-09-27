@@ -41,4 +41,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   dough.addBinding(DOUGH, 'capRatio', { min: 1, max: 1.3 });
   dough.addBinding(DOUGH, 'startRatio', { label: 'startRatio (on reset)', min: 0.1, max: 0.9 });
   dough.addBinding(DOUGH, 'sauceCoverage', { min: 0.5, max: 1 });
+  dough.addBinding(DOUGH, 'stretchBias', { min: 0, max: 4 });
+  dough.addBinding(DOUGH, 'rolledFadeStart', { min: 0, max: 1 });
+  dough.addBinding(DOUGH, 'rolledFadeEnd', { min: 0, max: 1 });
 }

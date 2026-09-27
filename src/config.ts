@@ -69,11 +69,16 @@ export const DOUGH = {
   easeRate: 15.36,
   // Fraction of the rim circle covered before sauce becomes available
   sauceCoverage: 0.85,
+  // Drawing mesh: rings per spoke; stretchBias above 0 keeps the center firmer than the edge
+  meshRings: 12,
+  stretchBias: 1,
+  // Ball drawing fades to the rolled base between these fractions of the way from start size to the rim
+  rolledFadeStart: 0.2,
+  rolledFadeEnd: 0.9,
   rimDashes: 36,
   rimDashFill: 0.5,
   rimWidth: 6,
   rimAlpha: 0.5,
-  edgeWidth: 5,
 };
 
 export const DISABLED_ALPHA = 0.3;

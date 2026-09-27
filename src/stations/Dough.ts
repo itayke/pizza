@@ -1,7 +1,7 @@
-import { Circle, Container, Graphics, Point, type FederatedPointerEvent, type FillInput } from 'pixi.js';
+import { Circle, Container, Graphics, Point, type FederatedPointerEvent } from 'pixi.js';
 import { COLORS, DOUGH } from '../config';
-import { artTexture } from '../core/art';
 import { easeOutCubic } from '../core/easing';
+import { DoughMesh } from './DoughMesh';
 
 const TAU = Math.PI * 2;
 
@@ -14,11 +14,10 @@ export class Dough extends Container {
 
   private target = new Float32Array(0);
   private shown = new Float32Array(0);
-  private readonly body = new Graphics();
+  private readonly body = new DoughMesh(DOUGH.points);
   private readonly pointer = new Point();
   private readonly reach = new Circle();
   private pointerId: number | null = null;
-  private polyBuffer: number[] = [];
   private slamElapsed = Infinity;
 
   constructor() {
@@ -41,7 +40,6 @@ export class Dough extends Container {
     const start = DOUGH.rimRadius * DOUGH.startRatio;
     this.target = new Float32Array(DOUGH.points).fill(start);
     this.shown = new Float32Array(DOUGH.points).fill(start);
-    this.polyBuffer = new Array(DOUGH.points * 2);
     this.pointerId = null;
     this.slamElapsed = Infinity;
     this.updateReach();
@@ -153,13 +151,7 @@ export class Dough extends Container {
   }
 
   private draw(): void {
-    const n = this.shown.length;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * TAU;
-      this.polyBuffer[i * 2] = Math.cos(a) * this.shown[i];
-      this.polyBuffer[i * 2 + 1] = Math.sin(a) * this.shown[i];
-    }
-    this.body.clear().poly(this.polyBuffer, true).fill(doughFill()).stroke(doughEdge());
+    this.body.setRadii(this.shown);
   }
 
   private buildRim(): Graphics {
@@ -176,17 +168,10 @@ export class Dough extends Container {
 }
 
 /** Dough ball at the kneading start size. */
-export function makeDoughBall(): Graphics {
-  return new Graphics().circle(0, 0, DOUGH.rimRadius * DOUGH.startRatio).fill(doughFill()).stroke(doughEdge());
-}
-
-/** Drawn dough texture stretched over the shape's bounds, so it stretches as the dough grows. */
-function doughFill(): FillInput {
-  return { texture: artTexture('dough_texture'), textureSpace: 'local' };
-}
-
-function doughEdge() {
-  return { width: DOUGH.edgeWidth, color: COLORS.ink };
+export function makeDoughBall(): DoughMesh {
+  const ball = new DoughMesh(DOUGH.points);
+  ball.setRadii(new Float32Array(DOUGH.points).fill(DOUGH.rimRadius * DOUGH.startRatio));
+  return ball;
 }
 
 /** Press strength by distance from center as a fraction of the edge: none inside radialInner, full at the edge. */

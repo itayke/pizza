@@ -1,0 +1,190 @@
+import { Buffer, BufferUsage, Geometry, GlProgram, Mesh, Shader } from 'pixi.js';
+import { DOUGH } from '../config';
+import { artTexture } from '../core/art';
+import { DOUGH_SHAPES } from '../generated/doughShapes';
+
+const TAU = Math.PI * 2;
+
+const vertex = `
+in vec2 aPosition;
+in vec2 aBallUV;
+in vec2 aRolledUV;
+in float aBlend;
+out vec2 vBallUV;
+out vec2 vRolledUV;
+out float vBlend;
+uniform mat3 uProjectionMatrix;
+uniform mat3 uWorldTransformMatrix;
+uniform mat3 uTransformMatrix;
+
+void main() {
+  mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
+  gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
+  vBallUV = aBallUV;
+  vRolledUV = aRolledUV;
+  vBlend = aBlend;
+}
+`;
+
+const fragment = `
+in vec2 vBallUV;
+in vec2 vRolledUV;
+in float vBlend;
+out vec4 finalColor;
+uniform sampler2D uBall;
+uniform sampler2D uRolled;
+uniform vec4 uColor;
+
+void main() {
+  finalColor = mix(texture(uBall, vBallUV), texture(uRolled, vRolledUV), vBlend) * uColor;
+}
+`;
+
+type Shape = { centerX: number; centerY: number; edge: readonly number[] };
+
+/**
+ * Polar mesh (spokes × rings) textured with the dough drawings. Each spoke's outer ring follows its radius,
+ * so the drawing stretches per angle; the ball fades into the rolled base as each spoke grows toward the rim.
+ */
+export class DoughMesh extends Mesh<Geometry, Shader> {
+  private readonly spokes: number;
+  private readonly rings: number;
+  private readonly positions: Float32Array;
+  private readonly rolledUVs: Float32Array;
+  private readonly blends: Float32Array;
+  private readonly dirs: Float32Array;
+  private readonly rolledEdge: Float32Array;
+  private readonly buffers: Buffer[];
+
+  constructor(spokes: number) {
+    const rings = DOUGH.meshRings;
+    const count = 1 + spokes * rings;
+    const positions = new Float32Array(count * 2);
+    const ballUVs = new Float32Array(count * 2);
+    const rolledUVs = new Float32Array(count * 2);
+    const blends = new Float32Array(count);
+    const buffers = [positions, ballUVs, rolledUVs, blends].map(
+      (data) => new Buffer({ data, usage: BufferUsage.VERTEX | BufferUsage.COPY_DST }),
+    );
+    const geometry = new Geometry({
+      attributes: {
+        aPosition: { buffer: buffers[0], format: 'float32x2' },
+        aBallUV: { buffer: buffers[1], format: 'float32x2' },
+        aRolledUV: { buffer: buffers[2], format: 'float32x2' },
+        aBlend: { buffer: buffers[3], format: 'float32' },
+      },
+      indexBuffer: buildIndices(spokes, rings),
+    });
+    const ball = artTexture('dough_ball');
+    const rolled = artTexture('dough_rolled');
+    const shader = new Shader({
+      glProgram: GlProgram.from({ vertex, fragment, name: 'dough-mesh' }),
+      resources: { uBall: ball.source, uRolled: rolled.source },
+    });
+    super({ geometry, shader, texture: ball });
+
+    this.spokes = spokes;
+    this.rings = rings;
+    this.positions = positions;
+    this.rolledUVs = rolledUVs;
+    this.blends = blends;
+    this.buffers = buffers;
+    this.dirs = new Float32Array(spokes * 2);
+    this.rolledEdge = new Float32Array(spokes);
+    for (let i = 0; i < spokes; i++) {
+      const angle = (i / spokes) * TAU;
+      this.dirs[i * 2] = Math.cos(angle);
+      this.dirs[i * 2 + 1] = Math.sin(angle);
+      this.rolledEdge[i] = edgeAt(DOUGH_SHAPES.dough_rolled, angle);
+    }
+    fillBallUVs(ballUVs, this.dirs, rings, ball.width, ball.height);
+    this.buffers[1].update();
+  }
+
+  /** Reshape to the given radius per spoke. */
+  setRadii(radii: ArrayLike<number>): void {
+    const rest = DOUGH.rimRadius * DOUGH.startRatio;
+    const full = DOUGH.rimRadius - rest;
+    const rolled = DOUGH_SHAPES.dough_rolled;
+    const { width, height } = artTexture('dough_rolled');
+    const { positions, rolledUVs, blends, dirs, rings } = this;
+    let blendSum = 0;
+
+    for (let i = 0; i < this.spokes; i++) {
+      const r = radii[i];
+      const dx = dirs[i * 2];
+      const dy = dirs[i * 2 + 1];
+      const blend = fade((r - rest) / full);
+      blendSum += blend;
+      for (let k = 1; k <= rings; k++) {
+        const s = k / rings;
+        // Stretch grows toward the edge; the center stays near its resting size
+        const radius = s * (rest + (r - rest) * s ** DOUGH.stretchBias);
+        const v = 1 + i * rings + (k - 1);
+        positions[v * 2] = dx * radius;
+        positions[v * 2 + 1] = dy * radius;
+        // The rolled base is laid flat under the current shape
+        const uv = (radius / r) * this.rolledEdge[i];
+        rolledUVs[v * 2] = (rolled.centerX + dx * uv) / width;
+        rolledUVs[v * 2 + 1] = (rolled.centerY + dy * uv) / height;
+        blends[v] = blend;
+      }
+    }
+    rolledUVs[0] = rolled.centerX / width;
+    rolledUVs[1] = rolled.centerY / height;
+    blends[0] = blendSum / this.spokes;
+
+    this.buffers[0].update();
+    this.buffers[2].update();
+    this.buffers[3].update();
+  }
+}
+
+/** Ball UVs never change: ring s of each spoke maps to that fraction of the drawing's edge. */
+function fillBallUVs(uvs: Float32Array, dirs: Float32Array, rings: number, width: number, height: number): void {
+  const ball = DOUGH_SHAPES.dough_ball;
+  const spokes = dirs.length / 2;
+  uvs[0] = ball.centerX / width;
+  uvs[1] = ball.centerY / height;
+  for (let i = 0; i < spokes; i++) {
+    const edge = edgeAt(ball, (i / spokes) * TAU);
+    for (let k = 1; k <= rings; k++) {
+      const v = 1 + i * rings + (k - 1);
+      const uv = (k / rings) * edge;
+      uvs[v * 2] = (ball.centerX + dirs[i * 2] * uv) / width;
+      uvs[v * 2 + 1] = (ball.centerY + dirs[i * 2 + 1] * uv) / height;
+    }
+  }
+}
+
+/** Center fan to the first ring, then a quad between each pair of rings. */
+function buildIndices(spokes: number, rings: number): Uint16Array {
+  const indices: number[] = [];
+  const at = (i: number, k: number) => 1 + (i % spokes) * rings + (k - 1);
+  for (let i = 0; i < spokes; i++) {
+    indices.push(0, at(i, 1), at(i + 1, 1));
+    for (let k = 1; k < rings; k++) {
+      const a = at(i, k);
+      const b = at(i + 1, k);
+      const c = at(i, k + 1);
+      const d = at(i + 1, k + 1);
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  return new Uint16Array(indices);
+}
+
+/** Drawn edge radius at an angle, interpolated. */
+function edgeAt(shape: Shape, angle: number): number {
+  const n = shape.edge.length;
+  const f = ((((angle / TAU) * n) % n) + n) % n;
+  const i = Math.floor(f);
+  const t = f - i;
+  return shape.edge[i] * (1 - t) + shape.edge[(i + 1) % n] * t;
+}
+
+/** Ball-to-rolled mix from growth progress (0 at rest, 1 at the rim). */
+function fade(progress: number): number {
+  const t = Math.min(1, Math.max(0, (progress - DOUGH.rolledFadeStart) / (DOUGH.rolledFadeEnd - DOUGH.rolledFadeStart)));
+  return t * t * (3 - 2 * t);
+}

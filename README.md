@@ -12,7 +12,7 @@ Ports are set in `vite.config.ts`.
 
 ## Art
 
-Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pillow, scipy) cuts them into transparent PNGs in `public/assets/` and writes their layout positions to `src/generated/artLayout.ts`. Rerun after changing any drawing.
+Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pillow, scipy) cuts them into transparent PNGs in `public/assets/` and writes their layout positions and dough shapes to `src/generated/`. Rerun after changing any drawing.
 
 ## Layout
 

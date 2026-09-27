@@ -6,7 +6,9 @@ export type { ArtName };
 
 export async function loadArt(): Promise<void> {
   const base = import.meta.env.BASE_URL + ASSET_DIR;
-  await Assets.load(Object.entries(ART).map(([alias, { file }]) => ({ alias, src: base + file })));
+  // Mipmaps keep art clean when drawn well below its size
+  const data = { autoGenerateMipmaps: true };
+  await Assets.load(Object.entries(ART).map(([alias, { file }]) => ({ alias, src: base + file, data })));
 }
 
 export function artTexture(name: ArtName): Texture {
