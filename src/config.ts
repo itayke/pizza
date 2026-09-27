@@ -87,8 +87,8 @@ export const SAUCE = {
   brushRadius: 81,
   // Stamp spacing along a stroke, as a fraction of brushRadius
   stampSpacing: 1,
-  // Held blob width
-  blobSize: 150,
+  // Held ladle height; it hangs from the spill point at the pointer
+  ladleHeight: 400,
   // Mask resolution (square), and how many times the sauce pattern repeats across the dough
   textureSize: 512,
   patternRepeat: 3,

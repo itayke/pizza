@@ -6,7 +6,7 @@ Run from the repo root: python3 tools/art/placeholders.py
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 from scipy import ndimage
 
 OUT = Path('public/assets')
@@ -16,7 +16,6 @@ SAUCE_RED = np.array([196, 42, 30])
 SAUCE_DARK = np.array([120, 18, 14])
 SAUCE_LIGHT = np.array([232, 92, 58])
 HERB_GREEN = np.array([70, 110, 40])
-INK = (43, 35, 32, 255)
 
 # Tiling sauce surface
 PATTERN_SIZE = 256
@@ -35,17 +34,6 @@ BRUSH_RADIUS = 0.42
 BRUSH_WOBBLE = 0.06
 BRUSH_LOBES = 5
 BRUSH_SOFTNESS = 0.12
-
-# Held blob: wobbly red splat with an ink outline and a shine
-BLOB_SIZE = 220
-BLOB_RADIUS = 0.4
-BLOB_WOBBLE = 0.12
-BLOB_LOBES = 6
-BLOB_POINTS = 90
-BLOB_OUTLINE = 7
-# Center x, y and size w, h as fractions of the blob image
-BLOB_SHINE = (0.36, 0.34, 0.16, 0.08)
-SHINE_COLOR = (255, 220, 200, 170)
 
 
 def wrapped_noise(rng, size, sigma):
@@ -89,31 +77,12 @@ def brush(rng):
     return Image.fromarray(img, 'RGBA')
 
 
-def blob(rng, pattern):
-    shape = wobble(rng, BLOB_LOBES)
-    angles = np.linspace(0, 2 * np.pi, BLOB_POINTS, endpoint=False)
-    radii = BLOB_SIZE * BLOB_RADIUS * (1 + BLOB_WOBBLE * shape(angles))
-    center = BLOB_SIZE / 2
-    points = [(center + r * np.cos(a), center + r * np.sin(a)) for a, r in zip(angles, radii)]
-
-    mask = Image.new('L', (BLOB_SIZE, BLOB_SIZE), 0)
-    ImageDraw.Draw(mask).polygon(points, fill=255)
-    img = Image.new('RGBA', (BLOB_SIZE, BLOB_SIZE), (0, 0, 0, 0))
-    img.paste(pattern.crop((0, 0, BLOB_SIZE, BLOB_SIZE)), mask=mask)
-    draw = ImageDraw.Draw(img)
-    sx, sy, sw, sh = (v * BLOB_SIZE for v in BLOB_SHINE)
-    draw.ellipse((sx - sw / 2, sy - sh / 2, sx + sw / 2, sy + sh / 2), fill=SHINE_COLOR)
-    draw.line(points + points[:1], fill=INK, width=BLOB_OUTLINE, joint='curve')
-    return img
-
-
 def main():
     rng = np.random.default_rng(SEED)
     pattern = sauce_pattern(rng)
     pattern.save(OUT / 'sauce_pattern.png')
     brush(rng).save(OUT / 'sauce_brush.png')
-    blob(rng, pattern).save(OUT / 'sauce_blob.png')
-    print('wrote sauce_pattern, sauce_brush, sauce_blob')
+    print('wrote sauce_pattern, sauce_brush')
 
 
 if __name__ == '__main__':

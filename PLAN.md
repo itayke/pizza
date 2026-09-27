@@ -51,7 +51,7 @@ Dev builds show a tuning panel (`src/dev/`) that edits config live; Save writes 
 
 ## Art
 
-Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (sauce) are procedural placeholders from `tools/art/placeholders.py`. More may be generated from them, especially for animation.
+Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (sauce pattern and brush) are procedural placeholders from `tools/art/placeholders.py`. More may be generated from them, especially for animation.
 
 ## Milestones
 

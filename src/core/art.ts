@@ -6,7 +6,6 @@ export type { ArtName };
 
 // Textures used at runtime only, not placed in the layout (placeholders from tools/art/placeholders.py)
 const EXTRA_TEXTURES = {
-  sauce_blob: {},
   sauce_brush: {},
   sauce_pattern: { addressMode: 'repeat' },
 } as const;

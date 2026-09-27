@@ -14,6 +14,7 @@ import {
   type IngredientId,
 } from '../config';
 import { artPoint, artSprite, artTexture } from '../core/art';
+import { ART } from '../generated/artLayout';
 import { easeInQuad } from '../core/easing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
@@ -32,7 +33,7 @@ export class KitchenScene extends Container {
   private readonly gauge = new BakeGauge();
   private readonly background = artSprite('bg');
   private readonly heldBall = makeDoughBall();
-  private readonly heldSauce = new Sprite(artTexture('sauce_blob'));
+  private readonly ladle = new Sprite(artTexture('sauce_ladle'));
   private readonly fire = artSprite('fire');
   private readonly bins: IngredientBin[] = [];
   private readonly pointer = new Point();
@@ -69,10 +70,10 @@ export class KitchenScene extends Container {
     this.buildDragon();
     this.buildServeButton();
     this.heldBall.eventMode = 'none';
-    this.heldSauce.anchor.set(0.5);
-    this.heldSauce.scale.set(SAUCE.blobSize / this.heldSauce.texture.width);
-    this.heldSauce.eventMode = 'none';
-    this.addChild(this.heldBall, this.heldSauce);
+    this.ladle.anchor.set(ART.sauce_ladle.pivotX, ART.sauce_ladle.pivotY);
+    this.ladle.scale.set(SAUCE.ladleHeight / this.ladle.texture.height);
+    this.ladle.eventMode = 'none';
+    this.addChild(this.heldBall, this.ladle);
 
     // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
@@ -123,7 +124,7 @@ export class KitchenScene extends Container {
     this.toLocal(e.global, undefined, this.pointer);
     // Move in the event itself, not next frame, so held things stick to the pointer
     if (this.doughPhase === 'held') this.heldBall.position.copyFrom(this.pointer);
-    if (this.tool) this.heldSauce.position.copyFrom(this.pointer);
+    if (this.tool) this.ladle.position.copyFrom(this.pointer);
   }
 
   /** Tap a bin to take its ingredient, tap it again to put it back. */
@@ -135,9 +136,9 @@ export class KitchenScene extends Container {
 
   private setTool(tool: IngredientId | null): void {
     this.tool = tool;
-    this.painting = false;
-    this.heldSauce.visible = tool === 'sauce';
-    this.heldSauce.position.copyFrom(this.pointer);
+    this.setPainting(false);
+    this.ladle.visible = tool === 'sauce';
+    this.ladle.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);
   }
 
@@ -145,12 +146,18 @@ export class KitchenScene extends Container {
   private startPainting(e: FederatedPointerEvent): void {
     if (!this.tool) return;
     this.trackPointer(e);
-    this.painting = true;
+    this.setPainting(true);
     this.strokeEnd.copyFrom(this.pointer);
   }
 
   private stopPainting(): void {
-    this.painting = false;
+    this.setPainting(false);
+  }
+
+  /** The ladle spills while pressed. */
+  private setPainting(painting: boolean): void {
+    this.painting = painting;
+    this.ladle.texture = artTexture(painting ? 'sauce_ladle_spill' : 'sauce_ladle');
   }
 
   private paintStroke(): void {

@@ -160,6 +160,24 @@ export const ART = {
     "y": 0,
     "width": 98,
     "height": 337
+  },
+  "sauce_ladle": {
+    "file": "sauce_ladle.png",
+    "x": 0,
+    "y": 0,
+    "width": 316,
+    "height": 469,
+    "pivotX": 0.9382,
+    "pivotY": 0.3382
+  },
+  "sauce_ladle_spill": {
+    "file": "sauce_ladle_spill.png",
+    "x": 0,
+    "y": 0,
+    "width": 316,
+    "height": 469,
+    "pivotX": 0.9382,
+    "pivotY": 0.3382
   }
 } as const;
 
