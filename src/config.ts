@@ -84,7 +84,7 @@ export const DISABLED_ALPHA = 0.3;
 // Painting: stamps land in the dough's own polar space, so sauce stretches with it and never leaves the dough.
 // Sizes are in design pixels.
 export const SAUCE = {
-  brushRadius: 107,
+  brushRadius: 81,
   // Stamp spacing along a stroke, as a fraction of brushRadius
   stampSpacing: 1,
   // Held blob width
@@ -94,6 +94,12 @@ export const SAUCE = {
   patternRepeat: 3,
   // How much the dough drawing's shading shows through the sauce, 0 to 1
   grain: 0.6,
+  // Sauce edge sits where the soft stamps reach this mask level, blurred over ± edgeWidth (small is crisp)
+  edge: 0.5,
+  edgeWidth: 0.08,
+  // Inner shadow along every sauce edge: width in design pixels, darkening at the very edge (0 to 1)
+  bevelWidth: 7,
+  bevelShade: 0.314,
   // Coverage grid cells per side; a stamp counts cells within this fraction of its radius
   coverageGrid: 32,
   coverageCore: 0.7,

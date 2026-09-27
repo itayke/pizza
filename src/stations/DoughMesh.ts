@@ -41,18 +41,44 @@ uniform sampler2D uSauce;
 uniform sampler2D uSaucePattern;
 uniform float uSauceRepeat;
 uniform float uSauceGrain;
+uniform float uSauceEdge;
+uniform float uSauceEdgeWidth;
+uniform float uBevelOffset;
+uniform float uBevelShade;
 uniform vec4 uColor;
 const vec3 LUMA = vec3(0.299, 0.587, 0.114);
 const float MIN_ALPHA = 0.001;
+// Inner shadow sampling: directions around the point, and rings out to the bevel width (more rounds its profile)
+const int BEVEL_DIRECTIONS = 8;
+const int BEVEL_RINGS = 2;
+const float TAU = 6.2831853;
+const float EDGE_BARE = 0.5;
+
+float sauceAt(vec2 uv) {
+  // Soft stamps are thresholded into a crisp, antialiased edge
+  return smoothstep(uSauceEdge - uSauceEdgeWidth, uSauceEdge + uSauceEdgeWidth, texture(uSauce, uv).a);
+}
 
 void main() {
   vec4 dough = mix(texture(uBall, vBallUV), texture(uRolled, vRolledUV), vBlend);
   // Sauce takes the dough's alpha so it never spills past the drawn edge (colors are premultiplied)
-  float sauce = texture(uSauce, vSauceUV).a;
+  float sauce = sauceAt(vSauceUV);
   vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * dough.a;
   // The drawing's pencil grain shows through
   float grain = dot(dough.rgb, LUMA) / max(dough.a, MIN_ALPHA);
   red *= mix(1.0, grain, uSauceGrain);
+  // Inner shadow: darken by how much of the surroundings is bare, so every edge is multiplied
+  float around = 0.0;
+  for (int ring = 1; ring <= BEVEL_RINGS; ring++) {
+    float reach = uBevelOffset * float(ring) / float(BEVEL_RINGS);
+    for (int i = 0; i < BEVEL_DIRECTIONS; i++) {
+      float angle = TAU * float(i) / float(BEVEL_DIRECTIONS);
+      around += sauceAt(vSauceUV + reach * vec2(cos(angle), sin(angle)));
+    }
+  }
+  // Right at an edge about half the surroundings are bare; scale so that reads as full shade
+  float bare = min(1.0, (1.0 - around / float(BEVEL_RINGS * BEVEL_DIRECTIONS)) / EDGE_BARE);
+  red *= 1.0 - bare * uBevelShade;
   finalColor = vec4(mix(dough.rgb, red, sauce), dough.a) * uColor;
 }
 `;
@@ -71,6 +97,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly rolledUVs: Float32Array;
   private readonly blends: Float32Array;
   private readonly sauceUVs: Float32Array;
+  private readonly sauceUniforms: UniformGroup;
   private readonly dirs: Float32Array;
   private readonly rolledEdge: Float32Array;
   private readonly buffers: Buffer[];
@@ -98,6 +125,14 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     });
     const ball = artTexture('dough_ball');
     const rolled = artTexture('dough_rolled');
+    const sauceUniforms = new UniformGroup({
+      uSauceRepeat: { value: SAUCE.patternRepeat, type: 'f32' },
+      uSauceGrain: { value: SAUCE.grain, type: 'f32' },
+      uSauceEdge: { value: SAUCE.edge, type: 'f32' },
+      uSauceEdgeWidth: { value: SAUCE.edgeWidth, type: 'f32' },
+      uBevelOffset: { value: 0, type: 'f32' },
+      uBevelShade: { value: SAUCE.bevelShade, type: 'f32' },
+    });
     const shader = new Shader({
       glProgram: GlProgram.from({ vertex, fragment, name: 'dough-mesh' }),
       resources: {
@@ -105,10 +140,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
         uRolled: rolled.source,
         uSauce: sauce.source,
         uSaucePattern: artTexture('sauce_pattern').source,
-        sauceUniforms: new UniformGroup({
-          uSauceRepeat: { value: SAUCE.patternRepeat, type: 'f32' },
-          uSauceGrain: { value: SAUCE.grain, type: 'f32' },
-        }),
+        sauceUniforms,
       },
     });
     super({ geometry, shader, texture: ball });
@@ -119,6 +151,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     this.rolledUVs = rolledUVs;
     this.blends = blends;
     this.sauceUVs = sauceUVs;
+    this.sauceUniforms = sauceUniforms;
     this.buffers = buffers;
     this.dirs = new Float32Array(spokes * 2);
     this.rolledEdge = new Float32Array(spokes);
@@ -169,6 +202,15 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     blends[0] = blendSum / this.spokes;
     sauceUVs[0] = 0.5;
     sauceUVs[1] = 0.5;
+    // Follow config live for the tuning panel
+    const u = this.sauceUniforms.uniforms;
+    u.uSauceRepeat = SAUCE.patternRepeat;
+    u.uSauceGrain = SAUCE.grain;
+    u.uSauceEdge = SAUCE.edge;
+    u.uSauceEdgeWidth = SAUCE.edgeWidth;
+    // Mask spans the dough's diameter; the rim radius stands in for the current size
+    u.uBevelOffset = SAUCE.bevelWidth / (2 * DOUGH.rimRadius);
+    u.uBevelShade = SAUCE.bevelShade;
 
     for (const i of [0, 2, 3, 4]) this.buffers[i].update();
   }
