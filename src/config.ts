@@ -78,7 +78,7 @@ export const DOUGH = {
   slamDuration: 0.1,
   // How fast the drawn edge catches up to its target, per second
   easeRate: 15.36,
-  // Fraction of the rim circle covered before sauce and baking become available
+  // Fraction of the rim circle covered before sauce, cheese and baking become available
   sauceCoverage: 0.85,
   // Drawing mesh: rings per spoke; stretchBias above 0 keeps the center firmer than the edge
   meshRings: 12,

@@ -58,7 +58,7 @@ Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (sauce 
 - [x] 0. Scaffold — scaling, rotate hint, layout
 - [ ] 1. Input & tools — bin selection, cursor icon, tap vs hold
 - [x] 2. Dough kneading — prototype; playtest and tune
-- [ ] 3. Sauce & cheese + coverage — sauce painting done (placeholder art), cheese next
+- [ ] 3. Sauce & cheese + coverage — sauce painting done (placeholder art); cheese can be held, placement next
 - [ ] 4. Toppings
 - [ ] 5. Dragon, fire, bake filter, gauge — fire and gauge done, pizza effects next
 - [ ] 6. Serve loop & feedback (sound, reactions)

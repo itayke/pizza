@@ -167,6 +167,13 @@ export const ART = {
     "y": 0,
     "width": 288,
     "height": 286
+  },
+  "held_cheese": {
+    "file": "held_cheese.png",
+    "x": 0,
+    "y": 0,
+    "width": 308,
+    "height": 296
   }
 } as const;
 

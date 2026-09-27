@@ -23,7 +23,9 @@ import { makeLabel } from '../ui/makeLabel';
 
 const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.ink };
 // Cursor art per ingredient in hand; others show nothing yet
-const HELD_ART: Partial<Record<IngredientId, ArtName>> = { sauce: 'held_sauce' };
+const HELD_ART: Partial<Record<IngredientId, ArtName>> = { sauce: 'held_sauce', cheese: 'held_cheese' };
+// Unlocked once the dough is rolled out
+const TOPPINGS_READY: readonly IngredientId[] = ['sauce', 'cheese'];
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 
@@ -118,7 +120,7 @@ export class KitchenScene extends Container {
   update(dt: number): void {
     if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
-    // Rolled out enough for sauce and baking
+    // Rolled out enough for toppings and baking
     const doughReady = this.doughPhase === 'onPeel' && this.dough.coverage >= DOUGH.sauceCoverage;
     if (doughReady !== this.doughReady) {
       this.doughReady = doughReady;
@@ -226,7 +228,7 @@ export class KitchenScene extends Container {
   }
 
   private applyAvailability(): void {
-    this.available = new Set<IngredientId>(this.doughReady ? ['sauce'] : []);
+    this.available = new Set<IngredientId>(this.doughReady ? TOPPINGS_READY : []);
     this.bins.forEach((bin) => bin.setAvailable(this.available));
     if (this.tool && !this.available.has(this.tool)) this.setTool(null);
   }

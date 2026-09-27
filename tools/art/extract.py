@@ -61,9 +61,9 @@ GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
 GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
 GAUGE_SCALE = 0.4
 
-# Held ingredient cursors: one sheet of pieces drawn to scale with each other, cut out by box (source px)
+# Held ingredient cursors: one sheet of pieces drawn to scale with each other, cut out by box (source px) with loose bits kept
 HELD_SOURCE = 'pizza_placement_ingredients.jpeg'
-HELD_PIECES = {'held_sauce': (190, 730, 520, 1060)}
+HELD_PIECES = {'held_sauce': (190, 730, 520, 1060), 'held_cheese': (620, 730, 975, 1065)}
 
 
 def load(name):
@@ -348,7 +348,7 @@ def main():
     paper = estimate_paper(img)
     fg = foreground(img, paper, use_chroma=True)
     for name, box in HELD_PIECES.items():
-        save(name, cutout(img, paper, largest(in_box(fg, box))), 1)
+        save(name, cutout(img, paper, in_box(fg, box)), 1)
         record(name, f'{name}.png')
 
     body = json.dumps(rects, indent=2)
