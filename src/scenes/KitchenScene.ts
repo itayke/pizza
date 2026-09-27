@@ -1,4 +1,4 @@
-import { Container, Graphics, Point, type FederatedPointerEvent } from 'pixi.js';
+import { Container, Graphics, Point, type FederatedPointerEvent, type Rectangle } from 'pixi.js';
 import {
   BAKE_METER,
   BINS,
@@ -6,42 +6,51 @@ import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
   DOUGH,
-  DRAGON,
+  FIRE,
   OUTLINE_WIDTH,
   PEEL,
   SERVE_BUTTON,
   type IngredientId,
 } from '../config';
+import { artPoint, artSprite } from '../core/art';
 import { easeInQuad } from '../core/easing';
-import { Dough } from '../stations/Dough';
-import { DoughBowl, makeDoughBall } from '../stations/DoughBowl';
+import { Dough, makeDoughBall } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
 import { makeLabel } from '../ui/makeLabel';
 
-const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.outline };
+const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.ink };
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 
-/** Greybox layout of the main play screen. Placeholder shapes until real art lands. */
+/** The main play screen, laid out from the art. Bake meter and Serve are still placeholders. */
 export class KitchenScene extends Container {
   readonly dough = new Dough();
-  private readonly bowl = new DoughBowl();
+  private readonly background = artSprite('bg');
   private readonly heldBall = makeDoughBall();
+  private readonly fire = artSprite('fire');
   private readonly bins: IngredientBin[] = [];
   private readonly pointer = new Point();
-  private readonly peelCenter = new Point(PEEL.x + PEEL.width / 2, PEEL.y + PEEL.height / 2);
+  private readonly peelCenter: Point;
   private readonly dropFrom = new Point();
   private dropElapsed = 0;
   private doughPhase: DoughPhase = 'inBowl';
   private sauceReady = false;
+  private fireTime = 0;
+  private fireScale = 1;
 
   constructor(unlocked: ReadonlySet<IngredientId>) {
     super();
-    this.addChild(new Graphics().rect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT).fill(COLORS.table));
+    const face = artPoint('peel', PEEL.faceX, PEEL.faceY);
+    this.peelCenter = new Point(face.x, face.y);
+
+    this.background.anchor.set(0.5);
+    this.background.position.set(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2);
+    this.addChild(this.background);
     this.buildBins(unlocked);
+    this.buildBowl();
     this.buildPeel();
     this.dough.position.copyFrom(this.peelCenter);
-    this.addChild(this.dough, this.bowl);
+    this.addChild(this.dough);
     this.buildBakeMeter();
     this.buildDragon();
     this.buildServeButton();
@@ -51,15 +60,19 @@ export class KitchenScene extends Container {
     // Track the pointer everywhere so the held ball can follow it
     this.eventMode = 'static';
     this.on('globalpointermove', this.trackPointer, this);
-    this.bowl.on('pointerdown', this.pickUpDough, this);
 
     this.resetDough();
+    this.applyAvailability();
   }
 
-  /** Back to an empty peel with the dough ball in its bowl. */
+  /** Stretch the paper to cover the screen area outside the design rect too. */
+  fitBackground(screenArea: Rectangle): void {
+    this.background.scale.set(Math.max(screenArea.width / DESIGN_WIDTH, screenArea.height / DESIGN_HEIGHT));
+  }
+
+  /** Back to an empty peel with the dough in its bowl. */
   resetDough(): void {
     this.doughPhase = 'inBowl';
-    this.bowl.setFilled(true);
     this.heldBall.visible = false;
     this.dough.reset();
     this.dough.setPlaced(false);
@@ -68,6 +81,7 @@ export class KitchenScene extends Container {
   update(dt: number): void {
     if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
+    if (this.fire.visible) this.updateFire(dt);
 
     const sauceReady = this.doughPhase === 'onPeel' && this.dough.coverage >= DOUGH.sauceCoverage;
     if (sauceReady !== this.sauceReady) {
@@ -86,7 +100,6 @@ export class KitchenScene extends Container {
     if (this.doughPhase !== 'inBowl') return;
     this.trackPointer(e);
     this.doughPhase = 'held';
-    this.bowl.setFilled(false);
     this.heldBall.position.copyFrom(this.pointer);
     this.heldBall.visible = true;
   }
@@ -114,41 +127,41 @@ export class KitchenScene extends Container {
     this.dough.slam();
   }
 
+  private setFiring(firing: boolean): void {
+    this.fire.visible = firing;
+    this.fireTime = 0;
+  }
+
+  private updateFire(dt: number): void {
+    this.fireTime += dt;
+    const flicker = 1 + FIRE.flickerAmount * Math.sin(this.fireTime * FIRE.flickerSpeed);
+    this.fire.scale.set(this.fireScale, this.fireScale * flicker);
+  }
+
   private applyAvailability(): void {
     const available = new Set<IngredientId>(this.sauceReady ? ['sauce'] : []);
     this.bins.forEach((bin) => bin.setAvailable(available));
   }
 
   private buildBins(unlocked: ReadonlySet<IngredientId>): void {
-    const count = BINS.containers.length;
-    const gap = (DESIGN_WIDTH - count * BINS.width) / (count + 1);
-
-    BINS.containers.forEach((contents, i) => {
-      const bin = new IngredientBin(contents);
-      bin.position.set(gap + i * (BINS.width + gap), BINS.top);
+    for (const spec of BINS) {
+      const bin = new IngredientBin(spec);
       bin.refresh(unlocked);
       this.bins.push(bin);
       this.addChild(bin);
-    });
+    }
+  }
+
+  private buildBowl(): void {
+    const bowl = artSprite('bowl');
+    bowl.eventMode = 'static';
+    bowl.cursor = 'pointer';
+    bowl.on('pointerdown', this.pickUpDough, this);
+    this.addChild(bowl, artSprite('label_dough'));
   }
 
   private buildPeel(): void {
-    const { x, y, width, height, cornerRadius, handleWidth, handleLength, holeRadius } = PEEL;
-    const centerX = x + width / 2;
-    const handleRadius = handleWidth / 2;
-    const handleBottom = y + height + handleLength;
-
-    // Handle starts under the body so only its rounded bottom end shows
-    const peel = new Graphics()
-      .roundRect(centerX - handleRadius, y + height - handleRadius, handleWidth, handleLength + handleRadius, handleRadius)
-      .fill(COLORS.peel)
-      .stroke(OUTLINE)
-      .roundRect(x, y, width, height, cornerRadius)
-      .fill(COLORS.peel)
-      .stroke(OUTLINE)
-      .circle(centerX, handleBottom - handleRadius, holeRadius)
-      .fill(COLORS.table)
-      .stroke(OUTLINE);
+    const peel = artSprite('peel');
     peel.eventMode = 'static';
     peel.on('pointerdown', this.dropDough, this);
     this.addChild(peel);
@@ -168,12 +181,25 @@ export class KitchenScene extends Container {
   }
 
   private buildDragon(): void {
-    const { x, y, width, height } = DRAGON;
-    const dragon = new Graphics()
-      .ellipse(x + width / 2, y + height / 2, width / 2, height / 2)
-      .fill(COLORS.dragon)
-      .stroke(OUTLINE);
-    this.addChild(dragon, makeLabel('dragon', x + width / 2, y + height / 2));
+    // Flame art has its round head on the left; the head sits in the mouth, tips reaching for the dough
+    const mouth = artPoint('dragon', FIRE.mouthX, FIRE.mouthY);
+    const dx = this.peelCenter.x - mouth.x;
+    const dy = this.peelCenter.y - mouth.y;
+    this.fire.anchor.set(0, 0.5);
+    this.fire.position.set(mouth.x, mouth.y);
+    this.fire.rotation = Math.atan2(dy, dx);
+    this.fireScale = (Math.hypot(dx, dy) * FIRE.reach) / this.fire.texture.width;
+    this.fire.eventMode = 'none';
+    this.setFiring(false);
+
+    const dragon = artSprite('dragon');
+    dragon.eventMode = 'static';
+    dragon.cursor = 'pointer';
+    dragon.on('pointerdown', () => this.setFiring(true));
+    for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
+      dragon.on(end, () => this.setFiring(false));
+    }
+    this.addChild(dragon, this.fire);
   }
 
   private buildServeButton(): void {

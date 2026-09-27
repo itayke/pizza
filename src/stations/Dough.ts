@@ -1,5 +1,6 @@
-import { Circle, Container, Graphics, Point, type FederatedPointerEvent } from 'pixi.js';
+import { Circle, Container, Graphics, Point, type FederatedPointerEvent, type FillInput } from 'pixi.js';
 import { COLORS, DOUGH } from '../config';
+import { artTexture } from '../core/art';
 import { easeOutCubic } from '../core/easing';
 
 const TAU = Math.PI * 2;
@@ -158,11 +159,7 @@ export class Dough extends Container {
       this.polyBuffer[i * 2] = Math.cos(a) * this.shown[i];
       this.polyBuffer[i * 2 + 1] = Math.sin(a) * this.shown[i];
     }
-    this.body
-      .clear()
-      .poly(this.polyBuffer, true)
-      .fill(COLORS.dough)
-      .stroke({ width: DOUGH.edgeWidth, color: COLORS.doughEdge });
+    this.body.clear().poly(this.polyBuffer, true).fill(doughFill()).stroke(doughEdge());
   }
 
   private buildRim(): Graphics {
@@ -176,6 +173,20 @@ export class Dough extends Container {
     }
     return rim.stroke({ width: DOUGH.rimWidth, color: COLORS.rim, alpha: DOUGH.rimAlpha });
   }
+}
+
+/** Dough ball at the kneading start size. */
+export function makeDoughBall(): Graphics {
+  return new Graphics().circle(0, 0, DOUGH.rimRadius * DOUGH.startRatio).fill(doughFill()).stroke(doughEdge());
+}
+
+/** Drawn dough texture stretched over the shape's bounds, so it stretches as the dough grows. */
+function doughFill(): FillInput {
+  return { texture: artTexture('dough_texture'), textureSpace: 'local' };
+}
+
+function doughEdge() {
+  return { width: DOUGH.edgeWidth, color: COLORS.ink };
 }
 
 /** Press strength by distance from center as a fraction of the edge: none inside radialInner, full at the edge. */

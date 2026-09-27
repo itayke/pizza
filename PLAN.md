@@ -6,7 +6,7 @@ No real failure. Mistakes are capped or look funny; scores are internal.
 
 ## Core loop
 
-Layout per `ref/kitchen-sketch.jpg`: split ingredient containers on top, pizza peel in the center, dragon on the right. Placeholders not in the sketch: dough bowl and Serve on the left, bake meter between peel and dragon.
+Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right. Placeholders not in the art: Serve button, bake meter between peel and dragon.
 
 1. **Dough** — tap the bowl to pick up a ball, tap the peel to slam it down (it splats out on impact), then press/hold to spread it toward the rim. Enough coverage enables sauce.
 2. **Sauce / Cheese** — tap or drag over the dough to paint.
@@ -19,7 +19,7 @@ Meta game: later.
 ## Tech
 
 - PixiJS: mechanics are pixel-level (painting, deformation, particles, cooking shader). DOM overlay for menus later if needed.
-- Fixed design resolution, letterboxed. Tunables in `src/config.ts`.
+- Fixed 4:3 design resolution matching the art, letterboxed; the paper background stretches to fill the margins. Tunables in `src/config.ts`.
 - Pointer events for mouse and touch.
 
 ## Mechanic designs
@@ -27,8 +27,8 @@ Meta game: later.
 - **Dough** — ring of radii, no volume. A press grows radii at its angle with angular falloff, scaled by how close to the edge it lands (none near center); growth slows past the rim and caps just beyond it. Coverage of the rim circle gates sauce; roundness vs. a perfect circle is the internal score.
 - **Sauce / Cheese** — brush stamps into a render texture masked by the dough; low-res CPU grid tracks coverage.
 - **Toppings** — sprites with rotation/scale jitter.
-- **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire as particles.
-- **Bins** — each container lists its eventual ingredients; unlocked ones fill a fixed-column grid that gains rows as more unlock.
+- **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker.
+- **Bins** — fixed two-compartment art; each compartment shows its food once unlocked, empty until then.
 - **Input** — tool state machine: none → selected → applying. Tap a bin or drag from it.
 
 ## Default decisions (revisit after playtesting)
@@ -40,7 +40,8 @@ Meta game: later.
 
 ## Open questions
 
-- Dough source: placeholder bowl, not in the sketch.
+- Dough bowl stays full (endless source); an empty-bowl drawing would allow showing it taken.
+- Bins that grow to 2×2 need their own drawings.
 - Serve by dragging the peel handle instead of a button?
 
 ## Dev
@@ -49,16 +50,16 @@ Dev builds show a tuning panel (`src/dev/`) that edits config live; Save writes 
 
 ## Art
 
-The sketch is reference only; final art may be generated from it, especially for animation.
+Drawings in `art/` are cut out by `tools/art/extract.py`. More may be generated from them, especially for animation.
 
 ## Milestones
 
-- [x] 0. Scaffold — scaling, rotate hint, greybox layout
+- [x] 0. Scaffold — scaling, rotate hint, layout
 - [ ] 1. Input & tools — bin selection, cursor icon, tap vs hold
 - [x] 2. Dough kneading — prototype; playtest and tune
 - [ ] 3. Sauce & cheese + coverage
 - [ ] 4. Toppings
-- [ ] 5. Dragon, fire, bake filter, meter
+- [ ] 5. Dragon, fire, bake filter, meter — hold-to-fire visual done
 - [ ] 6. Serve loop & feedback (sound, reactions)
-- [ ] 7. Art pass — kid drawings as cut-out sprites and brush textures
+- [ ] 7. Art pass — kid drawings as cut-out sprites (layout done), brush textures, animation
 - [ ] 8. Later — meta game, PWA

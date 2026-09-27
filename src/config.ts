@@ -1,72 +1,53 @@
 // All tunables live here. Positions are in design-space pixels (DESIGN_WIDTH × DESIGN_HEIGHT).
-// Layout follows ref/kitchen-sketch.jpg.
+// Art placement comes from src/generated/artLayout.ts (tools/art/extract.py).
 
-export const DESIGN_WIDTH = 1920;
-export const DESIGN_HEIGHT = 1080;
+// Matches the art layout; wider or taller screens see more background paper
+export const DESIGN_WIDTH = 2048;
+export const DESIGN_HEIGHT = 1536;
 // Caps device pixel ratio; high-DPI screens otherwise render a much larger buffer
 export const MAX_RESOLUTION = 1;
+export const ASSET_DIR = 'assets/';
 
 export const COLORS = {
-  letterbox: 0x3b2418,
-  table: 0x8a5a3b,
-  bin: 0xd9b48a,
-  outline: 0x2a1a10,
-  peel: 0xd8a765,
-  bowl: 0xe9e4da,
-  dough: 0xf3dcae,
-  doughEdge: 0xc9a36b,
+  paper: 0xf3e6da,
+  ink: 0x2b2320,
   rim: 0x5a3a24,
   meterBg: 0x2b2b2b,
   meterTarget: 0x6fcf5a,
-  dragon: 0x2fb391,
   serve: 0xf2a33a,
   label: 0x2a1a10,
 } as const;
 
 export const OUTLINE_WIDTH = 6;
 
-export const INGREDIENT_IDS = ['sauce', 'cheese', 'pepper', 'greens', 'pineapple', 'olives'] as const;
+export const INGREDIENT_IDS = ['sauce', 'cheese', 'pepperoni', 'sausage', 'pineapple', 'olives'] as const;
 export type IngredientId = (typeof INGREDIENT_IDS)[number];
 
 // Everything unlocked until the meta game exists
 export const STARTING_UNLOCKED: readonly IngredientId[] = INGREDIENT_IDS;
 
-// Containers along the top. Each lists everything it will ever hold; only unlocked items show,
-// laid out in a grid of fixed columns that gains rows as items unlock.
-export const BINS = {
-  containers: [
-    ['sauce', 'cheese'],
-    ['pepper', 'greens'],
-    ['pineapple', 'olives'],
-  ] as readonly (readonly IngredientId[])[],
-  columns: 2,
-  top: 40,
-  width: 460,
-  height: 180,
-  cornerRadius: 24,
-};
+// Containers along the top, by art name. Locked compartments show empty.
+export const BINS = [
+  { art: 'bin1', label: 'label_bin1', items: ['sauce', 'cheese'] },
+  { art: 'bin2', label: 'label_bin2', items: ['pepperoni', 'sausage'] },
+  { art: 'bin3', label: 'label_bin3', items: ['pineapple', 'olives'] },
+] as const;
 
-// Rectangular pizza peel with a handle hanging below its center
+// Center of the peel's face, as fractions of the peel art
 export const PEEL = {
-  x: 380,
-  y: 330,
-  width: 920,
-  height: 440,
-  cornerRadius: 16,
-  handleWidth: 320,
-  handleLength: 230,
-  holeRadius: 44,
+  faceX: 0.5,
+  faceY: 0.36,
 };
 
 // Kneading: press on the dough to spread it toward the rim. No failure: growth just stops past the rim.
 // Rates are in rim-radius units.
 export const DOUGH = {
-  rimRadius: 190,
+  rimRadius: 270,
   capRatio: 1.1,
   startRatio: 0.45,
   points: 96,
   // Press this far past the dough edge still counts (past the cap with reachOutside)
-  grabSlack: 76,
+  grabSlack: 108,
   reachOutside: false,
   tapImpulse: 0.251,
   holdGrowthPerSecond: 1.41,
@@ -90,22 +71,16 @@ export const DOUGH = {
   sauceCoverage: 0.85,
   rimDashes: 36,
   rimDashFill: 0.5,
-  rimWidth: 4,
+  rimWidth: 6,
   rimAlpha: 0.5,
-  edgeWidth: 4,
-};
-
-export const DOUGH_BOWL = {
-  x: 190,
-  y: 550,
-  radius: 120,
+  edgeWidth: 5,
 };
 
 export const DISABLED_ALPHA = 0.3;
 
 export const BAKE_METER = {
-  x: 1325,
-  y: 330,
+  x: 1440,
+  y: 860,
   width: 50,
   height: 440,
   // Target zone as fractions of the meter, raw to charred
@@ -113,19 +88,22 @@ export const BAKE_METER = {
   targetMax: 0.8,
 };
 
-export const DRAGON = {
-  x: 1400,
-  y: 300,
-  width: 460,
-  height: 760,
+// Fire streams from the mouth (fractions of the dragon art) toward the dough while the dragon is held
+export const FIRE = {
+  mouthX: 0.2,
+  mouthY: 0.18,
+  // Flame length as a fraction of the mouth-to-dough distance
+  reach: 0.9,
+  flickerAmount: 0.06,
+  flickerSpeed: 30,
 };
 
 export const SERVE_BUTTON = {
-  x: 60,
-  y: 860,
-  width: 240,
-  height: 120,
-  cornerRadius: 30,
+  x: 170,
+  y: 1300,
+  width: 300,
+  height: 140,
+  cornerRadius: 36,
 };
 
-export const LABEL_FONT_SIZE = 36;
+export const LABEL_FONT_SIZE = 50;
