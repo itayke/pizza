@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { DOUGH } from '../config';
+import { BAKE, BAKE_GAUGE, DOUGH } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -14,7 +14,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, BAKE, BAKE_GAUGE }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
   window.addEventListener('keydown', (e) => {
@@ -44,4 +44,9 @@ export function createTuningPanel(scene: KitchenScene): void {
   dough.addBinding(DOUGH, 'stretchBias', { min: 0, max: 4 });
   dough.addBinding(DOUGH, 'rolledFadeStart', { min: 0, max: 1 });
   dough.addBinding(DOUGH, 'rolledFadeEnd', { min: 0, max: 1 });
+
+  const bake = pane.addFolder({ title: 'Bake' });
+  bake.addBinding(scene, 'bakeLevel', { readonly: true });
+  bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
+  bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
 }

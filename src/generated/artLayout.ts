@@ -139,6 +139,27 @@ export const ART = {
     "y": 0,
     "width": 720,
     "height": 288
+  },
+  "gauge": {
+    "file": "gauge.png",
+    "x": 107,
+    "y": 98,
+    "width": 831,
+    "height": 410
+  },
+  "gauge_label": {
+    "file": "gauge_label.png",
+    "x": 312,
+    "y": 527,
+    "width": 437,
+    "height": 74
+  },
+  "gauge_needle": {
+    "file": "gauge_needle.png",
+    "x": 912,
+    "y": 0,
+    "width": 98,
+    "height": 337
   }
 } as const;
 

@@ -1,6 +1,6 @@
 import { Container, Graphics, Point, type FederatedPointerEvent, type Rectangle } from 'pixi.js';
 import {
-  BAKE_METER,
+  BAKE,
   BINS,
   COLORS,
   DESIGN_HEIGHT,
@@ -14,6 +14,7 @@ import {
 } from '../config';
 import { artPoint, artSprite } from '../core/art';
 import { easeInQuad } from '../core/easing';
+import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
 import { makeLabel } from '../ui/makeLabel';
@@ -22,9 +23,12 @@ const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.ink };
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 
-/** The main play screen, laid out from the art. Bake meter and Serve are still placeholders. */
+/** The main play screen, laid out from the art. Serve is still a placeholder. */
 export class KitchenScene extends Container {
   readonly dough = new Dough();
+  /** Doneness, raw at 0 to burnt at 1. */
+  bakeLevel = 0;
+  private readonly gauge = new BakeGauge();
   private readonly background = artSprite('bg');
   private readonly heldBall = makeDoughBall();
   private readonly fire = artSprite('fire');
@@ -34,7 +38,7 @@ export class KitchenScene extends Container {
   private readonly dropFrom = new Point();
   private dropElapsed = 0;
   private doughPhase: DoughPhase = 'inBowl';
-  private sauceReady = false;
+  private doughReady = false;
   private fireTime = 0;
   private fireScale = 1;
 
@@ -51,7 +55,7 @@ export class KitchenScene extends Container {
     this.buildPeel();
     this.dough.position.copyFrom(this.peelCenter);
     this.addChild(this.dough);
-    this.buildBakeMeter();
+    this.addChild(this.gauge);
     this.buildDragon();
     this.buildServeButton();
     this.heldBall.eventMode = 'none';
@@ -72,6 +76,7 @@ export class KitchenScene extends Container {
 
   /** Back to an empty peel with the dough in its bowl. */
   resetDough(): void {
+    this.bakeLevel = 0;
     this.doughPhase = 'inBowl';
     this.heldBall.visible = false;
     this.dough.reset();
@@ -81,13 +86,18 @@ export class KitchenScene extends Container {
   update(dt: number): void {
     if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
-    if (this.fire.visible) this.updateFire(dt);
-
-    const sauceReady = this.doughPhase === 'onPeel' && this.dough.coverage >= DOUGH.sauceCoverage;
-    if (sauceReady !== this.sauceReady) {
-      this.sauceReady = sauceReady;
+    // Rolled out enough for sauce and baking
+    const doughReady = this.doughPhase === 'onPeel' && this.dough.coverage >= DOUGH.sauceCoverage;
+    if (doughReady !== this.doughReady) {
+      this.doughReady = doughReady;
       this.applyAvailability();
     }
+
+    if (this.fire.visible) {
+      this.updateFire(dt);
+      if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
+    }
+    this.gauge.setLevel(this.bakeLevel);
   }
 
   private trackPointer(e: FederatedPointerEvent): void {
@@ -109,6 +119,13 @@ export class KitchenScene extends Container {
     this.doughPhase = 'dropping';
     this.dropFrom.copyFrom(this.heldBall.position);
     this.dropElapsed = 0;
+  }
+
+  /** Dragging the dough from the bowl and letting go inside the rim places it too. */
+  private releaseOverPeel(e: FederatedPointerEvent): void {
+    this.trackPointer(e);
+    const { x, y } = this.pointer;
+    if (Math.hypot(x - this.peelCenter.x, y - this.peelCenter.y) <= DOUGH.rimRadius) this.dropDough();
   }
 
   private updateDrop(dt: number): void {
@@ -139,7 +156,7 @@ export class KitchenScene extends Container {
   }
 
   private applyAvailability(): void {
-    const available = new Set<IngredientId>(this.sauceReady ? ['sauce'] : []);
+    const available = new Set<IngredientId>(this.doughReady ? ['sauce'] : []);
     this.bins.forEach((bin) => bin.setAvailable(available));
   }
 
@@ -164,20 +181,8 @@ export class KitchenScene extends Container {
     const peel = artSprite('peel');
     peel.eventMode = 'static';
     peel.on('pointerdown', this.dropDough, this);
+    peel.on('pointerup', this.releaseOverPeel, this);
     this.addChild(peel);
-  }
-
-  private buildBakeMeter(): void {
-    const { x, y, width, height, targetMin, targetMax } = BAKE_METER;
-    // Meter fills bottom-up, so the target zone is measured from the bottom
-    const zoneTop = y + height * (1 - targetMax);
-    const zoneHeight = height * (targetMax - targetMin);
-    const meter = new Graphics()
-      .rect(x, y, width, height)
-      .fill(COLORS.meterBg)
-      .rect(x, zoneTop, width, zoneHeight)
-      .fill(COLORS.meterTarget);
-    this.addChild(meter);
   }
 
   private buildDragon(): void {

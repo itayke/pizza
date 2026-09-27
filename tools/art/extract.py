@@ -54,6 +54,12 @@ BINS = [
 PEEL_REGION = (560, 500, 1760, 1792)
 DRAGON_REGION = (1700, 560, 2390, 1792)
 FIRE_OUTPUT_LENGTH = 720  # px along the flame axis; drawn length is set in code
+# Bake gauge pieces share one scale so they stay aligned; their positions are in gauge space, placed in code
+GAUGE_SOURCE = 'pizza_bake_gauge.jpeg'
+GAUGE_BOX = (270, 230, 2360, 1270)
+GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
+GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
+GAUGE_SCALE = 0.4
 
 
 def load(name):
@@ -324,6 +330,14 @@ def main():
     l, t, r, b = bbox(pixels[..., 3])
     save('fire', pixels, FIRE_OUTPUT_LENGTH / (r - l))
     record('fire', 'fire.png')
+
+    # Bake gauge: dial, label and needle
+    img = load(GAUGE_SOURCE)
+    paper = estimate_paper(img)
+    fg = foreground(img, paper, use_chroma=False)
+    place('gauge', cutout(img, paper, largest(in_box(fg, GAUGE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
+    place('gauge_label', rgba(img, paper, lettering(img, paper, GAUGE_LABEL_BOX)), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
+    place('gauge_needle', cutout(img, paper, largest(in_box(fg, GAUGE_NEEDLE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
 
     body = json.dumps(rects, indent=2)
     LAYOUT_TS.write_text(

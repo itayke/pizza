@@ -6,12 +6,12 @@ No real failure. Mistakes are capped or look funny; scores are internal.
 
 ## Core loop
 
-Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right. Placeholders not in the art: Serve button, bake meter between peel and dragon.
+Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right, bake gauge between peel and dragon. Placeholder not in the art: Serve button.
 
 1. **Dough** — tap the bowl to pick up a ball, tap the peel to slam it down (it splats out on impact), then press/hold to spread it toward the rim. Enough coverage enables sauce.
 2. **Sauce / Cheese** — tap or drag over the dough to paint.
 3. **Toppings** — tap to place one, hold to keep dropping.
-4. **Bake** — hold the dragon to breathe fire; land the meter in the target zone, past it the pizza chars.
+4. **Bake** — hold the dragon to breathe fire; once the dough is rolled out, the gauge needle climbs from raw to burnt. Land it in the green zone, past it the pizza chars.
 5. **Serve** — peel leaves with the pizza, returns empty.
 
 Meta game: later.
@@ -60,7 +60,7 @@ Drawings in `art/` are cut out by `tools/art/extract.py`. More may be generated 
 - [x] 2. Dough kneading — prototype; playtest and tune
 - [ ] 3. Sauce & cheese + coverage
 - [ ] 4. Toppings
-- [ ] 5. Dragon, fire, bake filter, meter — hold-to-fire visual done
+- [ ] 5. Dragon, fire, bake filter, gauge — fire and gauge done, pizza effects next
 - [ ] 6. Serve loop & feedback (sound, reactions)
 - [ ] 7. Art pass — kid drawings as cut-out sprites (layout done), brush textures, animation
 - [ ] 8. Later — meta game, PWA

@@ -12,8 +12,6 @@ export const COLORS = {
   paper: 0xf3e6da,
   ink: 0x2b2320,
   rim: 0x5a3a24,
-  meterBg: 0x2b2b2b,
-  meterTarget: 0x6fcf5a,
   serve: 0xf2a33a,
   label: 0x2a1a10,
 } as const;
@@ -67,7 +65,7 @@ export const DOUGH = {
   slamDuration: 0.1,
   // How fast the drawn edge catches up to its target, per second
   easeRate: 15.36,
-  // Fraction of the rim circle covered before sauce becomes available
+  // Fraction of the rim circle covered before sauce and baking become available
   sauceCoverage: 0.85,
   // Drawing mesh: rings per spoke; stretchBias above 0 keeps the center firmer than the edge
   meshRings: 12,
@@ -83,14 +81,22 @@ export const DOUGH = {
 
 export const DISABLED_ALPHA = 0.3;
 
-export const BAKE_METER = {
-  x: 1440,
-  y: 860,
-  width: 50,
-  height: 440,
-  // Target zone as fractions of the meter, raw to charred
-  targetMin: 0.55,
-  targetMax: 0.8,
+// Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1
+export const BAKE = {
+  secondsToBurnt: 6,
+};
+
+// Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
+export const BAKE_GAUGE = {
+  x: 1372,
+  y: 1450,
+  width: 400,
+  hubX: 0.505,
+  hubY: 0.93,
+  pivotX: 0.47,
+  pivotY: 0.855,
+  // Needle angle from upright at raw and burnt, radians
+  sweep: 1.45,
 };
 
 // Fire streams from the mouth (fractions of the dragon art) toward the dough while the dragon is held
