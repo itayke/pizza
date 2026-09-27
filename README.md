@@ -1,6 +1,6 @@
-# Castle Pizza (working title)
+# Dragon Hearth (working title)
 
-Landscape pizza-making game for touch and mouse. TypeScript + PixiJS + Vite.
+A fantasy pizza making game by Myra Keren-Detar and Itay Keren, with the help of Claude Code and Gemini. TypeScript + PixiJS + Vite.
 
 ## Scripts
 

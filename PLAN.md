@@ -1,4 +1,4 @@
-# Castle Pizza — Plan
+# Dragon Hearth — Plan
 
 ## Principle
 
