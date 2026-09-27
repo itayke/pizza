@@ -1,5 +1,5 @@
-import { Buffer, BufferUsage, Geometry, GlProgram, Mesh, Shader } from 'pixi.js';
-import { DOUGH } from '../config';
+import { Buffer, BufferUsage, Geometry, GlProgram, Mesh, Shader, Texture, UniformGroup } from 'pixi.js';
+import { DOUGH, SAUCE } from '../config';
 import { artTexture } from '../core/art';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
 
@@ -10,9 +10,11 @@ in vec2 aPosition;
 in vec2 aBallUV;
 in vec2 aRolledUV;
 in float aBlend;
+in vec2 aSauceUV;
 out vec2 vBallUV;
 out vec2 vRolledUV;
 out float vBlend;
+out vec2 vSauceUV;
 uniform mat3 uProjectionMatrix;
 uniform mat3 uWorldTransformMatrix;
 uniform mat3 uTransformMatrix;
@@ -23,6 +25,7 @@ void main() {
   vBallUV = aBallUV;
   vRolledUV = aRolledUV;
   vBlend = aBlend;
+  vSauceUV = aSauceUV;
 }
 `;
 
@@ -30,13 +33,27 @@ const fragment = `
 in vec2 vBallUV;
 in vec2 vRolledUV;
 in float vBlend;
+in vec2 vSauceUV;
 out vec4 finalColor;
 uniform sampler2D uBall;
 uniform sampler2D uRolled;
+uniform sampler2D uSauce;
+uniform sampler2D uSaucePattern;
+uniform float uSauceRepeat;
+uniform float uSauceGrain;
 uniform vec4 uColor;
+const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+const float MIN_ALPHA = 0.001;
 
 void main() {
-  finalColor = mix(texture(uBall, vBallUV), texture(uRolled, vRolledUV), vBlend) * uColor;
+  vec4 dough = mix(texture(uBall, vBallUV), texture(uRolled, vRolledUV), vBlend);
+  // Sauce takes the dough's alpha so it never spills past the drawn edge (colors are premultiplied)
+  float sauce = texture(uSauce, vSauceUV).a;
+  vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * dough.a;
+  // The drawing's pencil grain shows through
+  float grain = dot(dough.rgb, LUMA) / max(dough.a, MIN_ALPHA);
+  red *= mix(1.0, grain, uSauceGrain);
+  finalColor = vec4(mix(dough.rgb, red, sauce), dough.a) * uColor;
 }
 `;
 
@@ -45,6 +62,7 @@ type Shape = { centerX: number; centerY: number; edge: readonly number[] };
 /**
  * Polar mesh (spokes × rings) textured with the dough drawings. Each spoke's outer ring follows its radius,
  * so the drawing stretches per angle; the ball fades into the rolled base as each spoke grows toward the rim.
+ * Sauce is sampled from a mask in the same polar space (see SauceLayer).
  */
 export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly spokes: number;
@@ -52,18 +70,20 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly positions: Float32Array;
   private readonly rolledUVs: Float32Array;
   private readonly blends: Float32Array;
+  private readonly sauceUVs: Float32Array;
   private readonly dirs: Float32Array;
   private readonly rolledEdge: Float32Array;
   private readonly buffers: Buffer[];
 
-  constructor(spokes: number) {
+  constructor(spokes: number, sauce: Texture = Texture.EMPTY) {
     const rings = DOUGH.meshRings;
     const count = 1 + spokes * rings;
     const positions = new Float32Array(count * 2);
     const ballUVs = new Float32Array(count * 2);
     const rolledUVs = new Float32Array(count * 2);
     const blends = new Float32Array(count);
-    const buffers = [positions, ballUVs, rolledUVs, blends].map(
+    const sauceUVs = new Float32Array(count * 2);
+    const buffers = [positions, ballUVs, rolledUVs, blends, sauceUVs].map(
       (data) => new Buffer({ data, usage: BufferUsage.VERTEX | BufferUsage.COPY_DST }),
     );
     const geometry = new Geometry({
@@ -72,6 +92,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
         aBallUV: { buffer: buffers[1], format: 'float32x2' },
         aRolledUV: { buffer: buffers[2], format: 'float32x2' },
         aBlend: { buffer: buffers[3], format: 'float32' },
+        aSauceUV: { buffer: buffers[4], format: 'float32x2' },
       },
       indexBuffer: buildIndices(spokes, rings),
     });
@@ -79,7 +100,16 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     const rolled = artTexture('dough_rolled');
     const shader = new Shader({
       glProgram: GlProgram.from({ vertex, fragment, name: 'dough-mesh' }),
-      resources: { uBall: ball.source, uRolled: rolled.source },
+      resources: {
+        uBall: ball.source,
+        uRolled: rolled.source,
+        uSauce: sauce.source,
+        uSaucePattern: artTexture('sauce_pattern').source,
+        sauceUniforms: new UniformGroup({
+          uSauceRepeat: { value: SAUCE.patternRepeat, type: 'f32' },
+          uSauceGrain: { value: SAUCE.grain, type: 'f32' },
+        }),
+      },
     });
     super({ geometry, shader, texture: ball });
 
@@ -88,6 +118,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     this.positions = positions;
     this.rolledUVs = rolledUVs;
     this.blends = blends;
+    this.sauceUVs = sauceUVs;
     this.buffers = buffers;
     this.dirs = new Float32Array(spokes * 2);
     this.rolledEdge = new Float32Array(spokes);
@@ -107,7 +138,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     const full = DOUGH.rimRadius - rest;
     const rolled = DOUGH_SHAPES.dough_rolled;
     const { width, height } = artTexture('dough_rolled');
-    const { positions, rolledUVs, blends, dirs, rings } = this;
+    const { positions, rolledUVs, blends, sauceUVs, dirs, rings } = this;
     let blendSum = 0;
 
     for (let i = 0; i < this.spokes; i++) {
@@ -124,19 +155,22 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
         positions[v * 2] = dx * radius;
         positions[v * 2 + 1] = dy * radius;
         // The rolled base is laid flat under the current shape
-        const uv = (radius / r) * this.rolledEdge[i];
+        const edgeFraction = radius / r;
+        const uv = edgeFraction * this.rolledEdge[i];
         rolledUVs[v * 2] = (rolled.centerX + dx * uv) / width;
         rolledUVs[v * 2 + 1] = (rolled.centerY + dy * uv) / height;
+        sauceUVs[v * 2] = 0.5 + 0.5 * edgeFraction * dx;
+        sauceUVs[v * 2 + 1] = 0.5 + 0.5 * edgeFraction * dy;
         blends[v] = blend;
       }
     }
     rolledUVs[0] = rolled.centerX / width;
     rolledUVs[1] = rolled.centerY / height;
     blends[0] = blendSum / this.spokes;
+    sauceUVs[0] = 0.5;
+    sauceUVs[1] = 0.5;
 
-    this.buffers[0].update();
-    this.buffers[2].update();
-    this.buffers[3].update();
+    for (const i of [0, 2, 3, 4]) this.buffers[i].update();
   }
 }
 

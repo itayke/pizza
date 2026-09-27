@@ -9,7 +9,7 @@ No real failure. Mistakes are capped or look funny; scores are internal.
 Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right, bake gauge between peel and dragon. Placeholder not in the art: Serve button.
 
 1. **Dough** — tap the bowl to pick up a ball, tap the peel to slam it down (it splats out on impact), then press/hold to spread it toward the rim. Enough coverage enables sauce.
-2. **Sauce / Cheese** — tap or drag over the dough to paint.
+2. **Sauce / Cheese** — tap a bin to take it (tap again to put it back), then press or drag over the dough to paint; dragging straight from the bin works too. Kneading pauses while an ingredient is in hand.
 3. **Toppings** — tap to place one, hold to keep dropping.
 4. **Bake** — hold the dragon to breathe fire; once the dough is rolled out, the gauge needle climbs from raw to burnt. Land it in the green zone, past it the pizza chars.
 5. **Serve** — peel leaves with the pizza, returns empty.
@@ -26,7 +26,7 @@ Meta game: later.
 
 - **Dough** — ring of radii, no volume. A press grows radii at its angle with angular falloff, scaled by how close to the edge it lands (none near center); growth slows past the rim and caps just beyond it. Coverage of the rim circle gates sauce; roundness vs. a perfect circle is the internal score.
   - Rendering: polar mesh of spokes × rings over the dough-ball drawing; each spoke stretches to its radius, the center staying firmer than the edge. Each spoke fades into the rolled-base drawing as it nears the rim.
-- **Sauce / Cheese** — brush stamps into a render texture masked by the dough; low-res CPU grid tracks coverage.
+- **Sauce / Cheese** — brush stamps into a mask in the dough's polar space (edge = inscribed circle), so paint stretches with the dough and never leaves it; the dough shader blends in a tiling pattern. Low-res CPU grid tracks coverage.
 - **Toppings** — sprites with rotation/scale jitter.
 - **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker.
 - **Bins** — fixed two-compartment art; each compartment shows its food once unlocked, empty until then.
@@ -51,14 +51,14 @@ Dev builds show a tuning panel (`src/dev/`) that edits config live; Save writes 
 
 ## Art
 
-Drawings in `art/` are cut out by `tools/art/extract.py`. More may be generated from them, especially for animation.
+Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (sauce) are procedural placeholders from `tools/art/placeholders.py`. More may be generated from them, especially for animation.
 
 ## Milestones
 
 - [x] 0. Scaffold — scaling, rotate hint, layout
 - [ ] 1. Input & tools — bin selection, cursor icon, tap vs hold
 - [x] 2. Dough kneading — prototype; playtest and tune
-- [ ] 3. Sauce & cheese + coverage
+- [ ] 3. Sauce & cheese + coverage — sauce painting done (placeholder art), cheese next
 - [ ] 4. Toppings
 - [ ] 5. Dragon, fire, bake filter, gauge — fire and gauge done, pizza effects next
 - [ ] 6. Serve loop & feedback (sound, reactions)

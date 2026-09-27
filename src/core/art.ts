@@ -4,14 +4,26 @@ import { ART, type ArtName } from '../generated/artLayout';
 
 export type { ArtName };
 
+// Textures used at runtime only, not placed in the layout (placeholders from tools/art/placeholders.py)
+const EXTRA_TEXTURES = {
+  sauce_blob: {},
+  sauce_brush: {},
+  sauce_pattern: { addressMode: 'repeat' },
+} as const;
+
+export type TextureName = ArtName | keyof typeof EXTRA_TEXTURES;
+
 export async function loadArt(): Promise<void> {
   const base = import.meta.env.BASE_URL + ASSET_DIR;
   // Mipmaps keep art clean when drawn well below its size
-  const data = { autoGenerateMipmaps: true };
-  await Assets.load(Object.entries(ART).map(([alias, { file }]) => ({ alias, src: base + file, data })));
+  const mipmaps = { autoGenerateMipmaps: true };
+  await Assets.load([
+    ...Object.entries(ART).map(([alias, { file }]) => ({ alias, src: base + file, data: mipmaps })),
+    ...Object.entries(EXTRA_TEXTURES).map(([alias, style]) => ({ alias, src: `${base}${alias}.png`, data: { ...mipmaps, ...style } })),
+  ]);
 }
 
-export function artTexture(name: ArtName): Texture {
+export function artTexture(name: TextureName): Texture {
   return Texture.from(name);
 }
 

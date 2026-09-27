@@ -81,9 +81,27 @@ export const DOUGH = {
 
 export const DISABLED_ALPHA = 0.3;
 
+// Painting: stamps land in the dough's own polar space, so sauce stretches with it and never leaves the dough.
+// Sizes are in design pixels.
+export const SAUCE = {
+  brushRadius: 107,
+  // Stamp spacing along a stroke, as a fraction of brushRadius
+  stampSpacing: 1,
+  // Held blob width
+  blobSize: 150,
+  // Mask resolution (square), and how many times the sauce pattern repeats across the dough
+  textureSize: 512,
+  patternRepeat: 3,
+  // How much the dough drawing's shading shows through the sauce, 0 to 1
+  grain: 0.6,
+  // Coverage grid cells per side; a stamp counts cells within this fraction of its radius
+  coverageGrid: 32,
+  coverageCore: 0.7,
+};
+
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1
 export const BAKE = {
-  secondsToBurnt: 6,
+  secondsToBurnt: 8,
 };
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art

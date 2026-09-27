@@ -21,7 +21,7 @@ async function start(): Promise<void> {
   await loadArt();
 
   const viewport = new Viewport();
-  const scene = new KitchenScene(new Set(STARTING_UNLOCKED));
+  const scene = new KitchenScene(new Set(STARTING_UNLOCKED), app.renderer);
   viewport.addChild(scene);
   app.stage.addChild(viewport);
   app.ticker.add((ticker) => scene.update(ticker.deltaMS / MS_PER_SECOND));

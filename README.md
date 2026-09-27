@@ -12,7 +12,7 @@ Ports are set in `vite.config.ts`.
 
 ## Art
 
-Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pillow, scipy) cuts them into transparent PNGs in `public/assets/` and writes their layout positions and dough shapes to `src/generated/`. Rerun after changing any drawing.
+Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pillow, scipy) cuts them into transparent PNGs in `public/assets/` and writes their layout positions and dough shapes to `src/generated/`. Rerun after changing any drawing. `python3 tools/art/placeholders.py` writes procedural stand-ins for art not drawn yet.
 
 ## Layout
 
@@ -21,7 +21,7 @@ Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pi
 - `src/core/` — engine-level helpers (viewport, art loading, easing)
 - `src/generated/` — tool output, do not edit
 - `src/scenes/` — screens
-- `src/stations/` — interactive props (bins, dough)
+- `src/stations/` — interactive props (bins, dough, sauce)
 - `src/ui/` — UI helpers
 - `src/dev/` — dev-only tools (tuning panel)
 - `tools/` — build/dev-server tooling (tuning save endpoint, art extraction)

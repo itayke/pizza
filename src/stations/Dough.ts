@@ -1,7 +1,8 @@
-import { Circle, Container, Graphics, Point, type FederatedPointerEvent } from 'pixi.js';
-import { COLORS, DOUGH } from '../config';
+import { Circle, Container, Graphics, Point, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
+import { COLORS, DOUGH, SAUCE } from '../config';
 import { easeOutCubic } from '../core/easing';
 import { DoughMesh } from './DoughMesh';
+import { SauceLayer } from './SauceLayer';
 
 const TAU = Math.PI * 2;
 
@@ -11,17 +12,22 @@ export class Dough extends Container {
   coverage = 0;
   /** How close the dough is to a perfect rim circle; internal score. */
   roundness = 0;
+  readonly sauce: SauceLayer;
 
   private target = new Float32Array(0);
   private shown = new Float32Array(0);
-  private readonly body = new DoughMesh(DOUGH.points);
+  private readonly body: DoughMesh;
   private readonly pointer = new Point();
   private readonly reach = new Circle();
   private pointerId: number | null = null;
   private slamElapsed = Infinity;
+  private placed = false;
+  private kneadable = true;
 
-  constructor() {
+  constructor(renderer: Renderer) {
     super();
+    this.sauce = new SauceLayer(renderer);
+    this.body = new DoughMesh(DOUGH.points, this.sauce.texture);
     this.addChild(this.buildRim(), this.body);
 
     this.eventMode = 'static';
@@ -42,6 +48,7 @@ export class Dough extends Container {
     this.shown = new Float32Array(DOUGH.points).fill(start);
     this.pointerId = null;
     this.slamElapsed = Infinity;
+    this.sauce.clear();
     this.updateReach();
     this.updateMetrics();
     this.draw();
@@ -50,8 +57,33 @@ export class Dough extends Container {
   /** Show the dough body and accept kneading, or hide it (rim stays visible). */
   setPlaced(placed: boolean): void {
     this.body.visible = placed;
-    this.eventMode = placed ? 'static' : 'none';
-    this.pointerId = null;
+    this.placed = placed;
+    this.updateInput();
+  }
+
+  /** Kneading is off while a tool is in hand. */
+  setKneadable(kneadable: boolean): void {
+    this.kneadable = kneadable;
+    this.updateInput();
+  }
+
+  /** Stamp sauce along a stroke (dough-local points); stamps that miss the dough are skipped. */
+  paintSauce(from: PointData, to: PointData): void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const count = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (SAUCE.brushRadius * SAUCE.stampSpacing)));
+    for (let i = 1; i <= count; i++) {
+      const x = from.x + (dx * i) / count;
+      const y = from.y + (dy * i) / count;
+      const angle = Math.atan2(y, x);
+      const edge = this.radiusAt(angle);
+      const distance = Math.hypot(x, y);
+      if (distance > edge + SAUCE.brushRadius) continue;
+      // Mask space: the dough edge is the inscribed circle, whatever its current radius
+      const fraction = distance / edge;
+      this.sauce.stamp(0.5 + 0.5 * fraction * Math.cos(angle), 0.5 + 0.5 * fraction * Math.sin(angle), SAUCE.brushRadius / (2 * edge));
+    }
+    this.sauce.flush();
   }
 
   /** Impact on the peel: splat outward from the start size. */
@@ -82,6 +114,11 @@ export class Dough extends Container {
     }
     this.updateMetrics();
     this.draw();
+  }
+
+  private updateInput(): void {
+    this.eventMode = this.placed && this.kneadable ? 'static' : 'none';
+    this.pointerId = null;
   }
 
   private onDown(e: FederatedPointerEvent): void {

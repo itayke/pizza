@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_GAUGE, DOUGH } from '../config';
+import { BAKE, BAKE_GAUGE, DOUGH, SAUCE } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -11,12 +11,6 @@ export function createTuningPanel(scene: KitchenScene): void {
   const resetDough = () => scene.resetDough();
 
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
-  const save = pane.addButton({ title: 'Save to config.ts' });
-  save.on('click', async () => {
-    // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, BAKE, BAKE_GAUGE }) });
-    save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
-  });
   window.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === RESET_KEY) resetDough();
   });
@@ -45,8 +39,20 @@ export function createTuningPanel(scene: KitchenScene): void {
   dough.addBinding(DOUGH, 'rolledFadeStart', { min: 0, max: 1 });
   dough.addBinding(DOUGH, 'rolledFadeEnd', { min: 0, max: 1 });
 
+  const sauce = pane.addFolder({ title: 'Sauce' });
+  sauce.addBinding(scene.dough.sauce, 'coverage', { readonly: true });
+  sauce.addBinding(SAUCE, 'brushRadius', { min: 10, max: 150, step: 1 });
+  sauce.addBinding(SAUCE, 'stampSpacing', { min: 0.05, max: 1 });
+
   const bake = pane.addFolder({ title: 'Bake' });
   bake.addBinding(scene, 'bakeLevel', { readonly: true });
   bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
+
+  const save = pane.addButton({ title: 'Save to config.ts' });
+  save.on('click', async () => {
+    // The config file change triggers a page reload with the saved values
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE }) });
+    save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
+  });
 }

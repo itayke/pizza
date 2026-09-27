@@ -1,4 +1,4 @@
-import { Container, Graphics, Point, type FederatedPointerEvent, type Rectangle } from 'pixi.js';
+import { Container, Graphics, Point, Sprite, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
 import {
   BAKE,
   BINS,
@@ -9,10 +9,11 @@ import {
   FIRE,
   OUTLINE_WIDTH,
   PEEL,
+  SAUCE,
   SERVE_BUTTON,
   type IngredientId,
 } from '../config';
-import { artPoint, artSprite } from '../core/art';
+import { artPoint, artSprite, artTexture } from '../core/art';
 import { easeInQuad } from '../core/easing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
@@ -25,30 +26,39 @@ type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 
 /** The main play screen, laid out from the art. Serve is still a placeholder. */
 export class KitchenScene extends Container {
-  readonly dough = new Dough();
+  readonly dough: Dough;
   /** Doneness, raw at 0 to burnt at 1. */
   bakeLevel = 0;
   private readonly gauge = new BakeGauge();
   private readonly background = artSprite('bg');
   private readonly heldBall = makeDoughBall();
+  private readonly heldSauce = new Sprite(artTexture('sauce_blob'));
   private readonly fire = artSprite('fire');
   private readonly bins: IngredientBin[] = [];
   private readonly pointer = new Point();
   private readonly peelCenter: Point;
   private readonly dropFrom = new Point();
+  private readonly strokeEnd = new Point();
   private dropElapsed = 0;
   private doughPhase: DoughPhase = 'inBowl';
   private doughReady = false;
+  private available = new Set<IngredientId>();
+  /** Ingredient in hand, picked from its bin. */
+  private tool: IngredientId | null = null;
+  private painting = false;
   private fireTime = 0;
   private fireScale = 1;
 
-  constructor(unlocked: ReadonlySet<IngredientId>) {
+  constructor(unlocked: ReadonlySet<IngredientId>, renderer: Renderer) {
     super();
+    this.dough = new Dough(renderer);
     const face = artPoint('peel', PEEL.faceX, PEEL.faceY);
     this.peelCenter = new Point(face.x, face.y);
 
     this.background.anchor.set(0.5);
     this.background.position.set(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2);
+    // Interactive so a press anywhere reaches the scene (painting)
+    this.background.eventMode = 'static';
     this.addChild(this.background);
     this.buildBins(unlocked);
     this.buildBowl();
@@ -59,12 +69,19 @@ export class KitchenScene extends Container {
     this.buildDragon();
     this.buildServeButton();
     this.heldBall.eventMode = 'none';
-    this.addChild(this.heldBall);
+    this.heldSauce.anchor.set(0.5);
+    this.heldSauce.scale.set(SAUCE.blobSize / this.heldSauce.texture.width);
+    this.heldSauce.eventMode = 'none';
+    this.addChild(this.heldBall, this.heldSauce);
 
-    // Track the pointer everywhere so the held ball can follow it
+    // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
     this.on('globalpointermove', this.trackPointer, this);
+    this.on('pointerdown', this.startPainting, this);
+    this.on('pointerup', this.stopPainting, this);
+    this.on('pointerupoutside', this.stopPainting, this);
 
+    this.setTool(null);
     this.resetDough();
     this.applyAvailability();
   }
@@ -93,6 +110,8 @@ export class KitchenScene extends Container {
       this.applyAvailability();
     }
 
+    if (this.painting && this.tool === 'sauce') this.paintStroke();
+
     if (this.fire.visible) {
       this.updateFire(dt);
       if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
@@ -102,8 +121,41 @@ export class KitchenScene extends Container {
 
   private trackPointer(e: FederatedPointerEvent): void {
     this.toLocal(e.global, undefined, this.pointer);
-    // Move in the event itself, not next frame, so the held ball sticks to the pointer
+    // Move in the event itself, not next frame, so held things stick to the pointer
     if (this.doughPhase === 'held') this.heldBall.position.copyFrom(this.pointer);
+    if (this.tool) this.heldSauce.position.copyFrom(this.pointer);
+  }
+
+  /** Tap a bin to take its ingredient, tap it again to put it back. */
+  private pickIngredient(id: IngredientId, e: FederatedPointerEvent): void {
+    this.trackPointer(e);
+    if (this.tool === id) this.setTool(null);
+    else if (this.available.has(id)) this.setTool(id);
+  }
+
+  private setTool(tool: IngredientId | null): void {
+    this.tool = tool;
+    this.painting = false;
+    this.heldSauce.visible = tool === 'sauce';
+    this.heldSauce.position.copyFrom(this.pointer);
+    this.dough.setKneadable(tool === null);
+  }
+
+  /** A press with an ingredient in hand paints until release; this also catches a drag straight from the bin. */
+  private startPainting(e: FederatedPointerEvent): void {
+    if (!this.tool) return;
+    this.trackPointer(e);
+    this.painting = true;
+    this.strokeEnd.copyFrom(this.pointer);
+  }
+
+  private stopPainting(): void {
+    this.painting = false;
+  }
+
+  private paintStroke(): void {
+    this.dough.paintSauce(this.dough.toLocal(this.strokeEnd, this), this.dough.toLocal(this.pointer, this));
+    this.strokeEnd.copyFrom(this.pointer);
   }
 
   private pickUpDough(e: FederatedPointerEvent): void {
@@ -156,13 +208,14 @@ export class KitchenScene extends Container {
   }
 
   private applyAvailability(): void {
-    const available = new Set<IngredientId>(this.doughReady ? ['sauce'] : []);
-    this.bins.forEach((bin) => bin.setAvailable(available));
+    this.available = new Set<IngredientId>(this.doughReady ? ['sauce'] : []);
+    this.bins.forEach((bin) => bin.setAvailable(this.available));
+    if (this.tool && !this.available.has(this.tool)) this.setTool(null);
   }
 
   private buildBins(unlocked: ReadonlySet<IngredientId>): void {
     for (const spec of BINS) {
-      const bin = new IngredientBin(spec);
+      const bin = new IngredientBin(spec, (id, e) => this.pickIngredient(id, e));
       bin.refresh(unlocked);
       this.bins.push(bin);
       this.addChild(bin);
