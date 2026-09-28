@@ -1,6 +1,7 @@
 import { Buffer, BufferUsage, Geometry, GlProgram, Mesh, Shader, Texture, UniformGroup } from 'pixi.js';
 import { DOUGH, SAUCE } from '../config';
 import { artTexture } from '../core/art';
+import { BAKE_PHASES, bakeWeights } from '../core/bake';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
 
 const TAU = Math.PI * 2;
@@ -37,6 +38,9 @@ in vec2 vSauceUV;
 out vec4 finalColor;
 uniform sampler2D uBall;
 uniform sampler2D uRolled;
+uniform sampler2D uBaked;
+uniform sampler2D uBurnt;
+uniform vec3 uBakeWeights;
 uniform sampler2D uSauce;
 uniform sampler2D uSaucePattern;
 uniform vec2 uSauceRepeat;
@@ -57,7 +61,10 @@ float sauceAt(vec2 uv) {
 }
 
 void main() {
-  vec4 dough = mix(texture(uBall, vBallUV), texture(uRolled, vRolledUV), vBlend);
+  // Bake phases share the rolled drawing's canvas, so one UV samples all three (premultiplied, so edges fade too)
+  vec4 rolled = texture(uRolled, vRolledUV) * uBakeWeights.x + texture(uBaked, vRolledUV) * uBakeWeights.y
+    + texture(uBurnt, vRolledUV) * uBakeWeights.z;
+  vec4 dough = mix(texture(uBall, vBallUV), rolled, vBlend);
   // Sauce takes the dough's alpha so it never spills past the drawn edge (colors are premultiplied)
   float sauce = sauceAt(vSauceUV);
   vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * dough.a;
@@ -92,6 +99,8 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly blends: Float32Array;
   private readonly sauceUVs: Float32Array;
   private readonly sauceUniforms: UniformGroup;
+  /** Rolled, baked and burnt shares of the base, updated in place. */
+  private readonly bakeMix: Float32Array;
   /** Pattern repeats across the dough, per axis. */
   private readonly sauceRepeat: Float32Array;
   /** Sauce pattern width over height, so tiles keep their drawn shape. */
@@ -132,14 +141,20 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
       uBevelOffset: { value: 0, type: 'f32' },
       uBevelShade: { value: SAUCE.bevelShade, type: 'f32' },
     });
+    const bakeUniforms = new UniformGroup({
+      uBakeWeights: { value: bakeWeights(0, new Float32Array(BAKE_PHASES.length)), type: 'vec3<f32>' },
+    });
     const shader = new Shader({
       glProgram: GlProgram.from({ vertex, fragment, name: 'dough-mesh' }),
       resources: {
         uBall: ball.source,
         uRolled: rolled.source,
+        uBaked: artTexture('dough_baked').source,
+        uBurnt: artTexture('dough_burnt').source,
         uSauce: sauce.source,
         uSaucePattern: pattern.source,
         sauceUniforms,
+        bakeUniforms,
       },
     });
     super({ geometry, shader, texture: ball });
@@ -151,6 +166,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     this.blends = blends;
     this.sauceUVs = sauceUVs;
     this.sauceUniforms = sauceUniforms;
+    this.bakeMix = bakeUniforms.uniforms.uBakeWeights;
     this.sauceRepeat = sauceRepeat;
     this.patternAspect = pattern.width / pattern.height;
     this.buffers = buffers;
@@ -164,6 +180,11 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     }
     fillBallUVs(ballUVs, this.dirs, rings, ball.width, ball.height);
     this.buffers[1].update();
+  }
+
+  /** Show the rolled base at a bake level, raw at 0 to burnt at 1. */
+  setBake(level: number): void {
+    bakeWeights(level, this.bakeMix);
   }
 
   /** Reshape to the given radius per spoke. */

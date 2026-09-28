@@ -7,6 +7,7 @@ const RESET_KEY = 'r';
 const SKIP_KEY = 's';
 // Tweakpane's own offset from the window corner, px
 const PANEL_MARGIN = 8;
+const BAKE_LEVEL_REFRESH_MS = 100;
 
 /** Dev-only live tuning. Edits config objects in place; values reset on reload. */
 export function createTuningPanel(scene: KitchenScene): void {
@@ -93,8 +94,11 @@ export function createTuningPanel(scene: KitchenScene): void {
   const bake = pane.addFolder({ title: 'Bake', expanded: false });
   bake.addBinding(BAKE_GAUGE, 'x', { min: 0, max: 2048, step: 1 });
   bake.addBinding(BAKE_GAUGE, 'y', { min: 0, max: 1536, step: 1 });
-  bake.addBinding(scene, 'bakeLevel', { readonly: true });
+  // Draggable to preview the bake cross-fade; fire keeps raising it from wherever it's left, so it re-reads
+  const bakeLevel = bake.addBinding(scene, 'bakeLevel', { min: 0, max: 1 });
+  setInterval(() => bakeLevel.refresh(), BAKE_LEVEL_REFRESH_MS);
   bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
+  bake.addBinding(BAKE, 'optimalLevel', { min: 0.05, max: 0.95 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
 
   const save = pane.addButton({ title: 'Save to config.ts' });

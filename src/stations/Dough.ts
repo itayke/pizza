@@ -70,6 +70,12 @@ export class Dough extends Container {
     this.updateInput();
   }
 
+  /** Bake the base and toppings to a level, raw at 0 to burnt at 1. */
+  setBake(level: number): void {
+    this.body.setBake(level);
+    this.toppings.setBake(level);
+  }
+
   /** Stamp sauce along a stroke (dough-local points); stamps that miss the dough are skipped. */
   paintSauce(from: PointData, to: PointData): void {
     const dx = to.x - from.x;

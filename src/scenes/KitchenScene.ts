@@ -135,6 +135,7 @@ export class KitchenScene extends Container {
       if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
     }
     this.gauge.setLevel(this.bakeLevel);
+    this.dough.setBake(this.bakeLevel);
   }
 
   private trackPointer(e: FederatedPointerEvent): void {

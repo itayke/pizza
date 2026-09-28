@@ -1,17 +1,16 @@
 import { Container, Sprite, type PointData } from 'pixi.js';
 import { TOPPINGS, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
+import { BAKE_PHASES, bakeStep, type BakePhase } from '../core/bake';
 
 const TAU = Math.PI * 2;
 
-export const BAKE_PHASES = ['raw', 'baked', 'burnt'] as const;
-export type BakePhase = (typeof BAKE_PHASES)[number];
 /** Toppings that scatter as pieces; each has topping_<id>_<phase> art. */
 export type ScatterTopping = 'cheese';
 
-/** One placed piece with every bake phase stacked on it; only raw shows until baking cross-fades them. */
+/** One placed piece with every bake phase stacked on it, later phases on top; baking cross-fades them. */
 class Piece extends Container {
-  readonly phases: Record<BakePhase, Sprite>;
+  private readonly phases: Sprite[];
 
   /** Position in the dough's polar space: angle, and distance as a fraction of the edge there. */
   constructor(
@@ -23,12 +22,23 @@ class Piece extends Container {
     const sprite = (phase: BakePhase) => {
       const s = new Sprite(artTexture(`topping_${topping}_${phase}`));
       s.anchor.set(0.5);
-      s.visible = phase === 'raw';
       return this.addChild(s);
     };
-    this.phases = { raw: sprite('raw'), baked: sprite('baked'), burnt: sprite('burnt') };
+    this.phases = BAKE_PHASES.map(sprite);
     this.rotation = Math.random() * TAU;
     this.scale.set(TOPPINGS.scale * (1 + TOPPINGS.scaleJitter * (2 * Math.random() - 1)));
+  }
+
+  /**
+   * Cross-fade from phase `from` to the next: the upper one fades in over the first half while the lower one stays,
+   * then the lower one fades out, so the piece is never see-through and differing silhouettes don't pop.
+   */
+  setBake(from: number, t: number): void {
+    this.phases.forEach((sprite, i) => {
+      const alpha = i === from ? Math.min(1, 2 * (1 - t)) : i === from + 1 ? Math.min(1, 2 * t) : 0;
+      sprite.alpha = alpha;
+      sprite.visible = alpha > 0;
+    });
   }
 }
 
@@ -38,6 +48,7 @@ export class ToppingLayer extends Container<Piece> {
   private travel = 0;
   /** Drops owed while the pointer rests. */
   private owed = 0;
+  private bakeLevel = 0;
 
   get pieces(): number {
     return this.children.length;
@@ -73,6 +84,13 @@ export class ToppingLayer extends Container<Piece> {
     for (; this.owed >= 1; this.owed--) this.drop(topping, config, to.x, to.y);
   }
 
+  /** Show every piece, and those placed later, at a bake level (raw at 0 to burnt at 1). */
+  setBake(level: number): void {
+    this.bakeLevel = level;
+    const { from, t } = bakeStep(level);
+    for (const piece of this.children) piece.setBake(from, t);
+  }
+
   /** Follow the dough's current edge. */
   layout(): void {
     for (const piece of this.children) this.place(piece);
@@ -92,7 +110,10 @@ export class ToppingLayer extends Container<Piece> {
     const angle = Math.atan2(py, px);
     const fraction = Math.hypot(px, py) / this.radiusAt(angle);
     if (fraction > TOPPINGS.edgeFraction) return;
-    this.place(this.addChild(new Piece(topping, angle, fraction)));
+    const piece = this.addChild(new Piece(topping, angle, fraction));
+    const { from, t } = bakeStep(this.bakeLevel);
+    piece.setBake(from, t);
+    this.place(piece);
   }
 
   private place(piece: Piece): void {
