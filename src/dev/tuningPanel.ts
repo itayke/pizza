@@ -50,6 +50,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   sauce.addBinding(SAUCE, 'stampSpacing', { min: 0.05, max: 1 });
   sauce.addBinding(SAUCE, 'edge', { min: 0.05, max: 0.95 });
   sauce.addBinding(SAUCE, 'edgeWidth', { min: 0.01, max: 0.5 });
+  sauce.addBinding(SAUCE, 'patternRepeat', { min: 0.5, max: 6 });
   sauce.addBinding(SAUCE, 'grain', { min: 0, max: 1 });
   sauce.addBinding(SAUCE, 'bevelWidth', { min: 0, max: 40, step: 1 });
   sauce.addBinding(SAUCE, 'bevelShade', { min: 0, max: 1 });

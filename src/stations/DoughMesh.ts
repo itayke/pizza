@@ -39,7 +39,7 @@ uniform sampler2D uBall;
 uniform sampler2D uRolled;
 uniform sampler2D uSauce;
 uniform sampler2D uSaucePattern;
-uniform float uSauceRepeat;
+uniform vec2 uSauceRepeat;
 uniform float uSauceGrain;
 uniform float uSauceEdge;
 uniform float uSauceEdgeWidth;
@@ -98,6 +98,10 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly blends: Float32Array;
   private readonly sauceUVs: Float32Array;
   private readonly sauceUniforms: UniformGroup;
+  /** Pattern repeats across the dough, per axis. */
+  private readonly sauceRepeat: Float32Array;
+  /** Sauce pattern width over height, so tiles keep their drawn shape. */
+  private readonly patternAspect: number;
   private readonly dirs: Float32Array;
   private readonly rolledEdge: Float32Array;
   private readonly buffers: Buffer[];
@@ -125,8 +129,10 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     });
     const ball = artTexture('dough_ball');
     const rolled = artTexture('dough_rolled');
+    const pattern = artTexture('sauce_pattern');
+    const sauceRepeat = new Float32Array(2);
     const sauceUniforms = new UniformGroup({
-      uSauceRepeat: { value: SAUCE.patternRepeat, type: 'f32' },
+      uSauceRepeat: { value: sauceRepeat, type: 'vec2<f32>' },
       uSauceGrain: { value: SAUCE.grain, type: 'f32' },
       uSauceEdge: { value: SAUCE.edge, type: 'f32' },
       uSauceEdgeWidth: { value: SAUCE.edgeWidth, type: 'f32' },
@@ -139,7 +145,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
         uBall: ball.source,
         uRolled: rolled.source,
         uSauce: sauce.source,
-        uSaucePattern: artTexture('sauce_pattern').source,
+        uSaucePattern: pattern.source,
         sauceUniforms,
       },
     });
@@ -152,6 +158,8 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     this.blends = blends;
     this.sauceUVs = sauceUVs;
     this.sauceUniforms = sauceUniforms;
+    this.sauceRepeat = sauceRepeat;
+    this.patternAspect = pattern.width / pattern.height;
     this.buffers = buffers;
     this.dirs = new Float32Array(spokes * 2);
     this.rolledEdge = new Float32Array(spokes);
@@ -204,7 +212,8 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     sauceUVs[1] = 0.5;
     // Follow config live for the tuning panel
     const u = this.sauceUniforms.uniforms;
-    u.uSauceRepeat = SAUCE.patternRepeat;
+    this.sauceRepeat[0] = SAUCE.patternRepeat;
+    this.sauceRepeat[1] = SAUCE.patternRepeat * this.patternAspect;
     u.uSauceGrain = SAUCE.grain;
     u.uSauceEdge = SAUCE.edge;
     u.uSauceEdgeWidth = SAUCE.edgeWidth;

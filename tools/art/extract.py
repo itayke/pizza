@@ -61,6 +61,13 @@ GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
 GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
 GAUGE_SCALE = 0.4
 
+# Placed sauce surface: the drawing repeats every period (x, y) inside itself; one period is cut out from start
+# and its far edges blended over this many px into what precedes the start, so it tiles seamlessly
+SAUCE_TEXTURE_SOURCE = 'pizza_sauce_texture.png'
+SAUCE_TEXTURE_START = (256, 192)
+SAUCE_TEXTURE_PERIOD = (512, 384)
+SAUCE_TEXTURE_BLEND = 64
+
 # Held ingredient cursors: one sheet of pieces drawn to scale with each other, cut out by box (source px) with loose bits kept
 HELD_SOURCE = 'pizza_placement_ingredients.jpeg'
 HELD_PIECES = {'held_sauce': (190, 730, 520, 1060), 'held_cheese': (620, 730, 975, 1065)}
@@ -224,6 +231,27 @@ def dough_pieces(record):
     )
 
 
+def seamless_period(img, axis, start, period, blend):
+    """One period along axis, its last blend px faded into the px just before start so it wraps smoothly."""
+    tile = np.take(img, range(start, start + period), axis).copy()
+    before = np.take(img, range(start - blend, start), axis)
+    ends = np.take(tile, range(period - blend, period), axis)
+    w = np.arange(1, blend + 1, dtype=np.float32) / blend
+    w = w.reshape([-1 if a == axis else 1 for a in range(img.ndim)])
+    idx = [slice(None)] * img.ndim
+    idx[axis] = slice(period - blend, period)
+    tile[tuple(idx)] = ends * (1 - w) + before * w
+    return tile
+
+
+def sauce_texture():
+    img = load(SAUCE_TEXTURE_SOURCE)
+    (x0, y0), (px, py) = SAUCE_TEXTURE_START, SAUCE_TEXTURE_PERIOD
+    tile = seamless_period(img, 1, x0, px, SAUCE_TEXTURE_BLEND)
+    tile = seamless_period(tile, 0, y0, py, SAUCE_TEXTURE_BLEND)
+    Image.fromarray(tile.clip(0, 255).astype(np.uint8), 'RGB').save(OUT / 'sauce_pattern.png', optimize=True)
+
+
 def fit(mask, target, region):
     """Scale and offset placing mask best over target inside region (target px)."""
     d = FIT_DOWNSAMPLE
@@ -342,6 +370,8 @@ def main():
     place('gauge', cutout(img, paper, largest(in_box(fg, GAUGE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
     place('gauge_label', rgba(img, paper, lettering(img, paper, GAUGE_LABEL_BOX)), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
     place('gauge_needle', cutout(img, paper, largest(in_box(fg, GAUGE_NEEDLE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
+
+    sauce_texture()
 
     # Held ingredient cursors: not placed in the layout, kept at sheet scale
     img = load(HELD_SOURCE)
