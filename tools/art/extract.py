@@ -42,6 +42,9 @@ DOUGH_LABEL_BOX = (240, 1300, 540, 1440)
 # Dough drawings for the kneaded dough: (asset, source, ink threshold for a lighter outline, gap seal px)
 DOUGH_PIECES = (('dough_ball', 'pizza_dough_ball.png', 150, 0), ('dough_rolled', 'pizza_dough_rolled.jpeg', INK_LUM, 4))
 DOUGH_TEXTURE_MAX = 1024  # largest texture side, px
+# Bake phases of the rolled dough, drawn over its texture on paper: isolated onto that same canvas so they share its UVs
+DOUGH_BAKES = (('dough_baked', 'pizza_dough_baked.png'), ('dough_burnt', 'pizza_dough_burnt.png'))
+DOUGH_BAKE_PAD = 16  # paper added around the drawing so dough touching the canvas edge can't stop the flood, px
 DOUGH_SMOOTH = 5  # trims pencil-shadow scraps off the silhouette, px
 DOUGH_EDGE_SAMPLES = 180
 DOUGH_RAY_STEP = 0.25
@@ -245,6 +248,24 @@ def dough_pieces(record):
         '// Dough textures: center and outer edge radius per angle (from +x toward +y), in texture px.\n'
         'export const DOUGH_SHAPES = {\n' + '\n'.join(shapes) + '\n};\n'
     )
+
+
+def dough_bakes(record):
+    """Isolate each bake phase onto the rolled dough's canvas; prints how well its silhouette matches."""
+    rolled = Image.open(OUT / 'dough_rolled.png')
+    rolled_shape = np.asarray(rolled)[..., 3] > 127
+    p = DOUGH_BAKE_PAD
+    for name, source in DOUGH_BAKES:
+        img = np.asarray(Image.open(ART / source).convert('RGB').resize(rolled.size, Image.LANCZOS)).astype(np.float32)
+        img = np.pad(img, ((p, p), (p, p), (0, 0)), mode='edge')
+        paper = estimate_paper(img)
+        mask = foreground(img, paper, use_chroma=True)
+        mask = ndimage.binary_fill_holes(largest(ndimage.binary_opening(mask, iterations=DOUGH_SMOOTH)))
+        pixels = cutout(img, paper, mask)[p:-p, p:-p]
+        Image.fromarray(pixels, 'RGBA').save(OUT / f'{name}.png', optimize=True)
+        record(name, f'{name}.png')
+        shape = pixels[..., 3] > 127
+        print(f'{name}: silhouette overlap with dough_rolled {(shape & rolled_shape).sum() / (shape | rolled_shape).sum():.3f}')
 
 
 def bleed(pixels):
@@ -463,6 +484,7 @@ def main():
     bowl = largest(in_box(lay_fg, BOWL_BOX))
     place('bowl', cutout(layout, plate, bowl), f)
     dough_pieces(record)
+    dough_bakes(record)
 
     # Bins: empty base plus one food overlay per compartment
     empty = load('pizza_bins_empty.jpeg')

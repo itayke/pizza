@@ -35,6 +35,20 @@ export const ART = {
     "width": 1024,
     "height": 1016
   },
+  "dough_baked": {
+    "file": "dough_baked.png",
+    "x": 0,
+    "y": 0,
+    "width": 1024,
+    "height": 1016
+  },
+  "dough_burnt": {
+    "file": "dough_burnt.png",
+    "x": 0,
+    "y": 0,
+    "width": 1024,
+    "height": 1016
+  },
   "bin1": {
     "file": "bin1.png",
     "x": 177,
