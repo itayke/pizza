@@ -68,8 +68,8 @@ SAUCE_TEXTURE_START = (256, 192)
 SAUCE_TEXTURE_PERIOD = (512, 384)
 SAUCE_TEXTURE_BLEND = 64
 
-# Held ingredient cursors: one sheet of pieces drawn to scale with each other, cut out by box (source px) with loose bits kept
-HELD_SOURCE = 'pizza_placement_ingredients.jpeg'
+# Held ingredient cursors: one sheet of pieces drawn to scale with each other, already on transparency, cut out by box (source px)
+HELD_SOURCE = 'pizza_placement_ingredients.png'
 HELD_PIECES = {'held_sauce': (190, 730, 520, 1060), 'held_cheese': (620, 730, 975, 1065)}
 
 
@@ -231,6 +231,14 @@ def dough_pieces(record):
     )
 
 
+def bleed(pixels):
+    """Recolor every pixel short of opaque from its nearest opaque one, so soft edges carry no background fringe."""
+    _, (iy, ix) = ndimage.distance_transform_edt(pixels[..., 3] < 255, return_indices=True)
+    out = pixels[iy, ix]
+    out[..., 3] = pixels[..., 3]
+    return out
+
+
 def seamless_period(img, axis, start, period, blend):
     """One period along axis, its last blend px faded into the px just before start so it wraps smoothly."""
     tile = np.take(img, range(start, start + period), axis).copy()
@@ -374,11 +382,9 @@ def main():
     sauce_texture()
 
     # Held ingredient cursors: not placed in the layout, kept at sheet scale
-    img = load(HELD_SOURCE)
-    paper = estimate_paper(img)
-    fg = foreground(img, paper, use_chroma=True)
+    sheet = bleed(np.asarray(Image.open(ART / HELD_SOURCE).convert('RGBA')))
     for name, box in HELD_PIECES.items():
-        save(name, cutout(img, paper, in_box(fg, box)), 1)
+        save(name, np.where(in_box(np.ones(sheet.shape[:2], bool), box)[..., None], sheet, 0).astype(np.uint8), 1)
         record(name, f'{name}.png')
 
     body = json.dumps(rects, indent=2)

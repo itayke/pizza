@@ -165,15 +165,15 @@ export const ART = {
     "file": "held_sauce.png",
     "x": 0,
     "y": 0,
-    "width": 288,
-    "height": 286
+    "width": 286,
+    "height": 283
   },
   "held_cheese": {
     "file": "held_cheese.png",
     "x": 0,
     "y": 0,
-    "width": 308,
-    "height": 296
+    "width": 309,
+    "height": 294
   }
 } as const;
 
