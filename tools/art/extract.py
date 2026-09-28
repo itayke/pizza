@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 from scipy import ndimage, signal
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,12 +61,33 @@ GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
 GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
 GAUGE_SCALE = 0.4
 
-# Placed sauce surface: the drawing repeats every period (x, y) inside itself; one period is cut out from start
-# and its far edges blended over this many px into what precedes the start, so it tiles seamlessly
-SAUCE_TEXTURE_SOURCE = 'pizza_sauce_texture.png'
-SAUCE_TEXTURE_START = (256, 192)
-SAUCE_TEXTURE_PERIOD = (512, 384)
-SAUCE_TEXTURE_BLEND = 64
+# Placed sauce surface: flat spoon-spread streaks drawn on a torus so the tile repeats exactly, colored from the held sauce.
+# The streaks follow a main direction bent by waves with whole cycles per tile
+SAUCE_TILE = 1024
+SAUCE_SUPERSAMPLE = 4
+SAUCE_SEED = 3
+SAUCE_PALETTE_EDGE = 12  # px trimmed off the dab rim before sampling its tones
+SAUCE_TONE_BAND = 4  # luma within this of the median counts as base
+SAUCE_HIGHLIGHT_LUMA = 12  # luma offsets from the base that split the dab into its drawn tones
+SAUCE_GROOVE_LUMA = -12
+SAUCE_LINE_LUMA = -30
+SAUCE_FLOW_WAVES = 4
+SAUCE_FLOW_FREQ = (1, 2)  # cycles per tile
+SAUCE_FLOW_BEND = (0.175, 0.35)  # radians of bend per wave
+SAUCE_STEP = 3  # px per streamline step
+SAUCE_STROKES = 1500  # placement attempts; crowded ones are dropped
+SAUCE_STROKE_LENGTH = (220, 520)
+SAUCE_GROOVE_WIDTH = (14, 30)
+SAUCE_HIGHLIGHT_WIDTH = (6, 14)
+SAUCE_HIGHLIGHT_SHARE = 0.45
+SAUCE_LINE_SHARE = 0.4  # of groove width
+SAUCE_LINE_TAPER = 0.3
+SAUCE_STROKE_TAPER = 0.6
+SAUCE_CLEARANCE = 55  # px kept between strokes
+SAUCE_CHECK_EVERY = 3  # streamline points sampled for clearance
+SAUCE_FLECKS = 90
+SAUCE_FLECK_SIZE = (2, 5)
+SAUCE_FLECK_POINTS = 8
 
 # Held ingredient cursors: one sheet of pieces drawn to scale with each other, already on transparency, cut out by box (source px)
 HELD_SOURCE = 'pizza_placement_ingredients.png'
@@ -239,25 +260,89 @@ def bleed(pixels):
     return out
 
 
-def seamless_period(img, axis, start, period, blend):
-    """One period along axis, its last blend px faded into the px just before start so it wraps smoothly."""
-    tile = np.take(img, range(start, start + period), axis).copy()
-    before = np.take(img, range(start - blend, start), axis)
-    ends = np.take(tile, range(period - blend, period), axis)
-    w = np.arange(1, blend + 1, dtype=np.float32) / blend
-    w = w.reshape([-1 if a == axis else 1 for a in range(img.ndim)])
-    idx = [slice(None)] * img.ndim
-    idx[axis] = slice(period - blend, period)
-    tile[tuple(idx)] = ends * (1 - w) + before * w
-    return tile
+def sauce_palette(pixels):
+    """Base, highlight, groove and line colors of a drawn sauce dab (RGBA, opaque where drawn)."""
+    inner = ndimage.binary_erosion(pixels[..., 3] == 255, iterations=SAUCE_PALETTE_EDGE)
+    p = pixels[inner][:, :3].astype(np.float32)
+    lum = p @ LUMA
+    mid = np.median(lum)
+    tones = (
+        np.abs(lum - mid) < SAUCE_TONE_BAND,
+        lum > mid + SAUCE_HIGHLIGHT_LUMA,
+        (lum < mid + SAUCE_GROOVE_LUMA) & (lum > mid + SAUCE_LINE_LUMA),
+        lum < mid + SAUCE_LINE_LUMA,
+    )
+    return [tuple(int(v) for v in np.median(p[t], 0)) for t in tones]
 
 
-def sauce_texture():
-    img = load(SAUCE_TEXTURE_SOURCE)
-    (x0, y0), (px, py) = SAUCE_TEXTURE_START, SAUCE_TEXTURE_PERIOD
-    tile = seamless_period(img, 1, x0, px, SAUCE_TEXTURE_BLEND)
-    tile = seamless_period(tile, 0, y0, py, SAUCE_TEXTURE_BLEND)
-    Image.fromarray(tile.clip(0, 255).astype(np.uint8), 'RGB').save(OUT / 'sauce_pattern.png', optimize=True)
+def taper(n, power):
+    """Stroke width profile: pointed ends, full in the middle."""
+    return np.sin(np.linspace(0, np.pi, n)) ** power
+
+
+def normals(pts):
+    d = np.gradient(pts, axis=0)
+    return np.stack([-d[:, 1], d[:, 0]], 1) / np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-6)
+
+
+def ribbon(pts, widths):
+    """Outline of a stroke of the given widths along pts."""
+    off = normals(pts) * (widths / 2)[:, None]
+    return np.concatenate([pts + off, (pts - off)[::-1]])
+
+
+def draw_wrapped(draw, outline, scale, fill):
+    """Draws the polygon and its copies one tile over in each direction, so tile edges match."""
+    for dx in (-SAUCE_TILE, 0, SAUCE_TILE):
+        for dy in (-SAUCE_TILE, 0, SAUCE_TILE):
+            draw.polygon([((x + dx) * scale, (y + dy) * scale) for x, y in outline], fill=fill)
+
+
+def sauce_texture(dab):
+    rng = np.random.default_rng(SAUCE_SEED)
+    base, hi, groove, line = sauce_palette(dab)
+    n, ss = SAUCE_TILE, SAUCE_SUPERSAMPLE
+    img = Image.new('RGB', (n * ss, n * ss), base)
+    draw = ImageDraw.Draw(img)
+    blocked = Image.new('L', (n, n), 0)
+    block = ImageDraw.Draw(blocked)
+
+    main_dir = rng.uniform(0, np.pi)
+    waves = [
+        (rng.integers(SAUCE_FLOW_FREQ[0], SAUCE_FLOW_FREQ[1] + 1, 2) * rng.choice((-1, 1), 2),
+         rng.uniform(0, 2 * np.pi), rng.uniform(*SAUCE_FLOW_BEND))
+        for _ in range(SAUCE_FLOW_WAVES)
+    ]
+
+    def heading(p):
+        a = main_dir + sum(amp * np.sin(2 * np.pi * (k @ p) / n + ph) for k, ph, amp in waves)
+        return np.array([np.cos(a), np.sin(a)])
+
+    for _ in range(SAUCE_STROKES):
+        pts = [rng.uniform(0, n, 2)]
+        for _ in range(int(rng.uniform(*SAUCE_STROKE_LENGTH) / SAUCE_STEP)):
+            pts.append(pts[-1] + SAUCE_STEP * heading(pts[-1]))
+        pts = np.array(pts)
+        is_hi = rng.random() < SAUCE_HIGHLIGHT_SHARE
+        widths = rng.uniform(*(SAUCE_HIGHLIGHT_WIDTH if is_hi else SAUCE_GROOVE_WIDTH)) * taper(len(pts), SAUCE_STROKE_TAPER)
+        taken = np.asarray(blocked)
+        if any(taken[int(y) % n, int(x) % n] for x, y in pts[::SAUCE_CHECK_EVERY]):
+            continue
+        draw_wrapped(draw, ribbon(pts, widths), ss, hi if is_hi else groove)
+        if not is_hi:
+            # Dark line along one side of the groove, as on the dab
+            edge = pts + rng.choice((-1, 1)) * normals(pts) * (widths / 2 * (1 - SAUCE_LINE_SHARE))[:, None]
+            draw_wrapped(draw, ribbon(edge, widths * SAUCE_LINE_SHARE * taper(len(pts), SAUCE_LINE_TAPER)), ss, line)
+        draw_wrapped(block, ribbon(pts, widths + 2 * SAUCE_CLEARANCE), 1, 255)
+
+    # Flecks: small specks lying along the flow
+    for _ in range(SAUCE_FLECKS):
+        p = rng.uniform(0, n, 2)
+        size = rng.uniform(*SAUCE_FLECK_SIZE)
+        pts = np.linspace(p - size * heading(p), p + size * heading(p), SAUCE_FLECK_POINTS)
+        draw_wrapped(draw, ribbon(pts, size * taper(SAUCE_FLECK_POINTS, SAUCE_STROKE_TAPER)), ss, (hi, line)[rng.integers(2)])
+
+    img.resize((n, n), Image.LANCZOS).save(OUT / 'sauce_pattern.png', optimize=True)
 
 
 def fit(mask, target, region):
@@ -379,13 +464,13 @@ def main():
     place('gauge_label', rgba(img, paper, lettering(img, paper, GAUGE_LABEL_BOX)), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
     place('gauge_needle', cutout(img, paper, largest(in_box(fg, GAUGE_NEEDLE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
 
-    sauce_texture()
-
     # Held ingredient cursors: not placed in the layout, kept at sheet scale
     sheet = bleed(np.asarray(Image.open(ART / HELD_SOURCE).convert('RGBA')))
     for name, box in HELD_PIECES.items():
         save(name, np.where(in_box(np.ones(sheet.shape[:2], bool), box)[..., None], sheet, 0).astype(np.uint8), 1)
         record(name, f'{name}.png')
+    l, t, r, b = HELD_PIECES['held_sauce']
+    sauce_texture(sheet[t:b, l:r])
 
     body = json.dumps(rects, indent=2)
     LAYOUT_TS.write_text(

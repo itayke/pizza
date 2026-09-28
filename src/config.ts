@@ -99,10 +99,10 @@ export const DISABLED_ALPHA = 0.3;
 export const SAUCE = {
   brushRadius: 81,
   // Stamp spacing along a stroke, as a fraction of brushRadius
-  stampSpacing: 1,
+  stampSpacing: 0.75,
   // Mask resolution (square), and how many times the sauce pattern repeats across the dough
   textureSize: 512,
-  patternRepeat: 1.5,
+  patternRepeat: 6,
   // How much the dough drawing's shading shows through the sauce, 0 to 1
   grain: 0.6,
   // Sauce edge sits where the soft stamps reach this mask level, blurred over ± edgeWidth (small is crisp)

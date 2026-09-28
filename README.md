@@ -12,7 +12,7 @@ Ports are set in `vite.config.ts`.
 
 ## Art
 
-Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pillow, scipy) cuts them into transparent PNGs in `public/assets/` and writes their layout positions and dough shapes to `src/generated/`. Rerun after changing any drawing. `python3 tools/art/placeholders.py` writes procedural stand-ins for art not drawn yet.
+Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pillow, scipy) cuts them into transparent PNGs in `public/assets/`, draws the tiling sauce pattern in the held sauce's colors, and writes their layout positions and dough shapes to `src/generated/`. Rerun after changing any drawing. `python3 tools/art/placeholders.py` writes procedural stand-ins for art not drawn yet.
 
 ## Layout
 

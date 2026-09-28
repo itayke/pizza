@@ -5,10 +5,18 @@ import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
 const RESET_KEY = 'r';
 const SKIP_KEY = 's';
+// Tweakpane's own offset from the window corner, px
+const PANEL_MARGIN = 8;
 
 /** Dev-only live tuning. Edits config objects in place; values reset on reload. */
 export function createTuningPanel(scene: KitchenScene): void {
   const pane = new Pane({ title: 'Tuning' });
+  // Scroll when taller than the window
+  const container = pane.element.parentElement;
+  if (container) {
+    container.style.maxHeight = `calc(100vh - ${2 * PANEL_MARGIN}px)`;
+    container.style.overflowY = 'auto';
+  }
   const resetDough = () => scene.resetDough();
 
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
