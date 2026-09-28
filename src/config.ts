@@ -103,8 +103,6 @@ export const SAUCE = {
   // Mask resolution (square), and how many times the sauce pattern repeats across the dough
   textureSize: 512,
   patternRepeat: 2,
-  // How much the dough drawing's shading shows through the sauce, 0 to 1
-  grain: 0.6,
   // Sauce edge sits where the soft stamps reach this mask level, blurred over ± edgeWidth (small is crisp)
   edge: 0.5,
   edgeWidth: 0.08,

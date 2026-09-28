@@ -61,14 +61,32 @@ GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
 GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
 GAUGE_SCALE = 0.4
 
-# Placed sauce surface. A drawing that doesn't tile gets its edges faded over this band into a copy shifted by half,
-# which wraps; the center stays as drawn. 0 uses a seamless drawing (e.g. pizza_sauce_streaks.png) as is
-SAUCE_TEXTURE_SOURCE = 'pizza_sauce_swirls.png'
-SAUCE_SEAM_BAND = 160  # px
+# Placed sauce surface: a drawing that roughly repeats every PERIOD px. One period is cut where its far edges best
+# match what precedes its start (searched within ± SLACK px), then those edges are blended over BLEND px so it wraps.
+# PERIOD 0 uses a drawing that already tiles (e.g. pizza_sauce_streaks.png) as is
+SAUCE_TEXTURE_SOURCE = 'pizza_sauce_swirls_repeat.png'
+SAUCE_PERIOD = 256
+SAUCE_PERIOD_SLACK = 4
+SAUCE_SEAM_BLEND = 32
 
 # Held ingredient cursors: one sheet of pieces drawn to scale with each other, already on transparency, cut out by box (source px)
 HELD_SOURCE = 'pizza_placement_ingredients.png'
 HELD_PIECES = {'held_sauce': (190, 730, 520, 1060), 'held_cheese': (620, 730, 975, 1065)}
+
+# Placed toppings: a transparent sheet with one column per ingredient and one row per bake phase, kept at sheet scale.
+# Each ingredient's phases share one canvas centered on its raw piece, with later phases fitted over it so they cross-fade
+TOPPINGS_SOURCE = 'pizza_ingredients.png'
+TOPPING_COLUMNS = ('cheese', 'pepperoni', 'basil', 'pineapple', 'olives')
+TOPPING_PHASES = ('raw', 'baked', 'burnt')
+TOPPING_PIECE_MIN = 2000  # px; smaller blobs are crumbs belonging to a nearby piece
+TOPPING_CRUMB_REACH = 30  # px; crumbs farther than this from their piece are dropped
+TOPPING_ROOM = 1.25  # working canvas side over the largest phase's span, so pieces can move and grow
+TOPPING_FIT_ALPHA = 128  # shape used for fitting, so faint soot doesn't pull it
+TOPPING_FIT_BLUR = 1.5  # at fitting resolution
+TOPPING_FIT_DOWNSAMPLE = 2
+TOPPING_FIT_ANGLES = np.arange(-15, 15.5, 1)  # degrees
+TOPPING_FIT_SCALES = np.arange(0.84, 1.161, 0.02)
+TOPPING_FIT_ROTATE_GAIN = 0.01  # overlap ratio a rotation must add to be used
 
 
 def load(name):
@@ -237,21 +255,142 @@ def bleed(pixels):
     return out
 
 
-def seam_heal(img, band):
-    """Fade the edges into a half-shifted copy: its edges are the drawing's middle, so the result wraps."""
-    h, w = img.shape[:2]
-    shifted = np.roll(img, (h // 2, w // 2), (0, 1))
-    ramp = lambda n: np.clip(np.minimum(np.arange(n) + 0.5, n - np.arange(n) - 0.5) / band, 0, 1)
-    t = np.minimum.outer(ramp(h), ramp(w))
-    t = (t * t * (3 - 2 * t))[..., None]
-    return img * t + shifted * (1 - t)
+def best_period(gray, axis, guess, slack, blend):
+    """(start, period) along axis whose last blend px best match the blend px just before start."""
+    g = np.moveaxis(gray, axis, 0)
+    best = (np.inf, 0, 0)
+    for period in range(guess - slack, guess + slack + 1):
+        for start in range(blend, len(g) - period + 1):
+            cost = np.abs(g[start + period - blend:start + period] - g[start - blend:start]).mean()
+            best = min(best, (cost, start, period))
+    return best[1:]
+
+
+def seamless_period(img, axis, start, period, blend):
+    """One period along axis, its last blend px faded into the px just before start so it wraps smoothly."""
+    tile = np.take(img, range(start, start + period), axis).copy()
+    before = np.take(img, range(start - blend, start), axis)
+    ends = np.take(tile, range(period - blend, period), axis)
+    w = np.arange(1, blend + 1, dtype=np.float32) / blend
+    w = w.reshape([-1 if a == axis else 1 for a in range(img.ndim)])
+    idx = [slice(None)] * img.ndim
+    idx[axis] = slice(period - blend, period)
+    tile[tuple(idx)] = ends * (1 - w) + before * w
+    return tile
 
 
 def sauce_texture():
     img = load(SAUCE_TEXTURE_SOURCE)
-    if SAUCE_SEAM_BAND:
-        img = seam_heal(img, SAUCE_SEAM_BAND)
+    if SAUCE_PERIOD:
+        x0, px = best_period(lum(img), 1, SAUCE_PERIOD, SAUCE_PERIOD_SLACK, SAUCE_SEAM_BLEND)
+        img = seamless_period(img, 1, x0, px, SAUCE_SEAM_BLEND)
+        y0, py = best_period(lum(img), 0, SAUCE_PERIOD, SAUCE_PERIOD_SLACK, SAUCE_SEAM_BLEND)
+        img = seamless_period(img, 0, y0, py, SAUCE_SEAM_BLEND)
+        print(f'sauce_pattern: period {px}x{py} from ({x0}, {y0})')
     Image.fromarray(img.clip(0, 255).astype(np.uint8), 'RGB').save(OUT / 'sauce_pattern.png', optimize=True)
+
+
+def gap_groups(values, count):
+    """Split values into count groups at the widest gaps; returns each group's center."""
+    v = np.sort(values)
+    cuts = np.sort(np.argsort(np.diff(v))[-(count - 1):]) + 1
+    return np.array([g.mean() for g in np.split(v, cuts)])
+
+
+def grid_pieces(sheet, columns, rows):
+    """Each (column, row) piece of a transparent sheet laid out in a grid, as a full-sheet RGBA with its nearby crumbs."""
+    lab, n = ndimage.label(sheet[..., 3] > 0)
+    idx = np.arange(1, n + 1)
+    sizes = np.bincount(lab.ravel(), minlength=n + 1)[1:]
+    cents = np.array(ndimage.center_of_mass(lab > 0, lab, idx))  # (y, x)
+    big = sizes >= TOPPING_PIECE_MIN
+    col = np.abs(cents[:, 1:2] - gap_groups(cents[big, 1], len(columns))[None]).argmin(1)
+    row = np.abs(cents[:, 0:1] - gap_groups(cents[big, 0], len(rows))[None]).argmin(1)
+    out = {}
+    for c, cname in enumerate(columns):
+        for r, rname in enumerate(rows):
+            mine = (col == c) & (row == r)
+            near = ndimage.distance_transform_edt(~np.isin(lab, idx[mine & big])) <= TOPPING_CRUMB_REACH
+            keep = mine & (big | (ndimage.maximum(near, lab, idx) > 0))
+            out[cname, rname] = np.where(np.isin(lab, idx[keep])[..., None], sheet, 0).astype(np.uint8)
+    return out
+
+
+def centered(pixels, size):
+    """Square canvas of side size with the piece's shape centroid at its center."""
+    cy, cx = ndimage.center_of_mass((pixels[..., 3] > TOPPING_FIT_ALPHA).astype(np.float32))
+    t, l = round(cy) - size // 2 + size, round(cx) - size // 2 + size
+    return np.pad(pixels, ((size, size), (size, size), (0, 0)))[t:t + size, l:l + size]
+
+
+def affine(angle, scale, shift, center):
+    """Output-to-input matrix and offset (y, x) for ndimage: rotate and scale about center, then shift."""
+    a = np.deg2rad(angle)
+    m = np.array([[np.cos(a), np.sin(a)], [-np.sin(a), np.cos(a)]]) / scale
+    return m, center - m @ (center + shift)
+
+
+def warp(pixels, angle, scale, shift):
+    """Premultiplied RGBA warp, so soft edges carry no dark fringe."""
+    f = pixels.astype(np.float32)
+    f[..., :3] *= f[..., 3:] / 255
+    m, off = affine(angle, scale, np.asarray(shift, float), (np.array(f.shape[:2]) - 1) / 2)
+    out = np.stack([ndimage.affine_transform(f[..., k], m, off, order=3) for k in range(4)], -1)
+    out[..., 3] = out[..., 3].clip(0, 255)
+    out[..., :3] = np.where(out[..., 3:] > 0, out[..., :3] * 255 / np.maximum(out[..., 3:], 1e-3), 0)
+    return out.clip(0, 255).astype(np.uint8)
+
+
+def fit_shape(pixels):
+    small = (pixels[::TOPPING_FIT_DOWNSAMPLE, ::TOPPING_FIT_DOWNSAMPLE, 3] > TOPPING_FIT_ALPHA).astype(np.float32)
+    return ndimage.gaussian_filter(small, TOPPING_FIT_BLUR)
+
+
+def overlap_ratio(a, b):
+    return np.minimum(a, b).sum() / np.maximum(a, b).sum()
+
+
+def fit_over(ref, moving):
+    """(overlap, angle, scale, shift) placing moving's shape over ref's on the same canvas, best by overlap ratio.
+    Rotation is kept only when it clearly helps, since round pieces match at any angle."""
+    target, m0 = fit_shape(ref), fit_shape(moving)
+    center = (np.array(m0.shape) - 1) / 2
+    results = []
+    for ang in TOPPING_FIT_ANGLES:
+        for sc in TOPPING_FIT_SCALES:
+            m, off = affine(ang, sc, np.zeros(2), center)
+            w = ndimage.affine_transform(m0, m, off, order=1)
+            corr = signal.fftconvolve(target, w[::-1, ::-1], mode='same')
+            shift = np.array(np.unravel_index(np.argmax(corr), corr.shape)) - np.array(target.shape) // 2
+            m, off = affine(ang, sc, shift.astype(float), center)
+            score = overlap_ratio(target, ndimage.affine_transform(m0, m, off, order=1))
+            results.append((score, ang, sc, shift * TOPPING_FIT_DOWNSAMPLE))
+    best = max(results, key=lambda r: r[0])
+    upright = max((r for r in results if r[1] == 0), key=lambda r: r[0])
+    return upright if best[0] - upright[0] < TOPPING_FIT_ROTATE_GAIN else best
+
+
+def toppings():
+    """Writes topping_<ingredient>_<phase>.png, all phases of an ingredient on one canvas; returns the names."""
+    cut = grid_pieces(bleed(np.asarray(Image.open(ART / TOPPINGS_SOURCE).convert('RGBA'))), TOPPING_COLUMNS, TOPPING_PHASES)
+    names = []
+    for ing in TOPPING_COLUMNS:
+        spans = [max(np.ptp(a), np.ptp(b)) for a, b in (np.nonzero(cut[ing, p][..., 3]) for p in TOPPING_PHASES)]
+        size = int(max(spans) * TOPPING_ROOM) // 2 * 2
+        stack = [centered(cut[ing, p], size) for p in TOPPING_PHASES]
+        for i, phase in enumerate(TOPPING_PHASES[1:], 1):
+            score, ang, sc, shift = fit_over(stack[0], stack[i])
+            stack[i] = warp(stack[i], ang, sc, shift)
+            print(f'topping {ing} {phase}: rotate {ang:+.0f}, scale {sc:.2f}, shift {tuple(int(v) for v in shift)}, overlap {score:.2f}')
+        # Trim to what any phase uses, keeping the raw piece centered
+        ys, xs = np.nonzero(np.any([s[..., 3] > 0 for s in stack], 0))
+        c = size // 2
+        h, w = max(c - ys.min(), ys.max() + 1 - c), max(c - xs.min(), xs.max() + 1 - c)
+        for phase, s in zip(TOPPING_PHASES, stack):
+            name = f'topping_{ing}_{phase}'
+            Image.fromarray(s[c - h:c + h, c - w:c + w], 'RGBA').save(OUT / f'{name}.png', optimize=True)
+            names.append(name)
+    return names
 
 
 def fit(mask, target, region):
@@ -380,6 +519,10 @@ def main():
         record(name, f'{name}.png')
 
     sauce_texture()
+
+    # Placed toppings per bake phase: not placed in the layout, kept at sheet scale
+    for name in toppings():
+        record(name, f'{name}.png')
 
     body = json.dumps(rects, indent=2)
     LAYOUT_TS.write_text(

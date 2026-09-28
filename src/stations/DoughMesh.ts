@@ -40,14 +40,11 @@ uniform sampler2D uRolled;
 uniform sampler2D uSauce;
 uniform sampler2D uSaucePattern;
 uniform vec2 uSauceRepeat;
-uniform float uSauceGrain;
 uniform float uSauceEdge;
 uniform float uSauceEdgeWidth;
 uniform float uBevelOffset;
 uniform float uBevelShade;
 uniform vec4 uColor;
-const vec3 LUMA = vec3(0.299, 0.587, 0.114);
-const float MIN_ALPHA = 0.001;
 // Inner shadow sampling: directions around the point, and rings out to the bevel width (more rounds its profile)
 const int BEVEL_DIRECTIONS = 8;
 const int BEVEL_RINGS = 2;
@@ -64,9 +61,6 @@ void main() {
   // Sauce takes the dough's alpha so it never spills past the drawn edge (colors are premultiplied)
   float sauce = sauceAt(vSauceUV);
   vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * dough.a;
-  // The drawing's pencil grain shows through
-  float grain = dot(dough.rgb, LUMA) / max(dough.a, MIN_ALPHA);
-  red *= mix(1.0, grain, uSauceGrain);
   // Inner shadow: darken by how much of the surroundings is bare, so every edge is multiplied
   float around = 0.0;
   for (int ring = 1; ring <= BEVEL_RINGS; ring++) {
@@ -133,7 +127,6 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     const sauceRepeat = new Float32Array(2);
     const sauceUniforms = new UniformGroup({
       uSauceRepeat: { value: sauceRepeat, type: 'vec2<f32>' },
-      uSauceGrain: { value: SAUCE.grain, type: 'f32' },
       uSauceEdge: { value: SAUCE.edge, type: 'f32' },
       uSauceEdgeWidth: { value: SAUCE.edgeWidth, type: 'f32' },
       uBevelOffset: { value: 0, type: 'f32' },
@@ -214,7 +207,6 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     const u = this.sauceUniforms.uniforms;
     this.sauceRepeat[0] = SAUCE.patternRepeat;
     this.sauceRepeat[1] = SAUCE.patternRepeat * this.patternAspect;
-    u.uSauceGrain = SAUCE.grain;
     u.uSauceEdge = SAUCE.edge;
     u.uSauceEdgeWidth = SAUCE.edgeWidth;
     // Mask spans the dough's diameter; the rim radius stands in for the current size

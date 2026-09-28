@@ -174,6 +174,111 @@ export const ART = {
     "y": 0,
     "width": 309,
     "height": 294
+  },
+  "topping_cheese_raw": {
+    "file": "topping_cheese_raw.png",
+    "x": 0,
+    "y": 0,
+    "width": 208,
+    "height": 202
+  },
+  "topping_cheese_baked": {
+    "file": "topping_cheese_baked.png",
+    "x": 0,
+    "y": 0,
+    "width": 208,
+    "height": 202
+  },
+  "topping_cheese_burnt": {
+    "file": "topping_cheese_burnt.png",
+    "x": 0,
+    "y": 0,
+    "width": 208,
+    "height": 202
+  },
+  "topping_pepperoni_raw": {
+    "file": "topping_pepperoni_raw.png",
+    "x": 0,
+    "y": 0,
+    "width": 186,
+    "height": 190
+  },
+  "topping_pepperoni_baked": {
+    "file": "topping_pepperoni_baked.png",
+    "x": 0,
+    "y": 0,
+    "width": 186,
+    "height": 190
+  },
+  "topping_pepperoni_burnt": {
+    "file": "topping_pepperoni_burnt.png",
+    "x": 0,
+    "y": 0,
+    "width": 186,
+    "height": 190
+  },
+  "topping_basil_raw": {
+    "file": "topping_basil_raw.png",
+    "x": 0,
+    "y": 0,
+    "width": 154,
+    "height": 260
+  },
+  "topping_basil_baked": {
+    "file": "topping_basil_baked.png",
+    "x": 0,
+    "y": 0,
+    "width": 154,
+    "height": 260
+  },
+  "topping_basil_burnt": {
+    "file": "topping_basil_burnt.png",
+    "x": 0,
+    "y": 0,
+    "width": 154,
+    "height": 260
+  },
+  "topping_pineapple_raw": {
+    "file": "topping_pineapple_raw.png",
+    "x": 0,
+    "y": 0,
+    "width": 138,
+    "height": 136
+  },
+  "topping_pineapple_baked": {
+    "file": "topping_pineapple_baked.png",
+    "x": 0,
+    "y": 0,
+    "width": 138,
+    "height": 136
+  },
+  "topping_pineapple_burnt": {
+    "file": "topping_pineapple_burnt.png",
+    "x": 0,
+    "y": 0,
+    "width": 138,
+    "height": 136
+  },
+  "topping_olives_raw": {
+    "file": "topping_olives_raw.png",
+    "x": 0,
+    "y": 0,
+    "width": 130,
+    "height": 130
+  },
+  "topping_olives_baked": {
+    "file": "topping_olives_baked.png",
+    "x": 0,
+    "y": 0,
+    "width": 130,
+    "height": 130
+  },
+  "topping_olives_burnt": {
+    "file": "topping_olives_burnt.png",
+    "x": 0,
+    "y": 0,
+    "width": 130,
+    "height": 130
   }
 } as const;
 
