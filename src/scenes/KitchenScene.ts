@@ -2,6 +2,7 @@ import { Container, Graphics, Point, Sprite, type FederatedPointerEvent, type Re
 import {
   BAKE,
   BINS,
+  CHEESE,
   COLORS,
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
@@ -127,7 +128,7 @@ export class KitchenScene extends Container {
       this.applyAvailability();
     }
 
-    if (this.painting && this.tool === 'sauce') this.paintStroke();
+    if (this.painting) this.applyTool(dt);
 
     if (this.fire.visible) {
       this.updateFire(dt);
@@ -167,14 +168,19 @@ export class KitchenScene extends Container {
     this.trackPointer(e);
     this.painting = true;
     this.strokeEnd.copyFrom(this.pointer);
+    this.dough.toppings.beginStroke();
   }
 
   private stopPainting(): void {
     this.painting = false;
   }
 
-  private paintStroke(): void {
-    this.dough.paintSauce(this.dough.toLocal(this.strokeEnd, this), this.dough.toLocal(this.pointer, this));
+  /** Sauce paints along the stroke; cheese scatters pieces. */
+  private applyTool(dt: number): void {
+    const from = this.dough.toLocal(this.strokeEnd, this);
+    const to = this.dough.toLocal(this.pointer, this);
+    if (this.tool === 'sauce') this.dough.paintSauce(from, to);
+    else if (this.tool === 'cheese') this.dough.toppings.scatter('cheese', CHEESE, from, to, dt);
     this.strokeEnd.copyFrom(this.pointer);
   }
 

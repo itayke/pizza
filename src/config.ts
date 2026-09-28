@@ -114,6 +114,25 @@ export const SAUCE = {
   coverageCore: 0.7,
 };
 
+// Placed toppings: sheet-size pieces scaled down with some jitter, in the dough's polar space so they follow it
+export const TOPPINGS = {
+  scale: 0.5,
+  scaleJitter: 0.15,
+  // Piece centers land within this fraction of the dough edge
+  edgeFraction: 0.92,
+  maxPieces: 500,
+};
+
+// Scattering while pressed: a piece every spacing design px of drag, holdRate per second while resting,
+// each landing within scatterRadius design px of the pointer
+export type ScatterConfig = { spacing: number; holdRate: number; scatterRadius: number };
+// Typed at use: the tuning save only finds plain `export const NAME = {` sections
+export const CHEESE = {
+  spacing: 14,
+  holdRate: 12,
+  scatterRadius: 45,
+};
+
 // Ingredients in hand follow the pointer, drawn at this fraction of their sheet size so they keep their relative sizes
 export const HELD = {
   scale: 0.56,

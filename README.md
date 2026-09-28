@@ -21,7 +21,7 @@ Drawings live in `art/` (paper scans). `python3 tools/art/extract.py` (numpy, pi
 - `src/core/` — engine-level helpers (viewport, art loading, easing)
 - `src/generated/` — tool output, do not edit
 - `src/scenes/` — screens
-- `src/stations/` — interactive props (bins, dough, sauce)
+- `src/stations/` — interactive props (bins, dough, sauce, toppings)
 - `src/ui/` — UI helpers
 - `src/dev/` — dev-only tools (tuning panel)
 - `tools/` — build/dev-server tooling (tuning save endpoint, art extraction)

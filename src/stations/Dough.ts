@@ -3,6 +3,7 @@ import { COLORS, DOUGH, SAUCE } from '../config';
 import { easeOutCubic } from '../core/easing';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
+import { ToppingLayer } from './ToppingLayer';
 
 const TAU = Math.PI * 2;
 
@@ -13,6 +14,7 @@ export class Dough extends Container {
   /** How close the dough is to a perfect rim circle; internal score. */
   roundness = 0;
   readonly sauce: SauceLayer;
+  readonly toppings = new ToppingLayer((angle) => this.radiusAt(angle));
 
   private target = new Float32Array(0);
   private shown = new Float32Array(0);
@@ -28,7 +30,7 @@ export class Dough extends Container {
     super();
     this.sauce = new SauceLayer(renderer);
     this.body = new DoughMesh(DOUGH.points, this.sauce.texture);
-    this.addChild(this.buildRim(), this.body);
+    this.addChild(this.buildRim(), this.body, this.toppings);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -49,6 +51,7 @@ export class Dough extends Container {
     this.pointerId = null;
     this.slamElapsed = Infinity;
     this.sauce.clear();
+    this.toppings.clear();
     this.updateReach();
     this.updateMetrics();
     this.draw();
@@ -198,6 +201,7 @@ export class Dough extends Container {
 
   private draw(): void {
     this.body.setRadii(this.shown);
+    this.toppings.layout();
   }
 
   private buildRim(): Graphics {
