@@ -7,19 +7,19 @@ export const ART = {
     "width": 2048,
     "height": 1536
   },
-  "label_dough": {
-    "file": "label_dough.png",
-    "x": 225,
-    "y": 1135,
-    "width": 218,
-    "height": 78
-  },
   "bowl": {
     "file": "bowl.png",
     "x": 99,
-    "y": 630,
-    "width": 476,
+    "y": 629,
+    "width": 475,
     "height": 476
+  },
+  "label_dough": {
+    "file": "label_dough.png",
+    "x": 224,
+    "y": 1136,
+    "width": 219,
+    "height": 77
   },
   "dough_ball": {
     "file": "dough_ball.png",

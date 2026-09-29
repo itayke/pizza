@@ -42,7 +42,9 @@ BG_QUALITY = 85
 
 # Boxes are (left, top, right, bottom) in source pixels
 BOWL_BOX = (90, 690, 700, 1300)
-DOUGH_LABEL_BOX = (240, 1300, 540, 1440)
+# The dough bowl, drawn empty on its own with its label below (label box in its px); scaled onto the layout bowl's spot
+BOWL_SOURCE = 'pizza_dough_bowl.png'
+BOWL_LABEL_BOX = (200, 820, 680, 1010)
 # Dough drawings for the kneaded dough: (asset, source, ink threshold for a lighter outline, gap seal px)
 DOUGH_PIECES = (('dough_ball', 'pizza_dough_ball.png', 150, 0), ('dough_rolled', 'pizza_dough_rolled.jpeg', INK_LUM, 4))
 DOUGH_TEXTURE_MAX = 1024  # largest texture side, px
@@ -459,17 +461,33 @@ def toppings():
     return names
 
 
+def onto_sheet(mask, sheet_mask, place, f):
+    """put(name, pixels) for a piece drawn on its own, scaled so its mask spans sheet_mask's width at its top-left."""
+    l, t, r, _ = bbox(mask)
+    sl, st, sr, _ = bbox(sheet_mask)
+    s = (sr - sl) / (r - l)
+    origin = (sl - l * s, st - t * s)
+    return lambda name, pixels: place(name, pixels, f * s, origin=origin, src_to_layout=s)
+
+
+def drawn_bowl(sheet_mask, place, f):
+    """The empty dough bowl and its label from their own drawing, scaled onto where the layout's bowl sat."""
+    img = load(BOWL_SOURCE)
+    paper = estimate_paper(img)
+    mask = largest(foreground(img, paper, use_chroma=False))
+    put = onto_sheet(mask, sheet_mask, place, f)
+    put('bowl', cutout(img, paper, mask))
+    near_bowl = ndimage.binary_dilation(mask, iterations=LABEL_CLEARANCE)
+    put('label_dough', rgba(img, paper, lettering(img, paper, BOWL_LABEL_BOX, near_bowl)))
+
+
 def drawn_bin(spec, sheet_mask, place, f):
     """A bin drawn on its own sheets, scaled onto where the sheet's bin sat; fills come from the full drawing aligned to it."""
     empty_src, full_src = spec['drawn']
     empty = load(empty_src)
     paper = estimate_paper(empty)
     mask = largest(foreground(empty, paper, use_chroma=False))
-    l, t, r, _ = bbox(mask)
-    sl, st, sr, _ = bbox(sheet_mask)
-    s = (sr - sl) / (r - l)
-    origin = (sl - l * s, st - t * s)
-    put = lambda name, pixels: place(name, pixels, f * s, origin=origin, src_to_layout=s)
+    put = onto_sheet(mask, sheet_mask, place, f)
     put(spec['name'], cutout(empty, paper, mask))
 
     full = align_to(load(full_src), mask, empty.shape)
@@ -545,12 +563,10 @@ def main():
     bg.save(OUT / 'bg.jpg', quality=BG_QUALITY)
     record('bg', 'bg.jpg')
 
-    # Bowl and its label come straight from the layout
+    # Bowl and its label: drawn on their own; the layout's bowl gives their spot
     layout = load('pizza_layout.jpeg')
     lay_fg = foreground(layout, plate, use_chroma=False)
-    place('label_dough', rgba(layout, plate, lettering(layout, plate, DOUGH_LABEL_BOX)), f)
-    bowl = largest(in_box(lay_fg, BOWL_BOX))
-    place('bowl', cutout(layout, plate, bowl), f)
+    drawn_bowl(largest(in_box(lay_fg, BOWL_BOX)), place, f)
     dough_pieces(record)
     dough_bakes(record)
 

@@ -86,6 +86,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const bowl = pane.addFolder({ title: 'Bowl', expanded: false });
   bowl.addBinding(BOWL, 'x', { min: -200, max: 200, step: 1 });
   bowl.addBinding(BOWL, 'y', { min: -200, max: 200, step: 1 });
+  bowl.addBinding(BOWL, 'fillWidth', { min: 0.2, max: 1 });
   bowl.on('change', () => scene.layoutBowl());
 
   const peel = pane.addFolder({ title: 'Peel', expanded: false });
@@ -118,6 +119,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   setInterval(() => bakeLevel.refresh(), BAKE_LEVEL_REFRESH_MS);
   bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
   bake.addBinding(BAKE, 'optimalLevel', { min: 0.05, max: 0.95 });
+  bake.addBinding(BAKE, 'toppingsCutoff', { min: 0, max: 1 });
   bake.addBinding(BAKE, 'easePower', { min: 1, max: 5 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
 

@@ -44,6 +44,8 @@ export class KitchenScene extends Container {
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
   private readonly bowlLabel = artSprite('label_dough');
+  /** The dough ball waiting in the bowl; the bowl is empty once it's picked up. */
+  private readonly bowlFill = new Sprite(artTexture('dough_ball'));
   private readonly heldBall = makeDoughBall();
   private readonly held = new Sprite();
   private readonly fire = artSprite('fire');
@@ -56,6 +58,8 @@ export class KitchenScene extends Container {
   private dropElapsed = 0;
   private doughPhase: DoughPhase = 'inBowl';
   private doughReady = false;
+  /** Baked past the toppings cutoff; toppings stay closed until the next pizza. */
+  private toppingsClosed = false;
   private available = new Set<IngredientId>();
   /** Ingredient in hand, picked from its bin. */
   private tool: IngredientId | null = null;
@@ -105,6 +109,7 @@ export class KitchenScene extends Container {
   /** Back to an empty peel with the dough in its bowl. */
   resetDough(): void {
     this.bakeLevel = 0;
+    this.toppingsClosed = false;
     this.doughPhase = 'inBowl';
     this.heldBall.visible = false;
     this.dough.reset();
@@ -139,6 +144,13 @@ export class KitchenScene extends Container {
       this.updateFire(dt);
       if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
     }
+    if (!this.toppingsClosed && this.bakeLevel > BAKE.toppingsCutoff) {
+      this.toppingsClosed = true;
+      this.applyAvailability();
+    }
+    const inBowl = this.doughPhase === 'inBowl';
+    this.bowlFill.visible = inBowl;
+    this.bowl.cursor = inBowl ? 'pointer' : 'default';
     this.gauge.setLevel(this.bakeLevel);
     this.bakeButton.layout();
     this.bakeButton.setState(this.doughReady, this.fire.visible);
@@ -244,7 +256,7 @@ export class KitchenScene extends Container {
   }
 
   private applyAvailability(): void {
-    this.available = new Set<IngredientId>(this.doughReady ? TOPPINGS_READY : []);
+    this.available = new Set<IngredientId>(this.doughReady && !this.toppingsClosed ? TOPPINGS_READY : []);
     this.bins.forEach((bin) => bin.setAvailable(this.available));
     if (this.tool && !this.available.has(this.tool)) this.setTool(null);
   }
@@ -266,18 +278,23 @@ export class KitchenScene extends Container {
   private buildBowl(): void {
     const { bowl } = this;
     bowl.eventMode = 'static';
-    bowl.cursor = 'pointer';
     bowl.on('pointerdown', this.pickUpDough, this);
-    this.addChild(bowl, this.bowlLabel);
+    // Presses on the dough go to the bowl
+    this.bowlFill.anchor.set(0.5);
+    this.bowlFill.eventMode = 'none';
+    this.addChild(bowl, this.bowlFill, this.bowlLabel);
     this.layoutBowl();
   }
 
-  /** Place the bowl and its label from config. */
+  /** Place the bowl, its dough and its label from config. */
   layoutBowl(): void {
     for (const [sprite, name] of [[this.bowl, 'bowl'], [this.bowlLabel, 'label_dough']] as const) {
       const drawn = artPoint(name, 0, 0);
       sprite.position.set(drawn.x + BOWL.x, drawn.y + BOWL.y);
     }
+    const center = artPoint('bowl', 0.5, 0.5);
+    this.bowlFill.position.set(center.x + BOWL.x, center.y + BOWL.y);
+    this.bowlFill.scale.set((BOWL.fillWidth * this.bowl.width) / this.bowlFill.texture.width);
   }
 
   private buildPeel(): void {

@@ -44,10 +44,12 @@ export const BIN_LAYOUT = {
   bin3Enabled: true,
 };
 
-// Dough bowl and its label: nudge from their drawn spot, in design px
+// Dough bowl and its label: nudge from their drawn spot, in design px. The dough ball sits in the empty bowl at
+// fillWidth (a fraction of the bowl's width) until picked up, and returns with the next pizza
 export const BOWL = {
   x: 0,
   y: 0,
+  fillWidth: 0.72,
 };
 
 // Peel: nudge from its drawn spot in design px (the dough moves with it), and its face center as fractions of the art
@@ -157,11 +159,13 @@ export const HELD = {
 
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.
 // The art cross-fades raw to baked up to optimalLevel, where it looks fully baked, then baked to burnt, eased by
-// easePower: 1 is linear; higher rushes the art through raw and burnt and lingers around optimalLevel
+// easePower: 1 is linear; higher rushes the art through raw and burnt and lingers around optimalLevel.
+// Once baked past toppingsCutoff, toppings close for this pizza
 export const BAKE = {
   secondsToBurnt: 8,
   optimalLevel: 0.694,
   easePower: 1.5,
+  toppingsCutoff: 0.05,
 };
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
