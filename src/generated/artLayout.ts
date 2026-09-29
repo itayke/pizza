@@ -51,59 +51,59 @@ export const ART = {
   },
   "bin1": {
     "file": "bin1.png",
-    "x": 177,
-    "y": 102,
-    "width": 494,
-    "height": 276
+    "x": 178,
+    "y": 103,
+    "width": 492,
+    "height": 284
   },
   "fill_sauce": {
     "file": "fill_sauce.png",
-    "x": 196,
-    "y": 118,
-    "width": 221,
-    "height": 224
+    "x": 221,
+    "y": 147,
+    "width": 201,
+    "height": 201
   },
   "fill_cheese": {
     "file": "fill_cheese.png",
-    "x": 412,
-    "y": 120,
-    "width": 242,
-    "height": 222
+    "x": 437,
+    "y": 143,
+    "width": 198,
+    "height": 199
   },
   "label_bin1": {
     "file": "label_bin1.png",
-    "x": 256,
-    "y": 379,
+    "x": 259,
+    "y": 392,
     "width": 358,
-    "height": 69
+    "height": 70
   },
   "bin2": {
     "file": "bin2.png",
-    "x": 801,
-    "y": 111,
+    "x": 800,
+    "y": 112,
     "width": 458,
-    "height": 266
+    "height": 276
   },
   "fill_pepperoni": {
     "file": "fill_pepperoni.png",
-    "x": 817,
-    "y": 126,
-    "width": 219,
-    "height": 216
+    "x": 828,
+    "y": 144,
+    "width": 196,
+    "height": 205
   },
-  "fill_sausage": {
-    "file": "fill_sausage.png",
-    "x": 1030,
-    "y": 124,
-    "width": 212,
-    "height": 218
+  "fill_basil": {
+    "file": "fill_basil.png",
+    "x": 1032,
+    "y": 140,
+    "width": 204,
+    "height": 208
   },
   "label_bin2": {
     "file": "label_bin2.png",
-    "x": 782,
-    "y": 361,
-    "width": 497,
-    "height": 86
+    "x": 820,
+    "y": 383,
+    "width": 404,
+    "height": 82
   },
   "bin3": {
     "file": "bin3.png",
@@ -135,9 +135,9 @@ export const ART = {
   },
   "peel": {
     "file": "peel.png",
-    "x": 602,
-    "y": 479,
-    "width": 793,
+    "x": 599,
+    "y": 478,
+    "width": 792,
     "height": 1061
   },
   "dragon": {

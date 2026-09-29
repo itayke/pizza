@@ -18,7 +18,7 @@ export const COLORS = {
 
 export const OUTLINE_WIDTH = 6;
 
-export const INGREDIENT_IDS = ['sauce', 'cheese', 'pepperoni', 'sausage', 'pineapple', 'olives'] as const;
+export const INGREDIENT_IDS = ['sauce', 'cheese', 'pepperoni', 'basil', 'pineapple', 'olives'] as const;
 export type IngredientId = (typeof INGREDIENT_IDS)[number];
 
 // Everything unlocked until the meta game exists
@@ -27,7 +27,7 @@ export const STARTING_UNLOCKED: readonly IngredientId[] = INGREDIENT_IDS;
 // Containers along the top, by art name. Locked compartments show empty.
 export const BINS = [
   { art: 'bin1', label: 'label_bin1', items: ['sauce', 'cheese'] },
-  { art: 'bin2', label: 'label_bin2', items: ['pepperoni', 'sausage'] },
+  { art: 'bin2', label: 'label_bin2', items: ['pepperoni', 'basil'] },
   { art: 'bin3', label: 'label_bin3', items: ['pineapple', 'olives'] },
 ] as const;
 

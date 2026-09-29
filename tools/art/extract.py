@@ -31,6 +31,10 @@ FIT_DOWNSAMPLE = 4
 FIT_SCALES = np.arange(0.6, 1.4, 0.005)
 FILL_FEATHER = 1.5  # compartment mask blur, px
 FILL_CUTOFF = 0.01
+# Separately drawn bins: food is where the full drawing differs from the empty one, cleaned up in px
+FOOD_DIFF = 45
+FOOD_OPEN = 3
+FOOD_CLOSE = 14  # bridges gaps between loose bits (cheese shreds) so the whole pile is one area
 LETTER_MIN = 60  # ink blobs smaller than this aren't letters, px
 LETTER_GROW = 2  # soft margin kept around letter strokes, px
 LABEL_CLEARANCE = 6  # keep labels this far from bin pixels, px
@@ -48,9 +52,13 @@ DOUGH_BAKE_PAD = 16  # paper added around the drawing so dough touching the canv
 DOUGH_SMOOTH = 5  # trims pencil-shadow scraps off the silhouette, px
 DOUGH_EDGE_SAMPLES = 180
 DOUGH_RAY_STEP = 0.25
+# Bins with 'drawn' (empty, full) come from their own drawings, scaled onto the sheet bin's spot; their label box is in
+# the empty drawing's px
 BINS = [
-    {'name': 'bin1', 'box': (204, 114, 792, 444), 'label': (288, 430, 726, 534), 'fills': ('sauce', 'cheese')},
-    {'name': 'bin2', 'box': (930, 132, 1482, 456), 'label': (906, 418, 1506, 528), 'fills': ('pepperoni', 'sausage')},
+    {'name': 'bin1', 'box': (204, 114, 792, 444), 'label': (0, 570, 1024, 803), 'fills': ('sauce', 'cheese'),
+     'drawn': ('pizza_bin1_empty.png', 'pizza_bin1_full.png')},
+    {'name': 'bin2', 'box': (930, 132, 1482, 456), 'label': (0, 560, 1024, 817), 'fills': ('pepperoni', 'basil'),
+     'drawn': ('pizza_bin2_empty.png', 'pizza_bin2_full.png')},
     {'name': 'bin3', 'box': (1590, 144, 2160, 492), 'label': (1560, 448, 2140, 570), 'fills': ('pineapple', 'olives')},
 ]
 # Where to look for the separately drawn pieces in the layout
@@ -197,6 +205,28 @@ def compartments(mask, ink):
     divider = mid.start + int(np.argmax((inner & ink)[:, mid].sum(0)))
     cols = np.arange(inner.shape[1])[None, :]
     return inner & (cols < divider), inner & (cols >= divider)
+
+
+def align_to(img, mask, shape):
+    """img resampled into another drawing's frame (shape), matching its main outline's box to mask's."""
+    l, t, r, _ = bbox(mask)
+    il, it, ir, _ = bbox(largest(foreground(img, estimate_paper(img), use_chroma=False)))
+    k = (r - l) / (ir - il)
+    inverse = (1 / k, 0, il - l / k, 0, 1 / k, it - t / k)
+    src = Image.fromarray(img.astype(np.uint8))
+    return np.asarray(src.transform((shape[1], shape[0]), Image.AFFINE, inverse, Image.BICUBIC, fillcolor=(255, 255, 255))).astype(np.float32)
+
+
+def food_regions(full, empty, mask):
+    """Left and right food areas: where the full drawing differs from the empty one, split at the divider."""
+    food = ndimage.binary_opening((np.abs(full - empty).max(2) > FOOD_DIFF) & mask, iterations=FOOD_OPEN)
+    xs = np.nonzero(mask.any(0))[0]
+    third = (xs.max() - xs.min()) // 3
+    mid = slice(xs.min() + third, xs.max() - third)
+    divider = mid.start + int(np.argmax((mask & (lum(empty) < INK_LUM))[:, mid].sum(0)))
+    cols = np.arange(mask.shape[1])[None, :]
+    return [ndimage.binary_fill_holes(largest(ndimage.binary_closing(food & side, iterations=FOOD_CLOSE)))
+            for side in (cols < divider, cols >= divider)]
 
 
 def lettering(img, paper, box, exclude=None):
@@ -414,6 +444,29 @@ def toppings():
     return names
 
 
+def drawn_bin(spec, sheet_mask, place, f):
+    """A bin drawn on its own sheets, scaled onto where the sheet's bin sat; fills come from the full drawing aligned to it."""
+    empty_src, full_src = spec['drawn']
+    empty = load(empty_src)
+    paper = estimate_paper(empty)
+    mask = largest(foreground(empty, paper, use_chroma=False))
+    l, t, r, _ = bbox(mask)
+    sl, st, sr, _ = bbox(sheet_mask)
+    s = (sr - sl) / (r - l)
+    origin = (sl - l * s, st - t * s)
+    put = lambda name, pixels: place(name, pixels, f * s, origin=origin, src_to_layout=s)
+    put(spec['name'], cutout(empty, paper, mask))
+
+    full = align_to(load(full_src), mask, empty.shape)
+    full_paper = estimate_paper(full)
+    for fill_name, region in zip(spec['fills'], food_regions(full, empty, mask)):
+        soft = ndimage.gaussian_filter(region.astype(np.float32), FILL_FEATHER)
+        put(f'fill_{fill_name}', rgba(full, full_paper, soft * (soft > FILL_CUTOFF)))
+
+    near_bin = ndimage.binary_dilation(mask, iterations=LABEL_CLEARANCE)
+    put(f'label_{spec["name"]}', rgba(empty, paper, lettering(empty, paper, spec['label'], near_bin)))
+
+
 def fit(mask, target, region):
     """Scale and offset placing mask best over target inside region (target px)."""
     d = FIT_DOWNSAMPLE
@@ -495,6 +548,9 @@ def main():
     ink = lum(empty) < INK_LUM
     for spec in BINS:
         mask = largest(in_box(empty_fg, spec['box']))
+        if 'drawn' in spec:
+            drawn_bin(spec, mask, place, f)
+            continue
         place(spec['name'], cutout(empty, plate, mask), f)
 
         for fill_name, region in zip(spec['fills'], compartments(mask, ink)):
@@ -507,7 +563,7 @@ def main():
     # Peel and dragon were drawn apart; fit each onto the layout
     target = np.abs(layout - plate).max(2) > LAYOUT_DIFF
     for name, source, region, same_paper, use_chroma in (
-        ('peel', 'pizza_peel.jpeg', PEEL_REGION, False, True),
+        ('peel', 'pizza_peel.png', PEEL_REGION, False, True),
         ('dragon', 'pizza_dragon.jpeg', DRAGON_REGION, True, False),
     ):
         img = load(source)
