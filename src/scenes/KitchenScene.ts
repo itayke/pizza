@@ -15,6 +15,7 @@ import {
   OUTLINE_WIDTH,
   PEEL,
   PIECES,
+  PULSE,
   SERVE_BUTTON,
   TOPPINGS,
   type IngredientId,
@@ -48,7 +49,10 @@ export class KitchenScene extends Container {
   /** The dough ball waiting in the bowl; the bowl is empty once it's picked up. */
   private readonly bowlFill = new Sprite(artTexture('dough_ball'));
   private readonly heldBall = makeDoughBall();
-  private readonly held = new Sprite();
+  private readonly held = new Container();
+  private readonly heldArt = new Sprite({ anchor: 0.5 });
+  /** Additive copy of the held art that brightens it while pressed. */
+  private readonly heldGlow = new Sprite({ anchor: 0.5, blendMode: 'add', alpha: 0 });
   private readonly fire = artSprite('fire');
   private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
@@ -86,7 +90,7 @@ export class KitchenScene extends Container {
     this.buildBakeButton();
     this.buildServeButton();
     this.heldBall.eventMode = 'none';
-    this.held.anchor.set(0.5);
+    this.held.addChild(this.heldArt, this.heldGlow);
     this.held.eventMode = 'none';
     this.addChild(this.heldBall, this.held);
 
@@ -149,6 +153,7 @@ export class KitchenScene extends Container {
       this.toppingsClosed = true;
       this.applyAvailability();
     }
+    this.updateGlow(dt);
     const inBowl = this.doughPhase === 'inBowl';
     this.bowlFill.visible = inBowl;
     this.bowl.cursor = inBowl ? 'pointer' : 'default';
@@ -157,6 +162,14 @@ export class KitchenScene extends Container {
     this.bakeButton.setState(this.doughReady, this.fire.visible);
     // The art eases through the bake, lingering around the optimal level
     this.dough.setBake(bakeCurve(this.bakeLevel));
+  }
+
+  /** The held ingredient's glow fades up while pressed and back out once released. */
+  private updateGlow(dt: number): void {
+    const target = this.painting ? PULSE.strength : 0;
+    const step = PULSE.seconds > 0 ? (PULSE.strength * dt) / PULSE.seconds : Infinity;
+    const alpha = this.heldGlow.alpha;
+    this.heldGlow.alpha = alpha < target ? Math.min(target, alpha + step) : Math.max(target, alpha - step);
   }
 
   private trackPointer(e: FederatedPointerEvent): void {
@@ -180,12 +193,14 @@ export class KitchenScene extends Container {
     this.held.visible = !!tool;
     // Sauce and cheese have their own cursor art; whole toppings show their raw piece, larger than it lands
     if (tool === 'sauce' || tool === 'cheese') {
-      this.held.texture = artTexture(`held_${tool}`);
+      this.heldArt.texture = artTexture(`held_${tool}`);
       this.held.scale.set(HELD.scale);
     } else if (tool) {
-      this.held.texture = artTexture(`topping_${tool}_raw`);
+      this.heldArt.texture = artTexture(`topping_${tool}_raw`);
       this.held.scale.set(TOPPINGS.scale * HELD.pieceScale);
     }
+    this.heldGlow.texture = this.heldArt.texture;
+    this.heldGlow.alpha = 0;
     this.held.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);
   }

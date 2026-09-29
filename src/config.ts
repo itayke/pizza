@@ -166,6 +166,13 @@ export const LANDING = {
   olivesSeconds: 0.2,
 };
 
+// The ingredient in hand brightens while pressed: a copy drawn additively fades up to strength on press and back out
+// on release, each over seconds
+export const PULSE = {
+  strength: 0.1,
+  seconds: 0.1,
+};
+
 // Whole toppings (all but sauce and cheese): one piece on press, then holdRate per second while held, moving or not,
 // each landing within scatterRadius design px of the pointer
 export type RepeatConfig = { holdRate: number; scatterRadius: number };
