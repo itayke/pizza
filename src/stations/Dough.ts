@@ -1,6 +1,7 @@
 import { Circle, Container, Graphics, Point, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
 import { COLORS, DOUGH, SAUCE } from '../config';
 import { easeOutCubic } from '../core/easing';
+import { placedDistance } from '../core/placement';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
 import { ToppingLayer } from './ToppingLayer';
@@ -76,7 +77,8 @@ export class Dough extends Container {
     this.toppings.setBake(level);
   }
 
-  /** Stamp sauce along a stroke (dough-local points); stamps that miss the dough are skipped. */
+  /** Stamp sauce along a stroke (dough-local points), pulled in past the inner rim; stamps that would reach past the
+   * sauce's drawn area are skipped. */
   paintSauce(from: PointData, to: PointData): void {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
@@ -86,11 +88,11 @@ export class Dough extends Container {
       const y = from.y + (dy * i) / count;
       const angle = Math.atan2(y, x);
       const edge = this.radiusAt(angle);
-      const distance = Math.hypot(x, y);
-      if (distance > edge + SAUCE.brushRadius) continue;
-      // Mask space: the dough edge is the inscribed circle, whatever its current radius
+      const distance = placedDistance(Math.hypot(x, y), edge);
+      if (distance + SAUCE.brushRadius > edge * SAUCE.maskReach) continue;
+      // Dough units: the edge is the unit circle, whatever its current radius
       const fraction = distance / edge;
-      this.sauce.stamp(0.5 + 0.5 * fraction * Math.cos(angle), 0.5 + 0.5 * fraction * Math.sin(angle), SAUCE.brushRadius / (2 * edge));
+      this.sauce.stamp(fraction * Math.cos(angle), fraction * Math.sin(angle), SAUCE.brushRadius / edge);
     }
     this.sauce.flush();
   }

@@ -38,6 +38,7 @@ export class KitchenScene extends Container {
   bakeLevel = 0;
   private readonly gauge = new BakeGauge();
   private readonly background = artSprite('bg');
+  private readonly peel = artSprite('peel');
   private readonly heldBall = makeDoughBall();
   private readonly held = new Sprite();
   private readonly fire = artSprite('fire');
@@ -147,8 +148,9 @@ export class KitchenScene extends Container {
     if (this.tool) this.held.position.copyFrom(this.pointer);
   }
 
-  /** Tap a bin to take its ingredient, tap it again to put it back. */
+  /** Tap a bin to take its ingredient, tap it again to put it back. The press never reaches the pizza. */
   private pickIngredient(id: IngredientId, e: FederatedPointerEvent): void {
+    e.stopPropagation();
     this.trackPointer(e);
     if (this.tool === id) this.setTool(null);
     else if (this.available.has(id)) this.setTool(id);
@@ -165,9 +167,9 @@ export class KitchenScene extends Container {
     this.dough.setKneadable(tool === null);
   }
 
-  /** A press with an ingredient in hand paints until release; this also catches a drag straight from the bin. */
+  /** A press on the peel with an ingredient in hand paints until release; presses elsewhere are ignored. */
   private startPainting(e: FederatedPointerEvent): void {
-    if (!this.tool) return;
+    if (!this.tool || !this.peel.getBounds().containsPoint(e.global.x, e.global.y)) return;
     this.trackPointer(e);
     this.painting = true;
     this.strokeEnd.copyFrom(this.pointer);
@@ -265,7 +267,7 @@ export class KitchenScene extends Container {
   }
 
   private buildPeel(): void {
-    const peel = artSprite('peel');
+    const peel = this.peel;
     peel.eventMode = 'static';
     peel.on('pointerdown', this.dropDough, this);
     peel.on('pointerup', this.releaseOverPeel, this);

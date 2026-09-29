@@ -2,6 +2,7 @@ import { Container, Sprite, type PointData } from 'pixi.js';
 import { TOPPINGS, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { BAKE_PHASES, bakeStep, type BakePhase } from '../core/bake';
+import { placedDistance } from '../core/placement';
 
 const TAU = Math.PI * 2;
 
@@ -100,7 +101,7 @@ export class ToppingLayer extends Container<Piece> {
     for (const piece of this.removeChildren()) piece.destroy({ children: true });
   }
 
-  /** A piece lands somewhere within scatterRadius of (x, y), if that's on the dough. */
+  /** A piece lands somewhere within scatterRadius of (x, y), pulled in past the inner rim. */
   private drop(topping: ScatterTopping, config: ScatterConfig, x: number, y: number): void {
     if (this.children.length >= TOPPINGS.maxPieces) return;
     const spread = config.scatterRadius * Math.sqrt(Math.random());
@@ -108,8 +109,8 @@ export class ToppingLayer extends Container<Piece> {
     const px = x + Math.cos(heading) * spread;
     const py = y + Math.sin(heading) * spread;
     const angle = Math.atan2(py, px);
-    const fraction = Math.hypot(px, py) / this.radiusAt(angle);
-    if (fraction > TOPPINGS.edgeFraction) return;
+    const edge = this.radiusAt(angle);
+    const fraction = placedDistance(Math.hypot(px, py), edge) / edge;
     const piece = this.addChild(new Piece(topping, angle, fraction));
     const { from, t } = bakeStep(this.bakeLevel);
     piece.setBake(from, t);

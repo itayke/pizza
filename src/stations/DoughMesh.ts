@@ -5,6 +5,8 @@ import { BAKE_PHASES, bakeWeights } from '../core/bake';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
 
 const TAU = Math.PI * 2;
+// Rings past the dough edge, out to the sauce's reach, where only spilled sauce draws
+const OUTER_RINGS = 3;
 
 const vertex = `
 in vec2 aPosition;
@@ -12,10 +14,12 @@ in vec2 aBallUV;
 in vec2 aRolledUV;
 in float aBlend;
 in vec2 aSauceUV;
+in float aEdgeFraction;
 out vec2 vBallUV;
 out vec2 vRolledUV;
 out float vBlend;
 out vec2 vSauceUV;
+out float vEdgeFraction;
 uniform mat3 uProjectionMatrix;
 uniform mat3 uWorldTransformMatrix;
 uniform mat3 uTransformMatrix;
@@ -27,6 +31,7 @@ void main() {
   vRolledUV = aRolledUV;
   vBlend = aBlend;
   vSauceUV = aSauceUV;
+  vEdgeFraction = aEdgeFraction;
 }
 `;
 
@@ -35,6 +40,7 @@ in vec2 vBallUV;
 in vec2 vRolledUV;
 in float vBlend;
 in vec2 vSauceUV;
+in float vEdgeFraction;
 out vec4 finalColor;
 uniform sampler2D uBall;
 uniform sampler2D uRolled;
@@ -54,6 +60,8 @@ const int BEVEL_DIRECTIONS = 8;
 const int BEVEL_RINGS = 2;
 const float TAU = 6.2831853;
 const float EDGE_BARE = 0.5;
+// Past the drawn edge the dough fades out over this fraction of it, so texture borders never show
+const float DOUGH_CUTOFF = 0.02;
 
 float sauceAt(vec2 uv) {
   // Soft stamps are thresholded into a crisp, antialiased edge
@@ -64,11 +72,11 @@ void main() {
   // Bake phases share the rolled drawing's canvas, so one UV samples all three (premultiplied, so edges fade too)
   vec4 rolled = texture(uRolled, vRolledUV) * uBakeWeights.x + texture(uBaked, vRolledUV) * uBakeWeights.y
     + texture(uBurnt, vRolledUV) * uBakeWeights.z;
-  vec4 dough = mix(texture(uBall, vBallUV), rolled, vBlend);
-  // Sauce multiplies over the dough, so its drawing and bake show through; the dough's premultiplied color keeps
-  // it inside the drawn edge
+  vec4 dough = mix(texture(uBall, vBallUV), rolled, vBlend) * (1.0 - smoothstep(1.0, 1.0 + DOUGH_CUTOFF, vEdgeFraction));
+  // Sauce multiplies over the dough laid on white, so the dough's drawing and bake show through it and sauce
+  // spilled past the dough shows as is
   float sauce = sauceAt(vSauceUV);
-  vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * dough.rgb;
+  vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * (dough.rgb + 1.0 - dough.a);
   // Inner shadow: darken by how much of the surroundings is bare, so every edge is multiplied
   float around = 0.0;
   for (int ring = 1; ring <= BEVEL_RINGS; ring++) {
@@ -81,16 +89,16 @@ void main() {
   // Right at an edge about half the surroundings are bare; scale so that reads as full shade
   float bare = min(1.0, (1.0 - around / float(BEVEL_RINGS * BEVEL_DIRECTIONS)) / EDGE_BARE);
   red *= 1.0 - bare * uBevelShade;
-  finalColor = vec4(mix(dough.rgb, red, sauce), dough.a) * uColor;
+  finalColor = vec4(mix(dough.rgb, red, sauce), mix(dough.a, 1.0, sauce)) * uColor;
 }
 `;
 
 type Shape = { centerX: number; centerY: number; edge: readonly number[] };
 
 /**
- * Polar mesh (spokes × rings) textured with the dough drawings. Each spoke's outer ring follows its radius,
+ * Polar mesh (spokes × rings) textured with the dough drawings. Each spoke's last dough ring follows its radius,
  * so the drawing stretches per angle; the ball fades into the rolled base as each spoke grows toward the rim.
- * Sauce is sampled from a mask in the same polar space (see SauceLayer).
+ * Sauce is sampled from a mask in the same polar space (see SauceLayer); a few rings past the edge carry only sauce.
  */
 export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly spokes: number;
@@ -99,6 +107,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly rolledUVs: Float32Array;
   private readonly blends: Float32Array;
   private readonly sauceUVs: Float32Array;
+  private readonly edgeFractions: Float32Array;
   private readonly sauceUniforms: UniformGroup;
   /** Rolled, baked and burnt shares of the base, updated in place. */
   private readonly bakeMix: Float32Array;
@@ -111,14 +120,15 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly buffers: Buffer[];
 
   constructor(spokes: number, sauce: Texture = Texture.EMPTY) {
-    const rings = DOUGH.meshRings;
+    const rings = DOUGH.meshRings + OUTER_RINGS;
     const count = 1 + spokes * rings;
     const positions = new Float32Array(count * 2);
     const ballUVs = new Float32Array(count * 2);
     const rolledUVs = new Float32Array(count * 2);
     const blends = new Float32Array(count);
     const sauceUVs = new Float32Array(count * 2);
-    const buffers = [positions, ballUVs, rolledUVs, blends, sauceUVs].map(
+    const edgeFractions = new Float32Array(count);
+    const buffers = [positions, ballUVs, rolledUVs, blends, sauceUVs, edgeFractions].map(
       (data) => new Buffer({ data, usage: BufferUsage.VERTEX | BufferUsage.COPY_DST }),
     );
     const geometry = new Geometry({
@@ -128,6 +138,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
         aRolledUV: { buffer: buffers[2], format: 'float32x2' },
         aBlend: { buffer: buffers[3], format: 'float32' },
         aSauceUV: { buffer: buffers[4], format: 'float32x2' },
+        aEdgeFraction: { buffer: buffers[5], format: 'float32' },
       },
       indexBuffer: buildIndices(spokes, rings),
     });
@@ -166,6 +177,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     this.rolledUVs = rolledUVs;
     this.blends = blends;
     this.sauceUVs = sauceUVs;
+    this.edgeFractions = edgeFractions;
     this.sauceUniforms = sauceUniforms;
     this.bakeMix = bakeUniforms.uniforms.uBakeWeights;
     this.sauceRepeat = sauceRepeat;
@@ -179,7 +191,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
       this.dirs[i * 2 + 1] = Math.sin(angle);
       this.rolledEdge[i] = edgeAt(DOUGH_SHAPES.dough_rolled, angle);
     }
-    fillBallUVs(ballUVs, this.dirs, rings, ball.width, ball.height);
+    fillBallUVs(ballUVs, this.dirs, ball.width, ball.height);
     this.buffers[1].update();
   }
 
@@ -194,7 +206,8 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     const full = DOUGH.rimRadius - rest;
     const rolled = DOUGH_SHAPES.dough_rolled;
     const { width, height } = artTexture('dough_rolled');
-    const { positions, rolledUVs, blends, sauceUVs, dirs, rings } = this;
+    const { positions, rolledUVs, blends, sauceUVs, edgeFractions, dirs, rings } = this;
+    const toMask = 0.5 / SAUCE.maskReach;
     let blendSum = 0;
 
     for (let i = 0; i < this.spokes; i++) {
@@ -204,9 +217,9 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
       const blend = fade((r - rest) / full);
       blendSum += blend;
       for (let k = 1; k <= rings; k++) {
-        const s = k / rings;
-        // Stretch grows toward the edge; the center stays near its resting size
-        const radius = s * (rest + (r - rest) * s ** DOUGH.stretchBias);
+        const s = ringFraction(k);
+        // Stretch grows toward the edge; the center stays near its resting size. Past the edge rings sit at even steps.
+        const radius = s <= 1 ? s * (rest + (r - rest) * s ** DOUGH.stretchBias) : s * r;
         const v = 1 + i * rings + (k - 1);
         positions[v * 2] = dx * radius;
         positions[v * 2 + 1] = dy * radius;
@@ -215,8 +228,9 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
         const uv = edgeFraction * this.rolledEdge[i];
         rolledUVs[v * 2] = (rolled.centerX + dx * uv) / width;
         rolledUVs[v * 2 + 1] = (rolled.centerY + dy * uv) / height;
-        sauceUVs[v * 2] = 0.5 + 0.5 * edgeFraction * dx;
-        sauceUVs[v * 2 + 1] = 0.5 + 0.5 * edgeFraction * dy;
+        sauceUVs[v * 2] = 0.5 + edgeFraction * dx * toMask;
+        sauceUVs[v * 2 + 1] = 0.5 + edgeFraction * dy * toMask;
+        edgeFractions[v] = edgeFraction;
         blends[v] = blend;
       }
     }
@@ -227,20 +241,22 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     sauceUVs[1] = 0.5;
     // Follow config live for the tuning panel
     const u = this.sauceUniforms.uniforms;
-    this.sauceRepeat[0] = SAUCE.patternRepeat;
-    this.sauceRepeat[1] = SAUCE.patternRepeat * this.patternAspect;
+    // The mask spans maskReach dough widths, so the pattern repeats that much more across it
+    this.sauceRepeat[0] = SAUCE.patternRepeat * SAUCE.maskReach;
+    this.sauceRepeat[1] = SAUCE.patternRepeat * SAUCE.maskReach * this.patternAspect;
     u.uSauceEdge = SAUCE.edge;
     u.uSauceEdgeWidth = SAUCE.edgeWidth;
-    // Mask spans the dough's diameter; the rim radius stands in for the current size
-    u.uBevelOffset = SAUCE.bevelWidth / (2 * DOUGH.rimRadius);
+    // Mask spans maskReach dough diameters; the rim radius stands in for the current size
+    u.uBevelOffset = SAUCE.bevelWidth / (2 * DOUGH.rimRadius * SAUCE.maskReach);
     u.uBevelShade = SAUCE.bevelShade;
 
-    for (const i of [0, 2, 3, 4]) this.buffers[i].update();
+    for (const i of [0, 2, 3, 4, 5]) this.buffers[i].update();
   }
 }
 
-/** Ball UVs never change: ring s of each spoke maps to that fraction of the drawing's edge. */
-function fillBallUVs(uvs: Float32Array, dirs: Float32Array, rings: number, width: number, height: number): void {
+/** Ball UVs never change: each ring maps to its fraction of the drawing's edge. */
+function fillBallUVs(uvs: Float32Array, dirs: Float32Array, width: number, height: number): void {
+  const rings = DOUGH.meshRings + OUTER_RINGS;
   const ball = DOUGH_SHAPES.dough_ball;
   const spokes = dirs.length / 2;
   uvs[0] = ball.centerX / width;
@@ -249,11 +265,17 @@ function fillBallUVs(uvs: Float32Array, dirs: Float32Array, rings: number, width
     const edge = edgeAt(ball, (i / spokes) * TAU);
     for (let k = 1; k <= rings; k++) {
       const v = 1 + i * rings + (k - 1);
-      const uv = (k / rings) * edge;
+      const uv = ringFraction(k) * edge;
       uvs[v * 2] = (ball.centerX + dirs[i * 2] * uv) / width;
       uvs[v * 2 + 1] = (ball.centerY + dirs[i * 2 + 1] * uv) / height;
     }
   }
+}
+
+/** Ring k's distance as a fraction of the dough edge: even steps to the edge, then even steps out to the sauce's reach. */
+function ringFraction(k: number): number {
+  const inner = DOUGH.meshRings;
+  return k <= inner ? k / inner : 1 + ((SAUCE.maskReach - 1) * (k - inner)) / OUTER_RINGS;
 }
 
 /** Center fan to the first ring, then a quad between each pair of rings. */

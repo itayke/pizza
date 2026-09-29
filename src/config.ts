@@ -100,8 +100,10 @@ export const SAUCE = {
   brushRadius: 81,
   // Stamp spacing along a stroke, as a fraction of brushRadius
   stampSpacing: 0.75,
-  // Mask resolution (square), and how many times the sauce pattern repeats across the dough
-  textureSize: 512,
+  // Sauce can spill past the dough onto the peel, out to maskReach times the dough edge; whole stamps only
+  maskReach: 1.5,
+  // Mask resolution (square, spanning maskReach), and how many times the sauce pattern repeats across the dough
+  textureSize: 768,
   patternRepeat: 2,
   // Sauce edge sits where the soft stamps reach this mask level, blurred over ± edgeWidth (small is crisp)
   edge: 0.5,
@@ -118,9 +120,16 @@ export const SAUCE = {
 export const TOPPINGS = {
   scale: 0.5,
   scaleJitter: 0.15,
-  // Piece centers land within this fraction of the dough edge
-  edgeFraction: 0.92,
   maxPieces: 500,
+};
+
+// Sauce and toppings can be applied anywhere. They land where pressed up to innerRim (a fraction of the dough edge at
+// that angle); past it, the overshoot eases off exponentially, never landing past outerLimit (same units).
+// pull: how fast it closes in on outerLimit; 1 leaves the inner rim at pointer speed, higher hugs the limit sooner
+export const PLACEMENT = {
+  innerRim: 0.603,
+  outerLimit: 1,
+  pull: 0.816,
 };
 
 // Scattering while pressed: a piece every spacing design px of drag, holdRate per second while resting,
