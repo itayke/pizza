@@ -189,6 +189,27 @@ export const ART = {
     "width": 309,
     "height": 294
   },
+  "bake_button_unpressed": {
+    "file": "bake_button_unpressed.png",
+    "x": 0,
+    "y": 0,
+    "width": 283,
+    "height": 281
+  },
+  "bake_button_pressed": {
+    "file": "bake_button_pressed.png",
+    "x": 0,
+    "y": 0,
+    "width": 283,
+    "height": 281
+  },
+  "bake_button_disabled": {
+    "file": "bake_button_disabled.png",
+    "x": 0,
+    "y": 0,
+    "width": 283,
+    "height": 281
+  },
   "topping_cheese_raw": {
     "file": "topping_cheese_raw.png",
     "x": 0,

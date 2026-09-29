@@ -18,6 +18,7 @@ import {
 import { artPoint, artSprite, artTexture, type ArtName } from '../core/art';
 import { bakeCurve } from '../core/bake';
 import { easeInQuad } from '../core/easing';
+import { BakeButton } from '../stations/BakeButton';
 import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
@@ -37,6 +38,7 @@ export class KitchenScene extends Container {
   /** Doneness, raw at 0 to burnt at 1; rises steadily, and the dial shows it as is. */
   bakeLevel = 0;
   private readonly gauge = new BakeGauge();
+  private readonly bakeButton = new BakeButton();
   private readonly background = artSprite('bg');
   private readonly peel = artSprite('peel');
   private readonly heldBall = makeDoughBall();
@@ -76,6 +78,7 @@ export class KitchenScene extends Container {
     this.addChild(this.dough);
     this.addChild(this.gauge);
     this.buildDragon();
+    this.buildBakeButton();
     this.buildServeButton();
     this.heldBall.eventMode = 'none';
     this.held.anchor.set(0.5);
@@ -137,6 +140,8 @@ export class KitchenScene extends Container {
       if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
     }
     this.gauge.setLevel(this.bakeLevel);
+    this.bakeButton.layout();
+    this.bakeButton.setState(this.doughReady, this.fire.visible);
     // The art eases through the bake, lingering around the optimal level
     this.dough.setBake(bakeCurve(this.bakeLevel));
   }
@@ -305,15 +310,28 @@ export class KitchenScene extends Container {
     const { dragon } = this;
     dragon.eventMode = 'static';
     dragon.cursor = 'pointer';
-    // Baking puts down whatever ingredient is in hand
-    dragon.on('pointerdown', () => {
+    this.onFirePress(dragon, () => true);
+    this.addChild(dragon, this.fire);
+  }
+
+  /** A second way to bake, disabled until the dough is rolled out. */
+  private buildBakeButton(): void {
+    this.onFirePress(this.bakeButton, () => this.doughReady);
+    this.addChild(this.bakeButton);
+  }
+
+  /** Breathe fire while target is held, if it's enabled; baking puts down whatever ingredient is in hand. */
+  private onFirePress(target: Container, enabled: () => boolean): void {
+    target.on('pointerdown', (e) => {
+      if (!enabled()) return;
+      // Never also a press on the pizza
+      e.stopPropagation();
       this.setTool(null);
       this.setFiring(true);
     });
     for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
-      dragon.on(end, () => this.setFiring(false));
+      target.on(end, () => this.setFiring(false));
     }
-    this.addChild(dragon, this.fire);
   }
 
   private buildServeButton(): void {

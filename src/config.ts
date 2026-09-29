@@ -34,13 +34,13 @@ export const BINS = [
 // Per-bin nudge from its drawn spot, in design px, and whether it shows. Keys are `${art}X`, `${art}Y`, `${art}Enabled`.
 export const BIN_LAYOUT = {
   bin1X: 0,
-  bin1Y: -27,
+  bin1Y: -54,
   bin1Enabled: true,
   bin2X: -27,
-  bin2Y: -33,
+  bin2Y: -60,
   bin2Enabled: true,
   bin3X: -28,
-  bin3Y: -47,
+  bin3Y: -62,
   bin3Enabled: true,
 };
 
@@ -167,6 +167,13 @@ export const BAKE_GAUGE = {
   pivotY: 0.855,
   // Needle angle from upright at raw and burnt, radians
   sweep: 1.45,
+};
+
+// Bake button above the gauge: center and drawn width. Pressing it breathes fire, same as pressing the dragon
+export const BAKE_BUTTON = {
+  x: 1533,
+  y: 1150,
+  width: 212,
 };
 
 // Dragon: its pivot (fractions of the art) sits at (x, y), which may be past the design edge; scaled from its

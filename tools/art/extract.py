@@ -85,6 +85,11 @@ SAUCE_SEAM_BLEND = 32
 HELD_SOURCE = 'pizza_placement_ingredients.png'
 HELD_PIECES = {'held_sauce': (190, 730, 520, 1060), 'held_cheese': (620, 730, 975, 1065)}
 
+# Bake button: its states side by side, left to right, cut onto one shared canvas so they swap in place; sized in code
+BAKE_BUTTON_SOURCE = 'pizza_bake_button.png'
+BAKE_BUTTON_STATES = ('unpressed', 'pressed', 'disabled')
+BAKE_BUTTON_INK_LUM = 200  # pencil rims can be light, so anything short of paper blocks the flood
+
 # Placed toppings: a transparent sheet with one column per ingredient and one row per bake phase, kept at sheet scale.
 # Each ingredient's phases share one canvas centered on its raw piece, with later phases fitted over it so they cross-fade
 TOPPINGS_SOURCE = 'pizza_ingredients.png'
@@ -406,6 +411,31 @@ def fit_over(ref, moving):
     return upright if best[0] - upright[0] < TOPPING_FIT_ROTATE_GAIN else best
 
 
+def bake_button():
+    """Each button state on a canvas shared by all of them, centered on its outline; returns the asset names."""
+    img = load(BAKE_BUTTON_SOURCE)
+    paper = estimate_paper(img)
+    fg = foreground(img, paper, use_chroma=False, ink_lum=BAKE_BUTTON_INK_LUM)
+    comps, n = ndimage.label(fg)
+    sizes = ndimage.sum(fg, comps, range(1, n + 1))
+    # The buttons are the largest pieces; the state captions above them are small letters
+    ids = 1 + np.argsort(sizes)[-len(BAKE_BUTTON_STATES):]
+    masks = sorted((ndimage.binary_fill_holes(comps == i) for i in ids), key=lambda m: bbox(m)[0])
+    # Every state is stretched to the first one's width and height, so swapping states never changes the button's shape
+    fl, ft, fr, fb = bbox(masks[0])
+    names = []
+    for state, mask in zip(BAKE_BUTTON_STATES, masks):
+        l, t, r, b = bbox(mask)
+        piece = Image.fromarray(cutout(img, paper, mask)[t:b, l:r], 'RGBA').resize((fr - fl, fb - ft), Image.LANCZOS)
+        canvas = Image.new('RGBA', (fr - fl + 2 * FEATHER, fb - ft + 2 * FEATHER))
+        canvas.paste(piece, (FEATHER, FEATHER))
+        name = f'bake_button_{state}'
+        canvas.save(OUT / f'{name}.png', optimize=True)
+        print(f'{name}: scaled {(fr - fl) / (r - l):.3f} x {(fb - ft) / (b - t):.3f}')
+        names.append(name)
+    return names
+
+
 def toppings():
     """Writes topping_<ingredient>_<phase>.png, all phases of an ingredient on one canvas; returns the names."""
     cut = grid_pieces(bleed(np.asarray(Image.open(ART / TOPPINGS_SOURCE).convert('RGBA'))), TOPPING_COLUMNS, TOPPING_PHASES)
@@ -566,6 +596,10 @@ def main():
         record(name, f'{name}.png')
 
     sauce_texture()
+
+    # Bake button states: not placed in the layout, sized in code
+    for name in bake_button():
+        record(name, f'{name}.png')
 
     # Placed toppings per bake phase: not placed in the layout, kept at sheet scale
     for name in toppings():

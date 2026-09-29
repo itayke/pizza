@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_GAUGE, BIN_LAYOUT, DOUGH, CHEESE, DRAGON, FIRE, HELD, PLACEMENT, SAUCE, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, DOUGH, CHEESE, DRAGON, FIRE, HELD, PLACEMENT, SAUCE, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -98,6 +98,9 @@ export function createTuningPanel(scene: KitchenScene): void {
   const bake = pane.addFolder({ title: 'Bake', expanded: false });
   bake.addBinding(BAKE_GAUGE, 'x', { min: 0, max: 2048, step: 1 });
   bake.addBinding(BAKE_GAUGE, 'y', { min: 0, max: 1536, step: 1 });
+  bake.addBinding(BAKE_BUTTON, 'x', { label: 'buttonX', min: 0, max: 2048, step: 1 });
+  bake.addBinding(BAKE_BUTTON, 'y', { label: 'buttonY', min: 0, max: 1536, step: 1 });
+  bake.addBinding(BAKE_BUTTON, 'width', { label: 'buttonWidth', min: 40, max: 400, step: 1 });
   // Draggable to preview the bake cross-fade; fire keeps raising it from wherever it's left, so it re-reads
   const bakeLevel = bake.addBinding(scene, 'bakeLevel', { min: 0, max: 1 });
   setInterval(() => bakeLevel.refresh(), BAKE_LEVEL_REFRESH_MS);
@@ -109,7 +112,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }
