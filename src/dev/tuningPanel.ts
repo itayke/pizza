@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, PEEL, PIECES, PLACEMENT, SAUCE, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PLACEMENT, SAUCE, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -81,6 +81,12 @@ export function createTuningPanel(scene: KitchenScene): void {
   placement.addBinding(PLACEMENT, 'outerLimit', { min: 1, max: 1.5 });
   placement.addBinding(PLACEMENT, 'pull', { min: 0.25, max: 4 });
 
+  // Per topping: how much bigger a piece starts when placed, and how long it takes to settle
+  const landing = pane.addFolder({ title: 'Landing', expanded: false });
+  for (const key of Object.keys(LANDING) as (keyof typeof LANDING)[]) {
+    landing.addBinding(LANDING, key, key.endsWith('Scale') ? { min: 0.5, max: 3 } : { min: 0, max: 1 });
+  }
+
   const bins = pane.addFolder({ title: 'Bins', expanded: false });
   for (const key of Object.keys(BIN_LAYOUT) as (keyof typeof BIN_LAYOUT)[]) {
     const isFlag = typeof BIN_LAYOUT[key] === 'boolean';
@@ -131,7 +137,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

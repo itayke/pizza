@@ -152,6 +152,20 @@ export const CHEESE = {
   scatterRadius: 45,
 };
 
+// Placed pieces land from <topping>Scale times their size down to it over <topping>Seconds, easing in
+export const LANDING = {
+  cheeseScale: 1.2,
+  cheeseSeconds: 0.2,
+  pepperoniScale: 1.2,
+  pepperoniSeconds: 0.2,
+  basilScale: 1.2,
+  basilSeconds: 0.2,
+  pineappleScale: 1.2,
+  pineappleSeconds: 0.2,
+  olivesScale: 1.2,
+  olivesSeconds: 0.2,
+};
+
 // Whole toppings (all but sauce and cheese): one piece on press, then holdRate per second while held, moving or not,
 // each landing within scatterRadius design px of the pointer
 export type RepeatConfig = { holdRate: number; scatterRadius: number };
@@ -164,7 +178,7 @@ export const PIECES = {
 // their relative sizes; whole toppings show their raw piece at pieceScale times the size it lands
 export const HELD = {
   scale: 0.56,
-  pieceScale: 2,
+  pieceScale: 1.5,
 };
 
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.
@@ -173,8 +187,8 @@ export const HELD = {
 // Once baked past toppingsCutoff, toppings close for this pizza
 export const BAKE = {
   secondsToBurnt: 8,
-  optimalLevel: 0.694,
-  easePower: 1.5,
+  optimalLevel: 0.734,
+  easePower: 1.256,
   toppingsCutoff: 0.05,
 };
 

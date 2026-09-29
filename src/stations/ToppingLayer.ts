@@ -1,7 +1,8 @@
 import { Container, Sprite, type PointData } from 'pixi.js';
-import { TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
+import { LANDING, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { BAKE_PHASES, bakeStep, type BakePhase } from '../core/bake';
+import { easeInQuad } from '../core/easing';
 import { placedDistance } from '../core/placement';
 
 const TAU = Math.PI * 2;
@@ -12,10 +13,14 @@ export type Topping = Exclude<IngredientId, 'sauce'>;
 /** One placed piece with every bake phase stacked on it, later phases on top; baking cross-fades them. */
 class Piece extends Container {
   private readonly phases: Sprite[];
+  /** Resting scale, jitter included. */
+  private readonly size: number;
+  /** Seconds since placed. */
+  private age = 0;
 
   /** Position in the dough's polar space: angle, and distance as a fraction of the edge there. */
   constructor(
-    topping: Topping,
+    private readonly topping: Topping,
     readonly polarAngle: number,
     readonly fraction: number,
   ) {
@@ -27,7 +32,18 @@ class Piece extends Container {
     };
     this.phases = BAKE_PHASES.map(sprite);
     this.rotation = Math.random() * TAU;
-    this.scale.set(TOPPINGS.scale * (1 + TOPPINGS.scaleJitter * (2 * Math.random() - 1)));
+    this.size = TOPPINGS.scale * (1 + TOPPINGS.scaleJitter * (2 * Math.random() - 1));
+    this.land(0);
+  }
+
+  /** Shrink from the topping's landing scale to rest; true once it has landed. */
+  land(dt: number): boolean {
+    this.age += dt;
+    const seconds = LANDING[`${this.topping}Seconds`];
+    const t = seconds > 0 ? Math.min(1, this.age / seconds) : 1;
+    const start = LANDING[`${this.topping}Scale`];
+    this.scale.set(this.size * (start + (1 - start) * easeInQuad(t)));
+    return t >= 1;
   }
 
   /**
@@ -44,26 +60,25 @@ class Piece extends Container {
 }
 
 /**
- * Topping pieces on the dough, kept in its polar space so they follow it as it stretches. Cheese always lies under
- * every other topping, which stack in the order they're placed.
+ * Topping pieces on the dough, over its sauce, kept in its polar space so they follow it as it stretches. Every
+ * topping shares one stack, in the order placed.
  */
-export class ToppingLayer extends Container {
-  private readonly cheese = new Container<Piece>();
-  private readonly others = new Container<Piece>();
+export class ToppingLayer extends Container<Piece> {
   /** Drag distance since the last drop, design px. */
   private travel = 0;
   /** Drops owed while the pointer rests, or while held for whole toppings. */
   private owed = 0;
   private bakeLevel = 0;
+  /** Pieces still shrinking into place. */
+  private readonly landing = new Set<Piece>();
 
   get pieces(): number {
-    return this.cheese.children.length + this.others.children.length;
+    return this.children.length;
   }
 
   constructor(private readonly radiusAt: (angle: number) => number) {
     super();
     this.eventMode = 'none';
-    this.addChild(this.cheese, this.others);
   }
 
   /** A new press drops a piece right away. */
@@ -97,26 +112,28 @@ export class ToppingLayer extends Container {
     for (; this.owed >= 1; this.owed--) this.drop(topping, config, at.x, at.y);
   }
 
+  /** Advance pieces that are still landing. */
+  update(dt: number): void {
+    for (const piece of this.landing) {
+      if (piece.land(dt)) this.landing.delete(piece);
+    }
+  }
+
   /** Show every piece, and those placed later, at a bake level (raw at 0 to burnt at 1). */
   setBake(level: number): void {
     this.bakeLevel = level;
     const { from, t } = bakeStep(level);
-    for (const piece of this.all()) piece.setBake(from, t);
+    for (const piece of this.children) piece.setBake(from, t);
   }
 
   /** Follow the dough's current edge. */
   layout(): void {
-    for (const piece of this.all()) this.place(piece);
+    for (const piece of this.children) this.place(piece);
   }
 
   clear(): void {
-    for (const layer of [this.cheese, this.others]) {
-      for (const piece of layer.removeChildren()) piece.destroy({ children: true });
-    }
-  }
-
-  private all(): Piece[] {
-    return [...this.cheese.children, ...this.others.children];
+    this.landing.clear();
+    for (const piece of this.removeChildren()) piece.destroy({ children: true });
   }
 
   /** A piece lands somewhere within scatterRadius of (x, y), pulled in past the inner rim. */
@@ -129,8 +146,8 @@ export class ToppingLayer extends Container {
     const angle = Math.atan2(py, px);
     const edge = this.radiusAt(angle);
     const fraction = placedDistance(Math.hypot(px, py), edge) / edge;
-    const layer = topping === 'cheese' ? this.cheese : this.others;
-    const piece = layer.addChild(new Piece(topping, angle, fraction));
+    const piece = this.addChild(new Piece(topping, angle, fraction));
+    this.landing.add(piece);
     const { from, t } = bakeStep(this.bakeLevel);
     piece.setBake(from, t);
     this.place(piece);

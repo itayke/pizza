@@ -115,6 +115,7 @@ export class Dough extends Container {
   }
 
   update(dt: number): void {
+    this.toppings.update(dt);
     this.updateReach();
     if (this.pointerId !== null && this.isPointerInReach()) {
       this.push(DOUGH.holdGrowthPerSecond * dt);
