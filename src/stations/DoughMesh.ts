@@ -65,9 +65,10 @@ void main() {
   vec4 rolled = texture(uRolled, vRolledUV) * uBakeWeights.x + texture(uBaked, vRolledUV) * uBakeWeights.y
     + texture(uBurnt, vRolledUV) * uBakeWeights.z;
   vec4 dough = mix(texture(uBall, vBallUV), rolled, vBlend);
-  // Sauce takes the dough's alpha so it never spills past the drawn edge (colors are premultiplied)
+  // Sauce multiplies over the dough, so its drawing and bake show through; the dough's premultiplied color keeps
+  // it inside the drawn edge
   float sauce = sauceAt(vSauceUV);
-  vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * dough.a;
+  vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * dough.rgb;
   // Inner shadow: darken by how much of the surroundings is bare, so every edge is multiplied
   float around = 0.0;
   for (int ring = 1; ring <= BEVEL_RINGS; ring++) {

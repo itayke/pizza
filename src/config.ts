@@ -142,7 +142,7 @@ export const HELD = {
 // The art cross-fades raw to baked up to optimalLevel, where it looks fully baked, then baked to burnt
 export const BAKE = {
   secondsToBurnt: 8,
-  optimalLevel: 0.597,
+  optimalLevel: 0.694,
 };
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
