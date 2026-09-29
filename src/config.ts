@@ -44,6 +44,12 @@ export const BIN_LAYOUT = {
   bin3Enabled: true,
 };
 
+// Dough bowl and its label: nudge from their drawn spot, in design px
+export const BOWL = {
+  x: 0,
+  y: 0,
+};
+
 // Peel: nudge from its drawn spot in design px (the dough moves with it), and its face center as fractions of the art
 export const PEEL = {
   x: 0,

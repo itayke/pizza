@@ -2,6 +2,7 @@ import { Container, Graphics, Point, Sprite, type FederatedPointerEvent, type Re
 import {
   BAKE,
   BINS,
+  BOWL,
   CHEESE,
   COLORS,
   DESIGN_HEIGHT,
@@ -41,6 +42,8 @@ export class KitchenScene extends Container {
   private readonly bakeButton = new BakeButton();
   private readonly background = artSprite('bg');
   private readonly peel = artSprite('peel');
+  private readonly bowl = artSprite('bowl');
+  private readonly bowlLabel = artSprite('label_dough');
   private readonly heldBall = makeDoughBall();
   private readonly held = new Sprite();
   private readonly fire = artSprite('fire');
@@ -261,11 +264,20 @@ export class KitchenScene extends Container {
   }
 
   private buildBowl(): void {
-    const bowl = artSprite('bowl');
+    const { bowl } = this;
     bowl.eventMode = 'static';
     bowl.cursor = 'pointer';
     bowl.on('pointerdown', this.pickUpDough, this);
-    this.addChild(bowl, artSprite('label_dough'));
+    this.addChild(bowl, this.bowlLabel);
+    this.layoutBowl();
+  }
+
+  /** Place the bowl and its label from config. */
+  layoutBowl(): void {
+    for (const [sprite, name] of [[this.bowl, 'bowl'], [this.bowlLabel, 'label_dough']] as const) {
+      const drawn = artPoint(name, 0, 0);
+      sprite.position.set(drawn.x + BOWL.x, drawn.y + BOWL.y);
+    }
   }
 
   private buildPeel(): void {
