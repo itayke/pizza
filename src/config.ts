@@ -44,10 +44,12 @@ export const BIN_LAYOUT = {
   bin3Enabled: true,
 };
 
-// Center of the peel's face, as fractions of the peel art
+// Peel: nudge from its drawn spot in design px (the dough moves with it), and its face center as fractions of the art
 export const PEEL = {
+  x: 0,
+  y: -18,
   faceX: 0.5,
-  faceY: 0.36,
+  faceY: 0.39,
 };
 
 // Kneading: press on the dough to spread it toward the rim. No failure: growth just stops past the rim.

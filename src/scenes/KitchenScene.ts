@@ -47,7 +47,7 @@ export class KitchenScene extends Container {
   private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
   private readonly pointer = new Point();
-  private readonly peelCenter: Point;
+  private readonly peelCenter = new Point();
   private readonly dropFrom = new Point();
   private readonly strokeEnd = new Point();
   private dropElapsed = 0;
@@ -63,8 +63,6 @@ export class KitchenScene extends Container {
   constructor(unlocked: ReadonlySet<IngredientId>, renderer: Renderer) {
     super();
     this.dough = new Dough(renderer);
-    const face = artPoint('peel', PEEL.faceX, PEEL.faceY);
-    this.peelCenter = new Point(face.x, face.y);
 
     this.background.anchor.set(0.5);
     this.background.position.set(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2);
@@ -74,7 +72,6 @@ export class KitchenScene extends Container {
     this.buildBins(unlocked);
     this.buildBowl();
     this.buildPeel();
-    this.dough.position.copyFrom(this.peelCenter);
     this.addChild(this.dough);
     this.addChild(this.gauge);
     this.buildDragon();
@@ -277,6 +274,17 @@ export class KitchenScene extends Container {
     peel.on('pointerdown', this.dropDough, this);
     peel.on('pointerup', this.releaseOverPeel, this);
     this.addChild(peel);
+    this.layoutPeel();
+  }
+
+  /** Place the peel from config; the dough sits on its face and the fire aims there. */
+  layoutPeel(): void {
+    const drawn = artPoint('peel', 0, 0);
+    this.peel.position.set(drawn.x + PEEL.x, drawn.y + PEEL.y);
+    const face = artPoint('peel', PEEL.faceX, PEEL.faceY);
+    this.peelCenter.set(face.x + PEEL.x, face.y + PEEL.y);
+    this.dough.position.copyFrom(this.peelCenter);
+    this.layoutDragon();
   }
 
   /** Place the dragon from config and aim the fire from its mouth at the dough. */

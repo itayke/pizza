@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, DOUGH, CHEESE, DRAGON, FIRE, HELD, PLACEMENT, SAUCE, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, DOUGH, CHEESE, DRAGON, FIRE, HELD, PEEL, PLACEMENT, SAUCE, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -83,6 +83,13 @@ export function createTuningPanel(scene: KitchenScene): void {
   }
   bins.on('change', () => scene.layoutBins());
 
+  const peel = pane.addFolder({ title: 'Peel', expanded: false });
+  peel.addBinding(PEEL, 'x', { min: -200, max: 200, step: 1 });
+  peel.addBinding(PEEL, 'y', { min: -200, max: 200, step: 1 });
+  peel.addBinding(PEEL, 'faceX', { min: 0, max: 1 });
+  peel.addBinding(PEEL, 'faceY', { min: 0, max: 1 });
+  peel.on('change', () => scene.layoutPeel());
+
   const dragon = pane.addFolder({ title: 'Dragon', expanded: false });
   dragon.addBinding(DRAGON, 'x', { min: 1200, max: 2800, step: 1 });
   dragon.addBinding(DRAGON, 'y', { min: 800, max: 2200, step: 1 });
@@ -112,7 +119,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }
