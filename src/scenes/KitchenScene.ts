@@ -178,13 +178,13 @@ export class KitchenScene extends Container {
     this.tool = tool;
     this.painting = false;
     this.held.visible = !!tool;
-    // Sauce and cheese have their own cursor art; whole toppings show their raw piece at the size it lands
+    // Sauce and cheese have their own cursor art; whole toppings show their raw piece, larger than it lands
     if (tool === 'sauce' || tool === 'cheese') {
       this.held.texture = artTexture(`held_${tool}`);
       this.held.scale.set(HELD.scale);
     } else if (tool) {
       this.held.texture = artTexture(`topping_${tool}_raw`);
-      this.held.scale.set(TOPPINGS.scale);
+      this.held.scale.set(TOPPINGS.scale * HELD.pieceScale);
     }
     this.held.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);

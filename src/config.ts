@@ -160,9 +160,11 @@ export const PIECES = {
   scatterRadius: 0,
 };
 
-// Ingredients in hand follow the pointer, drawn at this fraction of their sheet size so they keep their relative sizes
+// Ingredients in hand follow the pointer: sauce and cheese art at scale, a fraction of their sheet size so they keep
+// their relative sizes; whole toppings show their raw piece at pieceScale times the size it lands
 export const HELD = {
   scale: 0.56,
+  pieceScale: 2,
 };
 
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.

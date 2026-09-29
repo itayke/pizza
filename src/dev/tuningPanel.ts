@@ -71,6 +71,7 @@ export function createTuningPanel(scene: KitchenScene): void {
 
   const pieces = pane.addFolder({ title: 'Pieces', expanded: false });
   pieces.addBinding(PIECES, 'holdRate', { min: 0, max: 20 });
+  pieces.addBinding(HELD, 'pieceScale', { label: 'heldScale', min: 0.5, max: 4 });
   pieces.addBinding(PIECES, 'scatterRadius', { min: 0, max: 150, step: 1 });
   cheese.addBinding(TOPPINGS, 'scale', { label: 'pieceScale', min: 0.05, max: 1 });
   cheese.addBinding(TOPPINGS, 'scaleJitter', { min: 0, max: 0.5 });
