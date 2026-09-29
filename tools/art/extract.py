@@ -29,7 +29,7 @@ MIN_SPECK = 400  # drop foreground islands smaller than this, px
 LAYOUT_DIFF = 35  # layout-vs-plate difference that counts as drawn
 FIT_DOWNSAMPLE = 4
 FIT_SCALES = np.arange(0.6, 1.4, 0.005)
-FILL_FEATHER = 1.5  # compartment mask blur, px
+FILL_FEATHER = 1.5  # fill mask blur, px
 FILL_CUTOFF = 0.01
 # Separately drawn bins: food is where the full drawing differs from the empty one, cleaned up in px
 FOOD_DIFF = 45
@@ -52,14 +52,15 @@ DOUGH_BAKE_PAD = 16  # paper added around the drawing so dough touching the canv
 DOUGH_SMOOTH = 5  # trims pencil-shadow scraps off the silhouette, px
 DOUGH_EDGE_SAMPLES = 180
 DOUGH_RAY_STEP = 0.25
-# Bins with 'drawn' (empty, full) come from their own drawings, scaled onto the sheet bin's spot; their label box is in
+# Bins come from their own drawings (empty, full), scaled onto their box on the empty layout sheet; the label box is in
 # the empty drawing's px
 BINS = [
     {'name': 'bin1', 'box': (204, 114, 792, 444), 'label': (0, 570, 1024, 803), 'fills': ('sauce', 'cheese'),
      'drawn': ('pizza_bin1_empty.png', 'pizza_bin1_full.png')},
     {'name': 'bin2', 'box': (930, 132, 1482, 456), 'label': (0, 560, 1024, 817), 'fills': ('pepperoni', 'basil'),
      'drawn': ('pizza_bin2_empty.png', 'pizza_bin2_full.png')},
-    {'name': 'bin3', 'box': (1590, 144, 2160, 492), 'label': (1560, 448, 2140, 570), 'fills': ('pineapple', 'olives')},
+    {'name': 'bin3', 'box': (1590, 144, 2160, 492), 'label': (0, 560, 1024, 808), 'fills': ('pineapple', 'olives'),
+     'drawn': ('pizza_bin3_empty.png', 'pizza_bin3_full.png')},
 ]
 # Where to look for the separately drawn pieces in the layout
 PEEL_REGION = (560, 500, 1760, 1792)
@@ -189,22 +190,6 @@ def save(name, pixels, scale):
     im = im.convert('RGBa').resize(size, Image.LANCZOS).convert('RGBA')
     im.save(OUT / f'{name}.png', optimize=True)
     return l, t, r, b
-
-
-def compartments(mask, ink):
-    """Left and right compartment areas: inside the rim band, split at the divider."""
-    comps, n = ndimage.label(mask & ~ink)
-    # The rim band is a ring, so its bounding box is the biggest
-    boxes = ndimage.find_objects(comps)
-    areas = [(s[0].stop - s[0].start) * (s[1].stop - s[1].start) for s in boxes]
-    rim = comps == 1 + int(np.argmax(areas))
-    inner = ndimage.binary_fill_holes(rim) & ~rim
-    xs = np.nonzero(inner.any(0))[0]
-    third = (xs.max() - xs.min()) // 3
-    mid = slice(xs.min() + third, xs.max() - third)
-    divider = mid.start + int(np.argmax((inner & ink)[:, mid].sum(0)))
-    cols = np.arange(inner.shape[1])[None, :]
-    return inner & (cols < divider), inner & (cols >= divider)
 
 
 def align_to(img, mask, shape):
@@ -539,26 +524,10 @@ def main():
     dough_pieces(record)
     dough_bakes(record)
 
-    # Bins: empty base plus one food overlay per compartment
-    empty = load('pizza_bins_empty.jpeg')
-    full = load('pizza_bins_full.jpeg')
-    full_paper = estimate_paper(full)
-    empty_fg = foreground(empty, plate, use_chroma=False)
-    full_fg = foreground(full, full_paper, use_chroma=False)
-    ink = lum(empty) < INK_LUM
+    # Bins: each drawn on its own; the empty layout sheet gives its spot
+    empty_fg = foreground(load('pizza_bins_empty.jpeg'), plate, use_chroma=False)
     for spec in BINS:
-        mask = largest(in_box(empty_fg, spec['box']))
-        if 'drawn' in spec:
-            drawn_bin(spec, mask, place, f)
-            continue
-        place(spec['name'], cutout(empty, plate, mask), f)
-
-        for fill_name, region in zip(spec['fills'], compartments(mask, ink)):
-            soft = ndimage.gaussian_filter(region.astype(np.float32), FILL_FEATHER)
-            place(f'fill_{fill_name}', rgba(full, full_paper, soft * (soft > FILL_CUTOFF)), f)
-
-        near_bin = ndimage.binary_dilation(largest(in_box(full_fg, spec['box'])), iterations=LABEL_CLEARANCE)
-        place(f'label_{spec["name"]}', rgba(full, full_paper, lettering(full, full_paper, spec['label'], near_bin)), f)
+        drawn_bin(spec, largest(in_box(empty_fg, spec['box'])), place, f)
 
     # Peel and dragon were drawn apart; fit each onto the layout
     target = np.abs(layout - plate).max(2) > LAYOUT_DIFF

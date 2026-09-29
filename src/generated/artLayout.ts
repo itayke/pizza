@@ -108,30 +108,30 @@ export const ART = {
   "bin3": {
     "file": "bin3.png",
     "x": 1361,
-    "y": 129,
-    "width": 481,
-    "height": 288
+    "y": 130,
+    "width": 479,
+    "height": 291
   },
   "fill_pineapple": {
     "file": "fill_pineapple.png",
-    "x": 1375,
-    "y": 147,
-    "width": 221,
-    "height": 234
+    "x": 1392,
+    "y": 168,
+    "width": 212,
+    "height": 211
   },
   "fill_olives": {
     "file": "fill_olives.png",
-    "x": 1591,
-    "y": 147,
-    "width": 231,
-    "height": 243
+    "x": 1616,
+    "y": 166,
+    "width": 190,
+    "height": 222
   },
   "label_bin3": {
     "file": "label_bin3.png",
-    "x": 1370,
-    "y": 389,
-    "width": 444,
-    "height": 93
+    "x": 1376,
+    "y": 399,
+    "width": 445,
+    "height": 94
   },
   "peel": {
     "file": "peel.png",
