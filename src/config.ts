@@ -152,6 +152,14 @@ export const CHEESE = {
   scatterRadius: 45,
 };
 
+// Whole toppings (all but sauce and cheese): one piece on press, then holdRate per second while held, moving or not,
+// each landing within scatterRadius design px of the pointer
+export type RepeatConfig = { holdRate: number; scatterRadius: number };
+export const PIECES = {
+  holdRate: 3,
+  scatterRadius: 0,
+};
+
 // Ingredients in hand follow the pointer, drawn at this fraction of their sheet size so they keep their relative sizes
 export const HELD = {
   scale: 0.56,

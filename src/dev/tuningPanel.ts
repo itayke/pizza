@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, PEEL, PLACEMENT, SAUCE, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, PEEL, PIECES, PLACEMENT, SAUCE, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -68,6 +68,10 @@ export function createTuningPanel(scene: KitchenScene): void {
   cheese.addBinding(CHEESE, 'spacing', { min: 2, max: 80, step: 1 });
   cheese.addBinding(CHEESE, 'holdRate', { min: 0, max: 60 });
   cheese.addBinding(CHEESE, 'scatterRadius', { min: 0, max: 150, step: 1 });
+
+  const pieces = pane.addFolder({ title: 'Pieces', expanded: false });
+  pieces.addBinding(PIECES, 'holdRate', { min: 0, max: 20 });
+  pieces.addBinding(PIECES, 'scatterRadius', { min: 0, max: 150, step: 1 });
   cheese.addBinding(TOPPINGS, 'scale', { label: 'pieceScale', min: 0.05, max: 1 });
   cheese.addBinding(TOPPINGS, 'scaleJitter', { min: 0, max: 0.5 });
 
@@ -126,7 +130,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

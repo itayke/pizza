@@ -11,12 +11,15 @@ import {
   DRAGON,
   FIRE,
   HELD,
+  INGREDIENT_IDS,
   OUTLINE_WIDTH,
   PEEL,
+  PIECES,
   SERVE_BUTTON,
+  TOPPINGS,
   type IngredientId,
 } from '../config';
-import { artPoint, artSprite, artTexture, type ArtName } from '../core/art';
+import { artPoint, artSprite, artTexture } from '../core/art';
 import { bakeCurve } from '../core/bake';
 import { easeInQuad } from '../core/easing';
 import { BakeButton } from '../stations/BakeButton';
@@ -26,10 +29,8 @@ import { IngredientBin } from '../stations/IngredientBin';
 import { makeLabel } from '../ui/makeLabel';
 
 const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.ink };
-// Cursor art per ingredient in hand; others show nothing yet
-const HELD_ART: Partial<Record<IngredientId, ArtName>> = { sauce: 'held_sauce', cheese: 'held_cheese' };
 // Unlocked once the dough is rolled out
-const TOPPINGS_READY: readonly IngredientId[] = ['sauce', 'cheese'];
+const TOPPINGS_READY: readonly IngredientId[] = INGREDIENT_IDS;
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 
@@ -176,10 +177,15 @@ export class KitchenScene extends Container {
   private setTool(tool: IngredientId | null): void {
     this.tool = tool;
     this.painting = false;
-    const art = tool && HELD_ART[tool];
-    this.held.visible = !!art;
-    if (art) this.held.texture = artTexture(art);
-    this.held.scale.set(HELD.scale);
+    this.held.visible = !!tool;
+    // Sauce and cheese have their own cursor art; whole toppings show their raw piece at the size it lands
+    if (tool === 'sauce' || tool === 'cheese') {
+      this.held.texture = artTexture(`held_${tool}`);
+      this.held.scale.set(HELD.scale);
+    } else if (tool) {
+      this.held.texture = artTexture(`topping_${tool}_raw`);
+      this.held.scale.set(TOPPINGS.scale);
+    }
     this.held.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);
   }
@@ -191,18 +197,21 @@ export class KitchenScene extends Container {
     this.painting = true;
     this.strokeEnd.copyFrom(this.pointer);
     this.dough.toppings.beginStroke();
+    // The first stamp or piece lands on the press itself, even if released before the next frame
+    this.applyTool(0);
   }
 
   private stopPainting(): void {
     this.painting = false;
   }
 
-  /** Sauce paints along the stroke; cheese scatters pieces. */
+  /** Sauce paints along the stroke; cheese scatters pieces; whole toppings repeat while held. */
   private applyTool(dt: number): void {
     const from = this.dough.toLocal(this.strokeEnd, this);
     const to = this.dough.toLocal(this.pointer, this);
     if (this.tool === 'sauce') this.dough.paintSauce(from, to);
     else if (this.tool === 'cheese') this.dough.toppings.scatter('cheese', CHEESE, from, to, dt);
+    else if (this.tool) this.dough.toppings.repeat(this.tool, PIECES, to, dt);
     this.strokeEnd.copyFrom(this.pointer);
   }
 
