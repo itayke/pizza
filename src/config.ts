@@ -152,18 +152,24 @@ export const CHEESE = {
   scatterRadius: 45,
 };
 
-// Placed pieces land from <topping>Scale times their size down to it over <topping>Seconds, easing in
+// Placed pieces land from <topping>Scale times their size down to it over <topping>Seconds, easing in, and roll into
+// their angle from a random offset of up to <topping>Roll degrees either way
 export const LANDING = {
   cheeseScale: 1.2,
   cheeseSeconds: 0.2,
+  cheeseRoll: 0,
   pepperoniScale: 1.2,
   pepperoniSeconds: 0.2,
+  pepperoniRoll: 30,
   basilScale: 1.2,
-  basilSeconds: 0.2,
+  basilSeconds: 0.4,
+  basilRoll: 20,
   pineappleScale: 1.2,
   pineappleSeconds: 0.2,
+  pineappleRoll: 30,
   olivesScale: 1.2,
   olivesSeconds: 0.2,
+  olivesRoll: 30,
 };
 
 // The ingredient in hand brightens while pressed: a copy drawn additively fades up to strength on press and back out

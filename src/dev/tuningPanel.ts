@@ -83,10 +83,11 @@ export function createTuningPanel(scene: KitchenScene): void {
   placement.addBinding(PLACEMENT, 'outerLimit', { min: 1, max: 1.5 });
   placement.addBinding(PLACEMENT, 'pull', { min: 0.25, max: 4 });
 
-  // Per topping: how much bigger a piece starts when placed, and how long it takes to settle
+  // Per topping: how much bigger a piece starts when placed, how far it rolls in, and how long it takes to settle
   const landing = pane.addFolder({ title: 'Landing', expanded: false });
   for (const key of Object.keys(LANDING) as (keyof typeof LANDING)[]) {
-    landing.addBinding(LANDING, key, key.endsWith('Scale') ? { min: 0.5, max: 3 } : { min: 0, max: 1 });
+    const range = key.endsWith('Scale') ? { min: 0.5, max: 3 } : key.endsWith('Roll') ? { min: 0, max: 180, step: 1 } : { min: 0, max: 1 };
+    landing.addBinding(LANDING, key, range);
   }
 
 

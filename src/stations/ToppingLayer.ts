@@ -6,6 +6,7 @@ import { easeInQuad } from '../core/easing';
 import { placedDistance } from '../core/placement';
 
 const TAU = Math.PI * 2;
+const DEG_TO_RAD = Math.PI / 180;
 
 /** Toppings placed as pieces; each has topping_<id>_<phase> art. */
 export type Topping = Exclude<IngredientId, 'sauce'>;
@@ -15,6 +16,10 @@ class Piece extends Container {
   private readonly phases: Sprite[];
   /** Resting scale, jitter included. */
   private readonly size: number;
+  /** Resting angle, radians. */
+  private readonly restAngle: number;
+  /** Where it starts rolling from, off the resting angle, radians. */
+  private readonly roll: number;
   /** Seconds since placed. */
   private age = 0;
 
@@ -31,7 +36,8 @@ class Piece extends Container {
       return this.addChild(s);
     };
     this.phases = BAKE_PHASES.map(sprite);
-    this.rotation = Math.random() * TAU;
+    this.restAngle = Math.random() * TAU;
+    this.roll = LANDING[`${topping}Roll`] * DEG_TO_RAD * (2 * Math.random() - 1);
     this.size = TOPPINGS.scale * (1 + TOPPINGS.scaleJitter * (2 * Math.random() - 1));
     this.land(0);
   }
@@ -42,7 +48,9 @@ class Piece extends Container {
     const seconds = LANDING[`${this.topping}Seconds`];
     const t = seconds > 0 ? Math.min(1, this.age / seconds) : 1;
     const start = LANDING[`${this.topping}Scale`];
-    this.scale.set(this.size * (start + (1 - start) * easeInQuad(t)));
+    const k = easeInQuad(t);
+    this.scale.set(this.size * (start + (1 - start) * k));
+    this.rotation = this.restAngle + this.roll * (1 - k);
     return t >= 1;
   }
 
