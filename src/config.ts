@@ -138,11 +138,13 @@ export const HELD = {
   scale: 0.56,
 };
 
-// Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1.
-// The art cross-fades raw to baked up to optimalLevel, where it looks fully baked, then baked to burnt
+// Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.
+// The art cross-fades raw to baked up to optimalLevel, where it looks fully baked, then baked to burnt, eased by
+// easePower: 1 is linear; higher rushes the art through raw and burnt and lingers around optimalLevel
 export const BAKE = {
   secondsToBurnt: 8,
   optimalLevel: 0.694,
+  easePower: 1.5,
 };
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art

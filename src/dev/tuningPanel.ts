@@ -99,6 +99,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   setInterval(() => bakeLevel.refresh(), BAKE_LEVEL_REFRESH_MS);
   bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
   bake.addBinding(BAKE, 'optimalLevel', { min: 0.05, max: 0.95 });
+  bake.addBinding(BAKE, 'easePower', { min: 1, max: 5 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
 
   const save = pane.addButton({ title: 'Save to config.ts' });

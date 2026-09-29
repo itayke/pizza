@@ -16,6 +16,7 @@ import {
   type IngredientId,
 } from '../config';
 import { artPoint, artSprite, artTexture, type ArtName } from '../core/art';
+import { bakeCurve } from '../core/bake';
 import { easeInQuad } from '../core/easing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
@@ -33,7 +34,7 @@ type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 /** The main play screen, laid out from the art. Serve is still a placeholder. */
 export class KitchenScene extends Container {
   readonly dough: Dough;
-  /** Doneness, raw at 0 to burnt at 1. */
+  /** Doneness, raw at 0 to burnt at 1; rises steadily, and the dial shows it as is. */
   bakeLevel = 0;
   private readonly gauge = new BakeGauge();
   private readonly background = artSprite('bg');
@@ -135,7 +136,8 @@ export class KitchenScene extends Container {
       if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
     }
     this.gauge.setLevel(this.bakeLevel);
-    this.dough.setBake(this.bakeLevel);
+    // The art eases through the bake, lingering around the optimal level
+    this.dough.setBake(bakeCurve(this.bakeLevel));
   }
 
   private trackPointer(e: FederatedPointerEvent): void {
