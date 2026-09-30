@@ -67,6 +67,8 @@ BINS = [
 # Where to look for the separately drawn pieces in the layout
 PEEL_REGION = (560, 500, 1760, 1792)
 DRAGON_REGION = (1700, 560, 2390, 1792)
+FIRE_SOURCE = 'pizza_dragon_fire.png'
+FIRE_SEAL = 2  # its pencil outline has gaps the paper would flood through, px
 FIRE_OUTPUT_LENGTH = 720  # px along the flame axis; drawn length is set in code
 # Bake gauge pieces share one scale so they stay aligned; their positions are in gauge space, placed in code
 GAUGE_SOURCE = 'pizza_bake_gauge.jpeg'
@@ -603,9 +605,9 @@ def main():
         place(name, cutout(img, paper, mask), f * s, origin=(x - ml * s, y - mt * s), src_to_layout=s)
 
     # Fire: oriented to point left, sized in code
-    img = load('pizza_dragon_fire.jpg')
+    img = load(FIRE_SOURCE)
     paper = estimate_paper(img)
-    pixels = orient_fire(cutout(img, paper, largest(foreground(img, paper, use_chroma=True))))
+    pixels = orient_fire(cutout(img, paper, largest(foreground(img, paper, use_chroma=True, seal=FIRE_SEAL))))
     l, t, r, b = bbox(pixels[..., 3])
     save('fire', pixels, FIRE_OUTPUT_LENGTH / (r - l))
     record('fire', 'fire.png')

@@ -173,7 +173,7 @@ export const ART = {
     "x": 0,
     "y": 0,
     "width": 720,
-    "height": 288
+    "height": 255
   },
   "gauge": {
     "file": "gauge.png",
