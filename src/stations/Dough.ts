@@ -1,10 +1,10 @@
 import { Circle, Container, Graphics, Point, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
-import { COLORS, DOUGH, SAUCE } from '../config';
+import { COLORS, DOUGH, PLACEMENT, SAUCE, type ScatterConfig } from '../config';
 import { easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
-import { ToppingLayer } from './ToppingLayer';
+import { ToppingLayer, type Topping } from './ToppingLayer';
 
 const TAU = Math.PI * 2;
 
@@ -80,6 +80,41 @@ export class Dough extends Container {
   /** Stamp sauce along a stroke (dough-local points), pulled in past the inner rim; stamps that would reach past the
    * sauce's drawn area are skipped. */
   paintSauce(from: PointData, to: PointData): void {
+    this.stampSauce(from, to);
+    this.sauce.flush();
+  }
+
+  /** Cover everything inside the inner rim with sauce, as strokes around rings stepping out from the center. */
+  fillSauce(): void {
+    const step = SAUCE.brushRadius * SAUCE.stampSpacing;
+    const widest = PLACEMENT.innerRim * Math.max(...this.shown);
+    const rings = Math.ceil(widest / step);
+    const at = (fraction: number, angle: number) => {
+      const r = fraction * this.radiusAt(angle);
+      return { x: Math.cos(angle) * r, y: Math.sin(angle) * r };
+    };
+    for (let k = 0; k <= rings; k++) {
+      const fraction = (PLACEMENT.innerRim * k) / rings;
+      const segments = Math.max(1, Math.ceil((TAU * widest * k) / rings / step));
+      let from = at(fraction, 0);
+      for (let j = 1; j <= segments; j++) {
+        const to = at(fraction, (TAU * j) / segments);
+        this.stampSauce(from, to);
+        from = to;
+      }
+    }
+    this.sauce.flush();
+  }
+
+  /** Cover everything inside the inner rim with a topping, as densely as its strokes lay it. */
+  fillToppings(topping: Topping, config: ScatterConfig): void {
+    let area = 0;
+    for (const r of this.shown) area += (PLACEMENT.innerRim * r) ** 2 / 2;
+    this.toppings.fill(topping, config, (area * TAU) / this.shown.length);
+  }
+
+  /** Queue sauce stamps along a stroke; drawn on flush. */
+  private stampSauce(from: PointData, to: PointData): void {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const count = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (SAUCE.brushRadius * SAUCE.stampSpacing)));
@@ -94,7 +129,6 @@ export class Dough extends Container {
       const fraction = distance / edge;
       this.sauce.stamp(fraction * Math.cos(angle), fraction * Math.sin(angle), SAUCE.brushRadius / edge);
     }
-    this.sauce.flush();
   }
 
   /** Spread to exactly the rim at once. */

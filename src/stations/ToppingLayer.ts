@@ -1,5 +1,5 @@
 import { Container, Sprite, type PointData } from 'pixi.js';
-import { LANDING, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
+import { LANDING, PLACEMENT, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { BAKE_PHASES, bakeStep, type BakePhase } from '../core/bake';
 import { easeInQuad } from '../core/easing';
@@ -7,6 +7,7 @@ import { placedDistance } from '../core/placement';
 
 const TAU = Math.PI * 2;
 const DEG_TO_RAD = Math.PI / 180;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 /** Toppings placed as pieces; each has topping_<id>_<phase> art. */
 export type Topping = Exclude<IngredientId, 'sauce'>;
@@ -120,6 +121,18 @@ export class ToppingLayer extends Container<Piece> {
     for (; this.owed >= 1; this.owed--) this.drop(topping, config, at.x, at.y);
   }
 
+  /** Scatter pieces evenly inside the inner rim, spanning area design px², as densely as a stroke of config lays them. */
+  fill(topping: Topping, config: ScatterConfig, area: number): void {
+    // A stroke lays a piece every spacing over a swath scatterRadius either side, at least as wide as pieces are apart
+    const swath = config.spacing * Math.max(2 * config.scatterRadius, config.spacing);
+    const count = Math.round(area / swath);
+    // A sunflower spiral spreads them evenly, with no bald spots or clumps
+    const start = Math.random() * TAU;
+    for (let i = 0; i < count; i++) {
+      this.add(topping, start + i * GOLDEN_ANGLE, PLACEMENT.innerRim * Math.sqrt((i + 0.5) / count));
+    }
+  }
+
   /** Advance pieces that are still landing. */
   update(dt: number): void {
     for (const piece of this.landing) {
@@ -146,14 +159,18 @@ export class ToppingLayer extends Container<Piece> {
 
   /** A piece lands somewhere within scatterRadius of (x, y), pulled in past the inner rim. */
   private drop(topping: Topping, config: { scatterRadius: number }, x: number, y: number): void {
-    if (this.pieces >= TOPPINGS.maxPieces) return;
     const spread = config.scatterRadius * Math.sqrt(Math.random());
     const heading = Math.random() * TAU;
     const px = x + Math.cos(heading) * spread;
     const py = y + Math.sin(heading) * spread;
     const angle = Math.atan2(py, px);
     const edge = this.radiusAt(angle);
-    const fraction = placedDistance(Math.hypot(px, py), edge) / edge;
+    this.add(topping, angle, placedDistance(Math.hypot(px, py), edge) / edge);
+  }
+
+  /** A new piece at a polar spot, landing and baked like the rest. */
+  private add(topping: Topping, angle: number, fraction: number): void {
+    if (this.pieces >= TOPPINGS.maxPieces) return;
     const piece = this.addChild(new Piece(topping, angle, fraction));
     this.landing.add(piece);
     const { from, t } = bakeStep(this.bakeLevel);

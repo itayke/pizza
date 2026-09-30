@@ -237,6 +237,16 @@ def lettering(img, paper, box, exclude=None):
     return np.where(near, inkness(img, paper), 0).astype(np.float32)
 
 
+def words(alpha, count):
+    """Split lettering alpha into count pieces, left to right, at its widest gaps between inked columns."""
+    inked = np.nonzero(alpha.any(0))[0]
+    gaps = np.nonzero(np.diff(inked) > 1)[0]
+    widest = np.sort(gaps[np.argsort(np.diff(inked)[gaps])[::-1][:count - 1]])
+    cuts = [0, *((inked[g] + inked[g + 1]) // 2 for g in widest), alpha.shape[1]]
+    cols = np.arange(alpha.shape[1])[None, :]
+    return [np.where((cols >= a) & (cols < b), alpha, 0) for a, b in zip(cuts, cuts[1:])]
+
+
 def edge_profile(mask):
     """Center of mass and outer edge radius per angle (from +x toward +y), in mask px."""
     cy, cx = ndimage.center_of_mass(mask)
@@ -497,7 +507,10 @@ def drawn_bin(spec, sheet_mask, place, f):
         put(f'fill_{fill_name}', rgba(full, full_paper, soft * (soft > FILL_CUTOFF)))
 
     near_bin = ndimage.binary_dilation(mask, iterations=LABEL_CLEARANCE)
-    put(f'label_{spec["name"]}', rgba(empty, paper, lettering(empty, paper, spec['label'], near_bin)))
+    # One word per compartment, so each ingredient's name can be highlighted on its own
+    label = lettering(empty, paper, spec['label'], near_bin)
+    for fill_name, word in zip(spec['fills'], words(label, len(spec['fills']))):
+        put(f'label_{fill_name}', rgba(empty, paper, word))
 
 
 def fit(mask, target, region):

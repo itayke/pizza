@@ -17,6 +17,7 @@ import {
   PIECES,
   PULSE,
   SERVE_BUTTON,
+  SKIP,
   TOPPINGS,
   type IngredientId,
 } from '../config';
@@ -27,6 +28,7 @@ import { BakeButton } from '../stations/BakeButton';
 import { BakeGauge } from '../stations/BakeGauge';
 import { Dough, makeDoughBall } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
+import { SelectableLabel } from '../stations/SelectableLabel';
 import { makeLabel } from '../ui/makeLabel';
 
 const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.ink };
@@ -45,7 +47,7 @@ export class KitchenScene extends Container {
   private readonly background = artSprite('bg');
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
-  private readonly bowlLabel = artSprite('label_dough');
+  private readonly bowlLabel = new SelectableLabel('label_dough');
   /** The dough ball waiting in the bowl; the bowl is empty once it's picked up. */
   private readonly bowlFill = new Sprite(artTexture('dough_ball'));
   private readonly heldBall = makeDoughBall();
@@ -68,6 +70,8 @@ export class KitchenScene extends Container {
   private available = new Set<IngredientId>();
   /** Ingredient in hand, picked from its bin. */
   private tool: IngredientId | null = null;
+  /** The last pointer was a finger; a finger covers the cursor, so the held ingredient hides. */
+  private touch = false;
   private painting = false;
   private fireTime = 0;
   private fireScale = 1;
@@ -121,15 +125,19 @@ export class KitchenScene extends Container {
     this.dough.setPlaced(false);
   }
 
-  /** Testing shortcut: place the dough, then roll it out to the rim. */
+  /** Testing shortcut, a step per press: place the dough, roll it out to the rim, then sauce it, then cheese it. */
   skipStep(): void {
     if (this.doughPhase !== 'onPeel') {
       this.doughPhase = 'onPeel';
       this.heldBall.visible = false;
       this.dough.setPlaced(true);
       this.dough.slam();
-    } else {
+    } else if (!this.doughReady) {
       this.dough.flattenToRim();
+    } else if (this.dough.sauce.coverage <= SKIP.cheeseAfterSauce) {
+      if (this.available.has('sauce')) this.dough.fillSauce();
+    } else if (this.available.has('cheese')) {
+      this.dough.fillToppings('cheese', CHEESE);
     }
   }
 
@@ -154,6 +162,8 @@ export class KitchenScene extends Container {
       this.applyAvailability();
     }
     this.updateGlow(dt);
+    this.bins.forEach((bin) => bin.update(this.tool, dt));
+    this.bowlLabel.update(this.doughPhase === 'held', dt);
     const inBowl = this.doughPhase === 'inBowl';
     this.bowlFill.visible = inBowl;
     this.bowl.cursor = inBowl ? 'pointer' : 'default';
@@ -174,6 +184,8 @@ export class KitchenScene extends Container {
 
   private trackPointer(e: FederatedPointerEvent): void {
     this.toLocal(e.global, undefined, this.pointer);
+    this.touch = e.pointerType === 'touch';
+    this.held.visible = !!this.tool && !this.touch;
     // Move in the event itself, not next frame, so held things stick to the pointer
     if (this.doughPhase === 'held') this.heldBall.position.copyFrom(this.pointer);
     if (this.tool) this.held.position.copyFrom(this.pointer);
@@ -190,7 +202,7 @@ export class KitchenScene extends Container {
   private setTool(tool: IngredientId | null): void {
     this.tool = tool;
     this.painting = false;
-    this.held.visible = !!tool;
+    this.held.visible = !!tool && !this.touch;
     // Sauce and cheese have their own cursor art; whole toppings show their raw piece, larger than it lands
     if (tool === 'sauce' || tool === 'cheese') {
       this.heldArt.texture = artTexture(`held_${tool}`);
@@ -312,10 +324,11 @@ export class KitchenScene extends Container {
 
   /** Place the bowl, its dough and its label from config. */
   layoutBowl(): void {
-    for (const [sprite, name] of [[this.bowl, 'bowl'], [this.bowlLabel, 'label_dough']] as const) {
-      const drawn = artPoint(name, 0, 0);
-      sprite.position.set(drawn.x + BOWL.x, drawn.y + BOWL.y);
-    }
+    const drawn = artPoint('bowl', 0, 0);
+    this.bowl.position.set(drawn.x + BOWL.x, drawn.y + BOWL.y);
+    // The label sits by its center, which it grows about
+    const label = artPoint('label_dough', 0.5, 0.5);
+    this.bowlLabel.position.set(label.x + BOWL.x, label.y + BOWL.y);
     const center = artPoint('bowl', 0.5, 0.5);
     this.bowlFill.position.set(center.x + BOWL.x, center.y + BOWL.y);
     this.bowlFill.scale.set((BOWL.fillWidth * this.bowl.width) / this.bowlFill.texture.width);

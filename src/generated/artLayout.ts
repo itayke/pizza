@@ -70,11 +70,18 @@ export const ART = {
     "width": 198,
     "height": 199
   },
-  "label_bin1": {
-    "file": "label_bin1.png",
+  "label_sauce": {
+    "file": "label_sauce.png",
     "x": 259,
+    "y": 400,
+    "width": 150,
+    "height": 62
+  },
+  "label_cheese": {
+    "file": "label_cheese.png",
+    "x": 440,
     "y": 392,
-    "width": 358,
+    "width": 176,
     "height": 70
   },
   "bin2": {
@@ -98,12 +105,19 @@ export const ART = {
     "width": 204,
     "height": 208
   },
-  "label_bin2": {
-    "file": "label_bin2.png",
+  "label_pepperoni": {
+    "file": "label_pepperoni.png",
     "x": 820,
     "y": 383,
-    "width": 404,
+    "width": 242,
     "height": 82
+  },
+  "label_basil": {
+    "file": "label_basil.png",
+    "x": 1095,
+    "y": 401,
+    "width": 130,
+    "height": 64
   },
   "bin3": {
     "file": "bin3.png",
@@ -126,12 +140,19 @@ export const ART = {
     "width": 190,
     "height": 222
   },
-  "label_bin3": {
-    "file": "label_bin3.png",
+  "label_pineapple": {
+    "file": "label_pineapple.png",
     "x": 1376,
     "y": 399,
-    "width": 445,
-    "height": 94
+    "width": 254,
+    "height": 90
+  },
+  "label_olives": {
+    "file": "label_olives.png",
+    "x": 1659,
+    "y": 428,
+    "width": 162,
+    "height": 65
   },
   "peel": {
     "file": "peel.png",

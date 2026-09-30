@@ -4,6 +4,7 @@ import { TUNING_SAVE_ENDPOINT } from '../src/dev/tuningEndpoint';
 
 const DECIMALS = 3;
 const IDENTIFIER = /^\w+$/;
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 type Sections = Record<string, Record<string, unknown>>;
 
@@ -57,5 +58,6 @@ function rewriteSection(source: string, section: string, values: Record<string, 
 function formatValue(value: unknown): string | null {
   if (typeof value === 'boolean') return String(value);
   if (typeof value === 'number' && Number.isFinite(value)) return String(Number(value.toFixed(DECIMALS)));
+  if (typeof value === 'string' && HEX_COLOR.test(value)) return `'${value}'`;
   return null;
 }

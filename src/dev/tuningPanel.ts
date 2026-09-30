@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, SELECTED_LABEL, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -74,6 +74,9 @@ export function createTuningPanel(scene: KitchenScene): void {
   pieces.addBinding(HELD, 'pieceScale', { label: 'heldScale', min: 0.5, max: 4 });
   pieces.addBinding(PULSE, 'strength', { label: 'pulseStrength', min: 0, max: 2 });
   pieces.addBinding(PULSE, 'seconds', { label: 'pulseSeconds', min: 0, max: 1 });
+  pieces.addBinding(SELECTED_LABEL, 'color', { label: 'labelColor' });
+  pieces.addBinding(SELECTED_LABEL, 'scale', { label: 'labelScale', min: 1, max: 2 });
+  pieces.addBinding(SELECTED_LABEL, 'seconds', { label: 'labelSeconds', min: 0, max: 1 });
   pieces.addBinding(PIECES, 'scatterRadius', { min: 0, max: 150, step: 1 });
   cheese.addBinding(TOPPINGS, 'scale', { label: 'pieceScale', min: 0.05, max: 1 });
   cheese.addBinding(TOPPINGS, 'scaleJitter', { min: 0, max: 0.5 });
@@ -141,7 +144,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

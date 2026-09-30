@@ -24,12 +24,20 @@ export type IngredientId = (typeof INGREDIENT_IDS)[number];
 // Everything unlocked until the meta game exists
 export const STARTING_UNLOCKED: readonly IngredientId[] = INGREDIENT_IDS;
 
-// Containers along the top, by art name. Locked compartments show empty.
+// Containers along the top, by art name, each compartment labeled label_<item>. Locked compartments show empty.
 export const BINS = [
-  { art: 'bin1', label: 'label_bin1', items: ['sauce', 'cheese'] },
-  { art: 'bin2', label: 'label_bin2', items: ['pepperoni', 'basil'] },
-  { art: 'bin3', label: 'label_bin3', items: ['pineapple', 'olives'] },
+  { art: 'bin1', items: ['sauce', 'cheese'] },
+  { art: 'bin2', items: ['pepperoni', 'basil'] },
+  { art: 'bin3', items: ['pineapple', 'olives'] },
 ] as const;
+
+// What is in hand (an ingredient, or the dough) is marked by its label: the ink turns color and the word grows by
+// scale, over seconds
+export const SELECTED_LABEL = {
+  color: '#850670',
+  scale: 1.2,
+  seconds: 0.15,
+};
 
 // Per-bin nudge from its drawn spot, in design px, and whether it shows. Keys are `${art}X`, `${art}Y`, `${art}Enabled`.
 export const BIN_LAYOUT = {
@@ -185,6 +193,12 @@ export type RepeatConfig = { holdRate: number; scatterRadius: number };
 export const PIECES = {
   holdRate: 3,
   scatterRadius: 0,
+};
+
+// Dev skip key, once the dough is rolled: covers the inner rim in sauce, then in cheese once more than
+// cheeseAfterSauce of the dough is sauced
+export const SKIP = {
+  cheeseAfterSauce: 0.1,
 };
 
 // Ingredients in hand follow the pointer: sauce and cheese art at scale, a fraction of their sheet size so they keep
