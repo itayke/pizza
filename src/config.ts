@@ -201,8 +201,8 @@ export const SKIP = {
   cheeseAfterSauce: 0.1,
 };
 
-// Ingredients in hand follow the pointer: sauce and cheese art at scale, a fraction of their sheet size so they keep
-// their relative sizes; whole toppings show their raw piece at pieceScale times the size it lands
+// Ingredients in hand follow the pointer: sauce shows its own art at scale, a fraction of its sheet size; toppings show
+// the raw piece they drop at pieceScale times the size it lands
 export const HELD = {
   scale: 0.56,
   pieceScale: 1.5,

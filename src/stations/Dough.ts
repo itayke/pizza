@@ -1,7 +1,9 @@
-import { Circle, Container, Graphics, Point, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
+import { Circle, Container, Graphics, Point, Sprite, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
 import { COLORS, DOUGH, PLACEMENT, SAUCE, type ScatterConfig } from '../config';
+import { artTexture } from '../core/art';
 import { easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
+import { DOUGH_SHAPES } from '../generated/doughShapes';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
 import { ToppingLayer, type Topping } from './ToppingLayer';
@@ -261,10 +263,19 @@ export class Dough extends Container {
 }
 
 /** Dough ball at the kneading start size. */
-export function makeDoughBall(): DoughMesh {
-  const ball = new DoughMesh(DOUGH.points);
-  ball.setRadii(new Float32Array(DOUGH.points).fill(DOUGH.rimRadius * DOUGH.startRatio));
-  return ball;
+/** Scale at which the dough ball drawing matches the dough as it lands on the peel. */
+export function landedBallScale(): number {
+  const { edge } = DOUGH_SHAPES.dough_ball;
+  const drawn = edge.reduce((sum, r) => sum + r, 0) / edge.length;
+  return (DOUGH.rimRadius * DOUGH.startRatio) / drawn;
+}
+
+/** The dough ball drawing as a sprite, anchored at the drawn ball's center like the dough. */
+export function makeDoughBallSprite(): Sprite {
+  const { centerX, centerY } = DOUGH_SHAPES.dough_ball;
+  const sprite = new Sprite(artTexture('dough_ball'));
+  sprite.anchor.set(centerX / sprite.texture.width, centerY / sprite.texture.height);
+  return sprite;
 }
 
 /** Press strength by distance from center as a fraction of the edge: none inside radialInner, full at the edge. */

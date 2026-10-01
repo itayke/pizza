@@ -26,7 +26,7 @@ class Piece extends Container {
 
   /** Position in the dough's polar space: angle, and distance as a fraction of the edge there. */
   constructor(
-    private readonly topping: Topping,
+    readonly topping: Topping,
     readonly polarAngle: number,
     readonly fraction: number,
   ) {
@@ -131,6 +131,10 @@ export class ToppingLayer extends Container<Piece> {
     for (let i = 0; i < count; i++) {
       this.add(topping, start + i * GOLDEN_ANGLE, PLACEMENT.innerRim * Math.sqrt((i + 0.5) / count));
     }
+  }
+
+  has(topping: Topping): boolean {
+    return this.children.some((piece) => piece.topping === topping);
   }
 
   /** Advance pieces that are still landing. */

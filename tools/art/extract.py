@@ -85,9 +85,9 @@ SAUCE_PERIOD = 256
 SAUCE_PERIOD_SLACK = 4
 SAUCE_SEAM_BLEND = 32
 
-# Held ingredient cursors: one sheet of pieces drawn to scale with each other, already on transparency, cut out by box (source px)
+# Held sauce cursor: cut by box (source px) from a sheet already on transparency; held toppings use their raw piece
 HELD_SOURCE = 'pizza_placement_ingredients.png'
-HELD_PIECES = {'held_sauce': (190, 730, 520, 1060), 'held_cheese': (620, 730, 975, 1065)}
+HELD_PIECES = {'held_sauce': (190, 730, 520, 1060)}
 
 # Bake button: its states side by side, left to right, cut onto one shared canvas so they swap in place; sized in code
 BAKE_BUTTON_SOURCE = 'pizza_bake_button.png'

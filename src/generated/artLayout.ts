@@ -203,13 +203,6 @@ export const ART = {
     "width": 286,
     "height": 283
   },
-  "held_cheese": {
-    "file": "held_cheese.png",
-    "x": 0,
-    "y": 0,
-    "width": 309,
-    "height": 294
-  },
   "bake_button_unpressed": {
     "file": "bake_button_unpressed.png",
     "x": 0,

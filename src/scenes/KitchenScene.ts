@@ -26,7 +26,7 @@ import { bakeCurve } from '../core/bake';
 import { easeInQuad } from '../core/easing';
 import { BakeButton } from '../stations/BakeButton';
 import { BakeGauge } from '../stations/BakeGauge';
-import { Dough, makeDoughBall } from '../stations/Dough';
+import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
 import { SelectableLabel } from '../stations/SelectableLabel';
 import { makeLabel } from '../ui/makeLabel';
@@ -48,9 +48,14 @@ export class KitchenScene extends Container {
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
   private readonly bowlLabel = new SelectableLabel('label_dough');
-  /** The dough ball waiting in the bowl; the bowl is empty once it's picked up. */
-  private readonly bowlFill = new Sprite(artTexture('dough_ball'));
-  private readonly heldBall = makeDoughBall();
+  /** The dough ball: waits in the bowl, is carried by hand, then drops onto the peel where the dough takes over. */
+  private readonly doughBall = makeDoughBallSprite();
+  /** Where and how large the ball sits in the bowl. */
+  private readonly ballRest = new Point();
+  private ballRestScale = 1;
+  /** Ball position relative to the pointer, kept from where it was grabbed. */
+  private readonly grabOffset = new Point();
+  private dropFromScale = 1;
   private readonly held = new Container();
   private readonly heldArt = new Sprite({ anchor: 0.5 });
   /** Additive copy of the held art that brightens it while pressed. */
@@ -93,10 +98,11 @@ export class KitchenScene extends Container {
     this.buildDragon();
     this.buildBakeButton();
     this.buildServeButton();
-    this.heldBall.eventMode = 'none';
+    // Presses on the ball go to whatever is under it: the bowl, or the peel to drop it
+    this.doughBall.eventMode = 'none';
     this.held.addChild(this.heldArt, this.heldGlow);
     this.held.eventMode = 'none';
-    this.addChild(this.heldBall, this.held);
+    this.addChild(this.doughBall, this.held);
 
     // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
@@ -120,23 +126,23 @@ export class KitchenScene extends Container {
     this.bakeLevel = 0;
     this.toppingsClosed = false;
     this.doughPhase = 'inBowl';
-    this.heldBall.visible = false;
+    this.restBall();
     this.dough.reset();
     this.dough.setPlaced(false);
   }
 
-  /** Testing shortcut, a step per press: place the dough, roll it out to the rim, then sauce it, then cheese it. */
+  /** Testing shortcut, a step per press: place the dough, roll it out to the rim, then sauce it, then cheese it once. */
   skipStep(): void {
     if (this.doughPhase !== 'onPeel') {
       this.doughPhase = 'onPeel';
-      this.heldBall.visible = false;
+      this.doughBall.visible = false;
       this.dough.setPlaced(true);
       this.dough.slam();
     } else if (!this.doughReady) {
       this.dough.flattenToRim();
     } else if (this.dough.sauce.coverage <= SKIP.cheeseAfterSauce) {
       if (this.available.has('sauce')) this.dough.fillSauce();
-    } else if (this.available.has('cheese')) {
+    } else if (this.available.has('cheese') && !this.dough.toppings.has('cheese')) {
       this.dough.fillToppings('cheese', CHEESE);
     }
   }
@@ -165,7 +171,6 @@ export class KitchenScene extends Container {
     this.bins.forEach((bin) => bin.update(this.tool, dt));
     this.bowlLabel.update(this.doughPhase === 'held', dt);
     const inBowl = this.doughPhase === 'inBowl';
-    this.bowlFill.visible = inBowl;
     this.bowl.cursor = inBowl ? 'pointer' : 'default';
     this.gauge.setLevel(this.bakeLevel);
     this.bakeButton.layout();
@@ -187,7 +192,9 @@ export class KitchenScene extends Container {
     this.touch = e.pointerType === 'touch';
     this.held.visible = !!this.tool && !this.touch;
     // Move in the event itself, not next frame, so held things stick to the pointer
-    if (this.doughPhase === 'held') this.heldBall.position.copyFrom(this.pointer);
+    if (this.doughPhase === 'held') {
+      this.doughBall.position.set(this.pointer.x + this.grabOffset.x, this.pointer.y + this.grabOffset.y);
+    }
     if (this.tool) this.held.position.copyFrom(this.pointer);
   }
 
@@ -203,9 +210,9 @@ export class KitchenScene extends Container {
     this.tool = tool;
     this.painting = false;
     this.held.visible = !!tool && !this.touch;
-    // Sauce and cheese have their own cursor art; whole toppings show their raw piece, larger than it lands
-    if (tool === 'sauce' || tool === 'cheese') {
-      this.heldArt.texture = artTexture(`held_${tool}`);
+    // Sauce has its own cursor art; toppings show the raw piece they drop, larger than it lands
+    if (tool === 'sauce') {
+      this.heldArt.texture = artTexture('held_sauce');
       this.held.scale.set(HELD.scale);
     } else if (tool) {
       this.heldArt.texture = artTexture(`topping_${tool}_raw`);
@@ -246,14 +253,14 @@ export class KitchenScene extends Container {
     if (this.doughPhase !== 'inBowl') return;
     this.trackPointer(e);
     this.doughPhase = 'held';
-    this.heldBall.position.copyFrom(this.pointer);
-    this.heldBall.visible = true;
+    this.grabOffset.set(this.doughBall.x - this.pointer.x, this.doughBall.y - this.pointer.y);
   }
 
   private dropDough(): void {
     if (this.doughPhase !== 'held') return;
     this.doughPhase = 'dropping';
-    this.dropFrom.copyFrom(this.heldBall.position);
+    this.dropFrom.copyFrom(this.doughBall.position);
+    this.dropFromScale = this.doughBall.scale.x;
     this.dropElapsed = 0;
   }
 
@@ -268,14 +275,16 @@ export class KitchenScene extends Container {
     this.dropElapsed += dt;
     const t = Math.min(1, this.dropElapsed / DOUGH.dropDuration);
     const k = easeInQuad(t);
-    this.heldBall.position.set(
+    // The same ball falls to the peel's center, shrinking to the dough's landing size
+    this.doughBall.position.set(
       this.dropFrom.x + (this.peelCenter.x - this.dropFrom.x) * k,
       this.dropFrom.y + (this.peelCenter.y - this.dropFrom.y) * k,
     );
+    this.doughBall.scale.set(this.dropFromScale + (landedBallScale() - this.dropFromScale) * k);
     if (t < 1) return;
 
     this.doughPhase = 'onPeel';
-    this.heldBall.visible = false;
+    this.doughBall.visible = false;
     this.dough.setPlaced(true);
     this.dough.slam();
   }
@@ -315,10 +324,7 @@ export class KitchenScene extends Container {
     const { bowl } = this;
     bowl.eventMode = 'static';
     bowl.on('pointerdown', this.pickUpDough, this);
-    // Presses on the dough go to the bowl
-    this.bowlFill.anchor.set(0.5);
-    this.bowlFill.eventMode = 'none';
-    this.addChild(bowl, this.bowlFill, this.bowlLabel);
+    this.addChild(bowl, this.bowlLabel);
     this.layoutBowl();
   }
 
@@ -330,8 +336,16 @@ export class KitchenScene extends Container {
     const label = artPoint('label_dough', 0.5, 0.5);
     this.bowlLabel.position.set(label.x + BOWL.x, label.y + BOWL.y);
     const center = artPoint('bowl', 0.5, 0.5);
-    this.bowlFill.position.set(center.x + BOWL.x, center.y + BOWL.y);
-    this.bowlFill.scale.set((BOWL.fillWidth * this.bowl.width) / this.bowlFill.texture.width);
+    this.ballRest.set(center.x + BOWL.x, center.y + BOWL.y);
+    this.ballRestScale = (BOWL.fillWidth * this.bowl.width) / this.doughBall.texture.width;
+    if (this.doughPhase === 'inBowl') this.restBall();
+  }
+
+  /** Put the ball back in the bowl. */
+  private restBall(): void {
+    this.doughBall.position.copyFrom(this.ballRest);
+    this.doughBall.scale.set(this.ballRestScale);
+    this.doughBall.visible = true;
   }
 
   private buildPeel(): void {
