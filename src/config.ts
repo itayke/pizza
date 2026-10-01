@@ -55,8 +55,8 @@ export const BIN_LAYOUT = {
 // Dough bowl and its label: nudge from their drawn spot, in design px. The dough ball sits in the empty bowl at
 // fillWidth (a fraction of the bowl's width) until picked up, and returns with the next pizza
 export const BOWL = {
-  x: 0,
-  y: 0,
+  x: -18,
+  y: -183,
   fillWidth: 0.72,
 };
 
