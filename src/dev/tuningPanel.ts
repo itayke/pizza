@@ -54,6 +54,8 @@ export function createTuningPanel(scene: KitchenScene): void {
   dough.addBinding(DOUGH, 'stretchBias', { min: 0, max: 4 });
   dough.addBinding(DOUGH, 'rolledFadeStart', { min: 0, max: 1 });
   dough.addBinding(DOUGH, 'rolledFadeEnd', { min: 0, max: 1 });
+  dough.addBinding(BOWL, 'labelX', { min: -200, max: 200, step: 1 }).on('change', () => scene.layoutBowl());
+  dough.addBinding(BOWL, 'labelY', { min: -200, max: 200, step: 1 }).on('change', () => scene.layoutBowl());
 
   const sauce = pane.addFolder({ title: 'Sauce', expanded: false });
   sauce.addBinding(scene.dough.sauce, 'coverage', { readonly: true });

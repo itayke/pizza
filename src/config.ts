@@ -57,11 +57,14 @@ export const LABEL_NUDGE = {
   olives: 0,
 };
 
-// Dough bowl and its label: nudge from their drawn spot, in design px. The dough ball sits in the empty bowl at
-// fillWidth (a fraction of the bowl's width) until picked up, and returns with the next pizza
+// Dough bowl and its label: nudge from their drawn spot, in design px, with labelX/labelY moving the label further on
+// its own. The dough ball sits in the empty bowl at fillWidth (a fraction of the bowl's width) until picked up, and
+// returns with the next pizza
 export const BOWL = {
   x: -18,
   y: -183,
+  labelX: 0,
+  labelY: -9,
   fillWidth: 0.72,
 };
 

@@ -335,7 +335,7 @@ export class KitchenScene extends Container {
     this.bowl.position.set(drawn.x + BOWL.x, drawn.y + BOWL.y);
     // The label sits by its center, which it grows about
     const label = artPoint('label_dough', 0.5, 0.5);
-    this.bowlLabel.position.set(label.x + BOWL.x, label.y + BOWL.y);
+    this.bowlLabel.position.set(label.x + BOWL.x + BOWL.labelX, label.y + BOWL.y + BOWL.labelY);
     const center = artPoint('bowl', 0.5, 0.5);
     this.ballRest.set(center.x + BOWL.x, center.y + BOWL.y);
     this.ballRestScale = (BOWL.fillWidth * this.bowl.width) / this.doughBall.texture.width;
