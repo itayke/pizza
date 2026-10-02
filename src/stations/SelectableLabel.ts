@@ -1,4 +1,4 @@
-import { Color, ColorMatrixFilter, Sprite } from 'pixi.js';
+import { Color, ColorMatrixFilter, Sprite, type PointData } from 'pixi.js';
 import { SELECTED_LABEL } from '../config';
 import { artPoint, artTexture, type ArtName } from '../core/art';
 
@@ -7,11 +7,18 @@ export class SelectableLabel extends Sprite {
   /** 0 as drawn, 1 fully marked as selected. */
   private mark = 0;
   private readonly ink = new ColorMatrixFilter();
+  /** The word's center where it was drawn; it grows about it. */
+  private readonly drawn: PointData;
 
   constructor(name: ArtName) {
     super({ texture: artTexture(name), anchor: 0.5 });
-    // Grow about the word's center, where it was drawn
-    this.position.copyFrom(artPoint(name, 0.5, 0.5));
+    this.drawn = artPoint(name, 0.5, 0.5);
+    this.position.copyFrom(this.drawn);
+  }
+
+  /** Shift sideways from where it was drawn, design px. */
+  nudge(x: number): void {
+    this.position.set(this.drawn.x + x, this.drawn.y);
   }
 
   update(selected: boolean, dt: number): void {

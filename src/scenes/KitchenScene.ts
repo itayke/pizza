@@ -1,10 +1,10 @@
-import { Container, Graphics, Point, Sprite, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
+import { Container, Point, Sprite, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
 import {
   BAKE,
+  BAKE_BUTTON,
   BINS,
   BOWL,
   CHEESE,
-  COLORS,
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
   DOUGH,
@@ -12,7 +12,6 @@ import {
   FIRE,
   HELD,
   INGREDIENT_IDS,
-  OUTLINE_WIDTH,
   PEEL,
   PIECES,
   PULSE,
@@ -24,14 +23,12 @@ import {
 import { artPoint, artSprite, artTexture } from '../core/art';
 import { bakeCurve } from '../core/bake';
 import { easeInQuad } from '../core/easing';
-import { BakeButton } from '../stations/BakeButton';
 import { BakeGauge } from '../stations/BakeGauge';
+import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
 import { SelectableLabel } from '../stations/SelectableLabel';
-import { makeLabel } from '../ui/makeLabel';
 
-const OUTLINE = { width: OUTLINE_WIDTH, color: COLORS.ink };
 // Unlocked once the dough is rolled out
 const TOPPINGS_READY: readonly IngredientId[] = INGREDIENT_IDS;
 
@@ -43,7 +40,9 @@ export class KitchenScene extends Container {
   /** Doneness, raw at 0 to burnt at 1; rises steadily, and the dial shows it as is. */
   bakeLevel = 0;
   private readonly gauge = new BakeGauge();
-  private readonly bakeButton = new BakeButton();
+  private readonly bakeButton = new StateButton('bake_button', BAKE_BUTTON);
+  private readonly serveButton = new StateButton('serve_button', SERVE_BUTTON);
+  private servePressed = false;
   private readonly background = artSprite('bg');
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
@@ -175,6 +174,8 @@ export class KitchenScene extends Container {
     this.gauge.setLevel(this.bakeLevel);
     this.bakeButton.layout();
     this.bakeButton.setState(this.doughReady, this.fire.visible);
+    this.serveButton.layout();
+    this.serveButton.setState(this.canServe(), this.servePressed);
     // The art eases through the bake, lingering around the optimal level
     this.dough.setBake(bakeCurve(this.bakeLevel));
   }
@@ -422,9 +423,22 @@ export class KitchenScene extends Container {
     }
   }
 
+  /** Pressable once the pizza is baked enough; serving itself isn't in yet. */
   private buildServeButton(): void {
-    const { x, y, width, height, cornerRadius } = SERVE_BUTTON;
-    const button = new Graphics().roundRect(x, y, width, height, cornerRadius).fill(COLORS.serve).stroke(OUTLINE);
-    this.addChild(button, makeLabel('Serve!', x + width / 2, y + height / 2));
+    const button = this.serveButton;
+    button.on('pointerdown', (e) => {
+      if (!this.canServe()) return;
+      // Never also a press on the pizza
+      e.stopPropagation();
+      this.servePressed = true;
+    });
+    for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
+      button.on(end, () => (this.servePressed = false));
+    }
+    this.addChild(button);
+  }
+
+  private canServe(): boolean {
+    return this.bakeLevel >= BAKE.minBaked;
   }
 }

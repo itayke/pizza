@@ -6,7 +6,7 @@ No real failure. Mistakes are capped or look funny; scores are internal.
 
 ## Core loop
 
-Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right, bake gauge between peel and dragon. Placeholder not in the art: Serve button.
+Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right, bake gauge between peel and dragon. Not in the layout art, drawn on its own: Serve button.
 
 1. **Dough** — tap the bowl to pick up a ball, tap the peel to slam it down (it splats out on impact), then press/hold to spread it toward the rim. Enough coverage enables sauce.
 2. **Sauce / Cheese** — tap a bin to take it (tap again to put it back), then press or drag over the dough to paint sauce or scatter cheese; dragging straight from the bin works too. Kneading pauses while an ingredient is in hand.

@@ -1,5 +1,5 @@
 import { Container, Sprite, type FederatedPointerEvent } from 'pixi.js';
-import { BIN_LAYOUT, DISABLED_ALPHA, type BINS, type IngredientId } from '../config';
+import { BIN_LAYOUT, DISABLED_ALPHA, LABEL_NUDGE, type BINS, type IngredientId } from '../config';
 import { artSprite } from '../core/art';
 import { SelectableLabel } from './SelectableLabel';
 
@@ -31,12 +31,13 @@ export class IngredientBin extends Container {
     }
   }
 
-  /** Apply the nudge and enabled flag from BIN_LAYOUT, if it has entries for this bin. */
+  /** Apply the nudge and enabled flag from BIN_LAYOUT, if it has entries for this bin, and each label's nudge. */
   layout(): void {
     const values = BIN_LAYOUT as Record<string, number | boolean | undefined>;
     this.position.set(Number(values[`${this.art}X`] ?? 0), Number(values[`${this.art}Y`] ?? 0));
     // Hidden bins aren't hit-tested either
     this.visible = values[`${this.art}Enabled`] !== false;
+    for (const [id, label] of this.labels) label.nudge(LABEL_NUDGE[id]);
   }
 
   refresh(unlocked: ReadonlySet<IngredientId>): void {

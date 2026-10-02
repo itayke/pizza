@@ -224,6 +224,27 @@ export const ART = {
     "width": 283,
     "height": 281
   },
+  "serve_button_unpressed": {
+    "file": "serve_button_unpressed.png",
+    "x": 0,
+    "y": 0,
+    "width": 446,
+    "height": 238
+  },
+  "serve_button_pressed": {
+    "file": "serve_button_pressed.png",
+    "x": 0,
+    "y": 0,
+    "width": 446,
+    "height": 238
+  },
+  "serve_button_disabled": {
+    "file": "serve_button_disabled.png",
+    "x": 0,
+    "y": 0,
+    "width": 446,
+    "height": 238
+  },
   "topping_cheese_raw": {
     "file": "topping_cheese_raw.png",
     "x": 0,

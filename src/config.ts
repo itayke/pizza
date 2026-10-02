@@ -10,13 +10,8 @@ export const ASSET_DIR = 'assets/';
 
 export const COLORS = {
   paper: 0xf3e6da,
-  ink: 0x2b2320,
   rim: 0x5a3a24,
-  serve: 0xf2a33a,
-  label: 0x2a1a10,
 } as const;
-
-export const OUTLINE_WIDTH = 6;
 
 export const INGREDIENT_IDS = ['sauce', 'cheese', 'pepperoni', 'basil', 'pineapple', 'olives'] as const;
 export type IngredientId = (typeof INGREDIENT_IDS)[number];
@@ -41,15 +36,25 @@ export const SELECTED_LABEL = {
 
 // Per-bin nudge from its drawn spot, in design px, and whether it shows. Keys are `${art}X`, `${art}Y`, `${art}Enabled`.
 export const BIN_LAYOUT = {
-  bin1X: 0,
+  bin1X: -105,
   bin1Y: -54,
   bin1Enabled: true,
   bin2X: -27,
   bin2Y: -60,
   bin2Enabled: true,
-  bin3X: -28,
+  bin3X: 68,
   bin3Y: -62,
   bin3Enabled: true,
+};
+
+// Per-label sideways nudge from its drawn spot, in design px, by ingredient
+export const LABEL_NUDGE = {
+  sauce: -5,
+  cheese: 5,
+  pepperoni: -10,
+  basil: 0,
+  pineapple: -10,
+  olives: 0,
 };
 
 // Dough bowl and its label: nudge from their drawn spot, in design px. The dough ball sits in the empty bowl at
@@ -211,12 +216,13 @@ export const HELD = {
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.
 // The art cross-fades raw to baked up to optimalLevel, where it looks fully baked, then baked to burnt, eased by
 // easePower: 1 is linear; higher rushes the art through raw and burnt and lingers around optimalLevel.
-// Once baked past toppingsCutoff, toppings close for this pizza
+// Once baked past toppingsCutoff, toppings close for this pizza; from minBaked on, it's baked enough to serve
 export const BAKE = {
   secondsToBurnt: 8,
   optimalLevel: 0.734,
   easePower: 1.256,
   toppingsCutoff: 0.05,
+  minBaked: 0.5,
 };
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
@@ -246,7 +252,7 @@ export const DRAGON = {
   y: 1200,
   pivotX: 0.749,
   pivotY: 0.716,
-  scale: 1.175,
+  scale: 1.18,
   angle: -12,
 };
 
@@ -260,12 +266,9 @@ export const FIRE = {
   flickerSpeed: 30,
 };
 
+// Serve button: center and drawn width. Enabled once the pizza is baked enough (BAKE.minBaked); does nothing yet
 export const SERVE_BUTTON = {
-  x: 170,
-  y: 1300,
+  x: 320,
+  y: 1370,
   width: 300,
-  height: 140,
-  cornerRadius: 36,
 };
-
-export const LABEL_FONT_SIZE = 50;

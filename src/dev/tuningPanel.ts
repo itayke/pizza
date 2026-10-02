@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, SELECTED_LABEL, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
@@ -99,6 +99,9 @@ export function createTuningPanel(scene: KitchenScene): void {
     const isFlag = typeof BIN_LAYOUT[key] === 'boolean';
     bins.addBinding(BIN_LAYOUT, key, isFlag ? {} : { min: -400, max: 400, step: 1 });
   }
+  for (const key of Object.keys(LABEL_NUDGE) as (keyof typeof LABEL_NUDGE)[]) {
+    bins.addBinding(LABEL_NUDGE, key, { label: `${key}Label`, min: -100, max: 100, step: 1 });
+  }
   bins.on('change', () => scene.layoutBins());
 
   const bowl = pane.addFolder({ title: 'Bowl', expanded: false });
@@ -138,13 +141,19 @@ export function createTuningPanel(scene: KitchenScene): void {
   bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
   bake.addBinding(BAKE, 'optimalLevel', { min: 0.05, max: 0.95 });
   bake.addBinding(BAKE, 'toppingsCutoff', { min: 0, max: 1 });
+  bake.addBinding(BAKE, 'minBaked', { min: 0, max: 1 });
   bake.addBinding(BAKE, 'easePower', { min: 1, max: 5 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
+
+  const serve = pane.addFolder({ title: 'Serve', expanded: false });
+  serve.addBinding(SERVE_BUTTON, 'x', { min: 0, max: 2048, step: 1 });
+  serve.addBinding(SERVE_BUTTON, 'y', { min: 0, max: 1536, step: 1 });
+  serve.addBinding(SERVE_BUTTON, 'width', { min: 40, max: 600, step: 1 });
 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }
