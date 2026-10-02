@@ -1,6 +1,7 @@
 import { Pane } from 'tweakpane';
 import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
+import { addPaneFilter } from './paneFilter';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
 const RESET_KEY = 'r';
@@ -23,6 +24,8 @@ export function createTuningPanel(scene: KitchenScene): void {
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
   pane.addButton({ title: `Skip step (${SKIP_KEY.toUpperCase()})` }).on('click', () => scene.skipStep());
   window.addEventListener('keydown', (e) => {
+    // Typing in a field (the filter, a number box) isn't a shortcut
+    if (e.target instanceof HTMLInputElement) return;
     const key = e.key.toLowerCase();
     if (key === RESET_KEY) resetDough();
     if (key === SKIP_KEY) scene.skipStep();
@@ -149,6 +152,9 @@ export function createTuningPanel(scene: KitchenScene): void {
   serve.addBinding(SERVE_BUTTON, 'x', { min: 0, max: 2048, step: 1 });
   serve.addBinding(SERVE_BUTTON, 'y', { min: 0, max: 1536, step: 1 });
   serve.addBinding(SERVE_BUTTON, 'width', { min: 40, max: 600, step: 1 });
+
+  // After every folder is in, so it can sit above the first
+  addPaneFilter(pane);
 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {

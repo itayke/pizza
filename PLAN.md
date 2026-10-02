@@ -48,7 +48,7 @@ Meta game: later.
 
 ## Dev
 
-Dev builds show a tuning panel (`src/dev/`) that edits config live; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`). Keys: R resets the dough, S skips ahead (place the dough, roll it to the rim, then cover the inner rim in sauce, then cheese).
+Dev builds show a tuning panel (`src/dev/`) that edits config live, with a filter box that narrows it by name; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`). Keys: R resets the dough, S skips ahead (place the dough, roll it to the rim, then cover the inner rim in sauce, then cheese).
 
 ## Art
 

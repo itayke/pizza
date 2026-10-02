@@ -51,9 +51,9 @@ export const BIN_LAYOUT = {
 export const LABEL_NUDGE = {
   sauce: -5,
   cheese: 5,
-  pepperoni: -10,
+  pepperoni: -15,
   basil: 0,
-  pineapple: -10,
+  pineapple: -20,
   olives: 0,
 };
 
