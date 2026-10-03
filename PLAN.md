@@ -30,7 +30,7 @@ Meta game: later.
   - Sauce laid over toppings starts a pass above them: its own mask, drawn on the dough's mesh and multiplied over a render of the pizza without sauce (so sauce on sauce reads as one layer), up to a capped number of passes; past the cap the newest pass rises over them instead.
 - **Scattered toppings** — pieces drop along the drag (and steadily while resting), stored as angle + fraction of the dough edge so they follow it; each piece stacks its raw, baked and burnt sprites for a later bake cross-fade.
 - **Toppings** — sprites with rotation/scale jitter.
-- **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker.
+- **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker. Each topping bakes only from when it lands, so one added late stays fresh.
 - **Bins** — fixed two-compartment art; each compartment shows its food once unlocked, empty until then.
 - **Input** — tool state machine: none → selected → applying. Tap a bin or drag from it.
 

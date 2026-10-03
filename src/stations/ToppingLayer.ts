@@ -1,7 +1,7 @@
 import { Container, Sprite, type Geometry, type Mesh, type PointData, type Shader } from 'pixi.js';
 import { LANDING, PLACEMENT, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
-import { BAKE_PHASES, bakeStep, type BakePhase } from '../core/bake';
+import { BAKE_PHASES, bakeCurve, bakeStep, type BakePhase } from '../core/bake';
 import { easeInQuad } from '../core/easing';
 import { placedDistance } from '../core/placement';
 
@@ -24,11 +24,13 @@ class Piece extends Container {
   /** Seconds since placed. */
   private age = 0;
 
-  /** Position in the dough's polar space: angle, and distance as a fraction of the edge there. */
+  /** Position in the dough's polar space: angle, and distance as a fraction of the edge there; placedAt is the
+   * pizza's bake level when it landed, so it bakes only from then on. */
   constructor(
     readonly topping: Topping,
     readonly polarAngle: number,
     readonly fraction: number,
+    private readonly placedAt: number,
   ) {
     super();
     const sprite = (phase: BakePhase) => {
@@ -56,10 +58,12 @@ class Piece extends Container {
   }
 
   /**
-   * Cross-fade from phase `from` to the next: the upper one fades in over the first half while the lower one stays,
-   * then the lower one fades out, so the piece is never see-through and differing silhouettes don't pop.
+   * Show the heat it has had at the pizza's bake level, cross-fading from phase `from` to the next: the upper one
+   * fades in over the first half while the lower one stays, then the lower one fades out, so the piece is never
+   * see-through and differing silhouettes don't pop.
    */
-  setBake(from: number, t: number): void {
+  setBake(level: number): void {
+    const { from, t } = bakeStep(bakeCurve(level - this.placedAt));
     this.phases.forEach((sprite, i) => {
       const alpha = i === from ? Math.min(1, 2 * (1 - t)) : i === from + 1 ? Math.min(1, 2 * t) : 0;
       sprite.alpha = alpha;
@@ -175,11 +179,10 @@ export class ToppingLayer extends Container {
     }
   }
 
-  /** Show every piece, and those placed later, at a bake level (raw at 0 to burnt at 1). */
+  /** Bake the pieces at the pizza's bake level (raw at 0 to burnt at 1), each by the heat since it landed. */
   setBake(level: number): void {
     this.bakeLevel = level;
-    const { from, t } = bakeStep(level);
-    for (const piece of this.placed) piece.setBake(from, t);
+    for (const piece of this.placed) piece.setBake(level);
   }
 
   /** Follow the dough's current edge. */
@@ -207,15 +210,14 @@ export class ToppingLayer extends Container {
     this.add(topping, angle, placedDistance(Math.hypot(px, py), edge) / edge);
   }
 
-  /** A new piece at a polar spot, landing and baked like the rest. */
+  /** A new piece at a polar spot, landing raw. */
   private add(topping: Topping, angle: number, fraction: number): void {
     if (this.pieces >= TOPPINGS.maxPieces) return;
-    const piece = this.addChild(new Piece(topping, angle, fraction));
+    const piece = this.addChild(new Piece(topping, angle, fraction, this.bakeLevel));
     this.placed.push(piece);
     this.changes++;
     this.landing.add(piece);
-    const { from, t } = bakeStep(this.bakeLevel);
-    piece.setBake(from, t);
+    piece.setBake(this.bakeLevel);
     this.place(piece);
   }
 

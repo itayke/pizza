@@ -21,7 +21,6 @@ import {
   type IngredientId,
 } from '../config';
 import { artPoint, artSprite, artTexture } from '../core/art';
-import { bakeCurve } from '../core/bake';
 import { easeInQuad } from '../core/easing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { StateButton } from '../stations/StateButton';
@@ -69,8 +68,6 @@ export class KitchenScene extends Container {
   private dropElapsed = 0;
   private doughPhase: DoughPhase = 'inBowl';
   private doughReady = false;
-  /** Baked past the toppings cutoff; toppings stay closed until the next pizza. */
-  private toppingsClosed = false;
   private available = new Set<IngredientId>();
   /** Ingredient in hand, picked from its bin. */
   private tool: IngredientId | null = null;
@@ -123,7 +120,6 @@ export class KitchenScene extends Container {
   /** Back to an empty peel with the dough in its bowl. */
   resetDough(): void {
     this.bakeLevel = 0;
-    this.toppingsClosed = false;
     this.doughPhase = 'inBowl';
     this.restBall();
     this.dough.reset();
@@ -162,10 +158,6 @@ export class KitchenScene extends Container {
       this.updateFire(dt);
       if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
     }
-    if (!this.toppingsClosed && this.bakeLevel > BAKE.toppingsCutoff) {
-      this.toppingsClosed = true;
-      this.applyAvailability();
-    }
     this.updateGlow(dt);
     this.bins.forEach((bin) => bin.update(this.tool, dt));
     this.bowlLabel.update(this.doughPhase === 'held', dt);
@@ -176,8 +168,7 @@ export class KitchenScene extends Container {
     this.bakeButton.setState(this.doughReady, this.fire.visible);
     this.serveButton.layout();
     this.serveButton.setState(this.canServe(), this.servePressed);
-    // The art eases through the bake, lingering around the optimal level
-    this.dough.setBake(bakeCurve(this.bakeLevel));
+    this.dough.setBake(this.bakeLevel);
     // Last, once the pizza is done changing this frame
     this.dough.drawPlain();
   }
@@ -304,7 +295,7 @@ export class KitchenScene extends Container {
   }
 
   private applyAvailability(): void {
-    this.available = new Set<IngredientId>(this.doughReady && !this.toppingsClosed ? TOPPINGS_READY : []);
+    this.available = new Set<IngredientId>(this.doughReady ? TOPPINGS_READY : []);
     this.bins.forEach((bin) => bin.setAvailable(this.available));
     if (this.tool && !this.available.has(this.tool)) this.setTool(null);
   }

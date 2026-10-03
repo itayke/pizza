@@ -223,12 +223,11 @@ export const HELD = {
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.
 // The art cross-fades raw to baked up to optimalLevel, where it looks fully baked, then baked to burnt, eased by
 // easePower: 1 is linear; higher rushes the art through raw and burnt and lingers around optimalLevel.
-// Once baked past toppingsCutoff, toppings close for this pizza; from minBaked on, it's baked enough to serve
+// From minBaked on, it's baked enough to serve
 export const BAKE = {
   secondsToBurnt: 8,
   optimalLevel: 0.734,
   easePower: 1.256,
-  toppingsCutoff: 0.05,
   minBaked: 0.5,
 };
 

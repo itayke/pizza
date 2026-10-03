@@ -1,6 +1,7 @@
 import { Circle, Container, Graphics, Matrix, Point, RenderTexture, Sprite, UniformGroup, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
 import { COLORS, DOUGH, PLACEMENT, SAUCE, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
+import { bakeCurve } from '../core/bake';
 import { easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
@@ -89,11 +90,12 @@ export class Dough extends Container {
     this.updateInput();
   }
 
-  /** Bake the base and toppings to a level, raw at 0 to burnt at 1. */
+  /** Bake to a level, raw at 0 to burnt at 1: the base all the way, each topping only by the heat since it landed. */
   setBake(level: number): void {
     if (level !== this.bakeLevel) this.plainStale = true;
     this.bakeLevel = level;
-    this.body.setBake(level);
+    // The art eases through the bake, lingering around the optimal level
+    this.body.setBake(bakeCurve(level));
     this.toppings.setBake(level);
   }
 
