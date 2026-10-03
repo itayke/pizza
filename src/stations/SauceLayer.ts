@@ -7,14 +7,17 @@ const TRANSPARENT = [0, 0, 0, 0];
 
 /**
  * Where sauce is, as alpha in a square mask over the dough's polar space: the center is the dough center and the
- * inscribed circle is maskReach times the dough edge, so sauce can spill past it. A coarse grid over the dough itself
- * tracks coverage.
+ * inscribed circle is maskReach times the dough edge, so sauce can spill past it. Sauce laid over toppings goes into
+ * a mask of its own per pass, stamped from then on; a coarse grid over the dough itself tracks coverage across them all.
  */
 export class SauceLayer {
+  /** The first pass, under every topping. */
   readonly texture: RenderTexture;
   /** Fraction of the dough painted. */
   coverage = 0;
 
+  /** Every pass's mask, oldest first; stamps draw into the newest. */
+  private readonly masks: RenderTexture[];
   private readonly stamps = new Container();
   private used = 0;
   private readonly grid = new Uint8Array(SAUCE.coverageGrid * SAUCE.coverageGrid);
@@ -22,10 +25,21 @@ export class SauceLayer {
   private covered = 0;
 
   constructor(private readonly renderer: Renderer) {
-    this.texture = RenderTexture.create({ width: SAUCE.textureSize, height: SAUCE.textureSize });
+    this.texture = this.createMask();
+    this.masks = [this.texture];
     let disc = 0;
     for (let i = 0; i < this.grid.length; i++) if (this.inDisc(i)) disc++;
     this.discCells = disc;
+  }
+
+  get passes(): number {
+    return this.masks.length;
+  }
+
+  /** Start a pass over everything laid so far, and return its mask; later stamps draw into it. */
+  addPass(): RenderTexture {
+    this.flush();
+    return this.masks[this.masks.push(this.createMask()) - 1];
   }
 
   /** Queue a stamp at (x, y) with a radius, in dough units (the dough edge is the unit circle); drawn on flush. */
@@ -43,17 +57,29 @@ export class SauceLayer {
   flush(): void {
     if (this.used === 0) return;
     this.stamps.children.forEach((sprite, i) => (sprite.visible = i < this.used));
-    this.renderer.render({ container: this.stamps, target: this.texture, clear: false });
+    this.renderer.render({ container: this.stamps, target: this.masks[this.masks.length - 1], clear: false });
     this.used = 0;
   }
 
   clear(): void {
     this.used = 0;
-    this.stamps.children.forEach((sprite) => (sprite.visible = false));
-    this.renderer.render({ container: this.stamps, target: this.texture, clear: true, clearColor: TRANSPARENT });
+    for (const mask of this.masks.splice(1)) mask.destroy(true);
+    this.wipe(this.texture);
     this.grid.fill(0);
     this.covered = 0;
     this.coverage = 0;
+  }
+
+  private createMask(): RenderTexture {
+    const mask = RenderTexture.create({ width: SAUCE.textureSize, height: SAUCE.textureSize });
+    this.wipe(mask);
+    return mask;
+  }
+
+  /** Clear a mask to no sauce. */
+  private wipe(mask: RenderTexture): void {
+    this.stamps.children.forEach((sprite) => (sprite.visible = false));
+    this.renderer.render({ container: this.stamps, target: mask, clear: true, clearColor: TRANSPARENT });
   }
 
   private nextSprite(): Sprite {

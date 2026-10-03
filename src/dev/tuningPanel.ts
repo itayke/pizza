@@ -65,6 +65,8 @@ export function createTuningPanel(scene: KitchenScene): void {
   sauce.addBinding(SAUCE, 'patternRepeat', { min: 0.5, max: 6 });
   sauce.addBinding(SAUCE, 'bevelWidth', { min: 0, max: 40, step: 1 });
   sauce.addBinding(SAUCE, 'bevelShade', { min: 0, max: 1 });
+  sauce.addBinding(scene.dough.sauce, 'passes', { readonly: true });
+  sauce.addBinding(SAUCE, 'maxPasses', { min: 1, max: 10, step: 1 });
 
   const cheese = pane.addFolder({ title: 'Cheese', expanded: false });
   cheese.addBinding(scene.dough.toppings, 'pieces', { readonly: true });

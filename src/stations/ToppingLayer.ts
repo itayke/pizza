@@ -1,4 +1,4 @@
-import { Container, Sprite, type PointData } from 'pixi.js';
+import { Container, Sprite, type Geometry, type Mesh, type PointData, type Shader } from 'pixi.js';
 import { LANDING, PLACEMENT, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { BAKE_PHASES, bakeStep, type BakePhase } from '../core/bake';
@@ -69,10 +69,10 @@ class Piece extends Container {
 }
 
 /**
- * Topping pieces on the dough, over its sauce, kept in its polar space so they follow it as it stretches. Every
- * topping shares one stack, in the order placed.
+ * Topping pieces on the dough, over its first sauce pass, kept in its polar space so they follow it as it stretches.
+ * Every topping shares one stack with any later sauce passes, in the order laid.
  */
-export class ToppingLayer extends Container<Piece> {
+export class ToppingLayer extends Container {
   /** Drag distance since the last drop, design px. */
   private travel = 0;
   /** Drops owed while the pointer rests, or while held for whole toppings. */
@@ -80,9 +80,24 @@ export class ToppingLayer extends Container<Piece> {
   private bakeLevel = 0;
   /** Pieces still shrinking into place. */
   private readonly landing = new Set<Piece>();
+  /** Every piece, in the order placed. */
+  private readonly placed: Piece[] = [];
+  /** Sauce passes in the stack, oldest first. */
+  private readonly passes: Mesh<Geometry, Shader>[] = [];
+  /** Bumped whenever a piece is added, moves or goes; sauce passes don't count. */
+  private changes = 0;
 
   get pieces(): number {
-    return this.children.length;
+    return this.placed.length;
+  }
+
+  get version(): number {
+    return this.changes;
+  }
+
+  /** Whether a piece lies over the newest sauce pass, or there's no pass in the stack yet but pieces. */
+  get piecesOnTop(): boolean {
+    return this.children[this.children.length - 1] instanceof Piece;
   }
 
   constructor(private readonly radiusAt: (angle: number) => number) {
@@ -133,12 +148,28 @@ export class ToppingLayer extends Container<Piece> {
     }
   }
 
+  /** Lay a sauce pass over every piece so far. */
+  addSaucePass(pass: Mesh<Geometry, Shader>): void {
+    this.passes.push(this.addChild(pass));
+  }
+
+  /** Bring the newest sauce pass up over every piece, if there's one in the stack. */
+  raiseSaucePass(): void {
+    const newest = this.passes.at(-1);
+    if (newest) this.setChildIndex(newest, this.children.length - 1);
+  }
+
+  setSaucePassesVisible(visible: boolean): void {
+    for (const pass of this.passes) pass.visible = visible;
+  }
+
   has(topping: Topping): boolean {
-    return this.children.some((piece) => piece.topping === topping);
+    return this.placed.some((piece) => piece.topping === topping);
   }
 
   /** Advance pieces that are still landing. */
   update(dt: number): void {
+    if (this.landing.size) this.changes++;
     for (const piece of this.landing) {
       if (piece.land(dt)) this.landing.delete(piece);
     }
@@ -148,17 +179,21 @@ export class ToppingLayer extends Container<Piece> {
   setBake(level: number): void {
     this.bakeLevel = level;
     const { from, t } = bakeStep(level);
-    for (const piece of this.children) piece.setBake(from, t);
+    for (const piece of this.placed) piece.setBake(from, t);
   }
 
   /** Follow the dough's current edge. */
   layout(): void {
-    for (const piece of this.children) this.place(piece);
+    for (const piece of this.placed) this.place(piece);
   }
 
   clear(): void {
     this.landing.clear();
-    for (const piece of this.removeChildren()) piece.destroy({ children: true });
+    this.placed.length = 0;
+    this.passes.length = 0;
+    this.changes++;
+    // Sauce passes share the dough's geometry, which outlives them
+    for (const child of this.removeChildren()) child.destroy({ children: true });
   }
 
   /** A piece lands somewhere within scatterRadius of (x, y), pulled in past the inner rim. */
@@ -176,6 +211,8 @@ export class ToppingLayer extends Container<Piece> {
   private add(topping: Topping, angle: number, fraction: number): void {
     if (this.pieces >= TOPPINGS.maxPieces) return;
     const piece = this.addChild(new Piece(topping, angle, fraction));
+    this.placed.push(piece);
+    this.changes++;
     this.landing.add(piece);
     const { from, t } = bakeStep(this.bakeLevel);
     piece.setBake(from, t);

@@ -141,6 +141,9 @@ export const SAUCE = {
   // Coverage grid cells per side; a stamp counts cells within this fraction of its radius
   coverageGrid: 32,
   coverageCore: 0.7,
+  // Sauce laid over toppings becomes a pass of its own above them, multiplied over the pizza without sauce; up to this
+  // many passes in all (the first under every topping), then the newest pass rises above them and takes the sauce
+  maxPasses: 4,
 };
 
 // Placed toppings: sheet-size pieces scaled down with some jitter, in the dough's polar space so they follow it
@@ -231,7 +234,7 @@ export const BAKE = {
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
 export const BAKE_GAUGE = {
-  x: 1420,
+  x: 1355,
   y: 1450,
   width: 370,
   hubX: 0.505,
@@ -272,7 +275,7 @@ export const FIRE = {
 
 // Serve button: center and drawn width. Enabled once the pizza is baked enough (BAKE.minBaked); does nothing yet
 export const SERVE_BUTTON = {
-  x: 320,
-  y: 1370,
+  x: 643,
+  y: 1400,
   width: 300,
 };

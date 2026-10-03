@@ -27,6 +27,7 @@ Meta game: later.
 - **Dough** — ring of radii, no volume. A press grows radii at its angle with angular falloff, scaled by how close to the edge it lands (none near center); growth slows past the rim and caps just beyond it. Coverage of the rim circle gates sauce; roundness vs. a perfect circle is the internal score.
   - Rendering: polar mesh of spokes × rings over the dough-ball drawing; each spoke stretches to its radius, the center staying firmer than the edge. Each spoke fades into the rolled-base drawing as it nears the rim.
 - **Sauce / Cheese** — brush stamps into a mask in the dough's polar space (edge = inscribed circle), so paint stretches with the dough and never leaves it; the dough shader thresholds it into a crisp edge with an inner shadow and blends in a tiling pattern. Low-res CPU grid tracks coverage.
+  - Sauce laid over toppings starts a pass above them: its own mask, drawn on the dough's mesh and multiplied over a render of the pizza without sauce (so sauce on sauce reads as one layer), up to a capped number of passes; past the cap the newest pass rises over them instead.
 - **Scattered toppings** — pieces drop along the drag (and steadily while resting), stored as angle + fraction of the dough edge so they follow it; each piece stacks its raw, baked and burnt sprites for a later bake cross-fade.
 - **Toppings** — sprites with rotation/scale jitter.
 - **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker.

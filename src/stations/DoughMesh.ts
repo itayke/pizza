@@ -35,6 +35,43 @@ void main() {
 }
 `;
 
+// Sauce mask and pattern, shared by the dough and the sauce passes laid over toppings
+const sauceGlsl = `
+uniform sampler2D uSauce;
+uniform sampler2D uSaucePattern;
+uniform vec2 uSauceRepeat;
+uniform float uSauceEdge;
+uniform float uSauceEdgeWidth;
+uniform float uBevelOffset;
+uniform float uBevelShade;
+// Inner shadow sampling: directions around the point, and rings out to the bevel width (more rounds its profile)
+const int BEVEL_DIRECTIONS = 8;
+const int BEVEL_RINGS = 2;
+const float TAU = 6.2831853;
+const float EDGE_BARE = 0.5;
+
+float sauceAt(vec2 uv) {
+  // Soft stamps are thresholded into a crisp, antialiased edge
+  return smoothstep(uSauceEdge - uSauceEdgeWidth, uSauceEdge + uSauceEdgeWidth, texture(uSauce, uv).a);
+}
+
+/** The sauce pattern, with an inner shadow along every edge. */
+vec3 sauceColor(vec2 uv) {
+  // Inner shadow: darken by how much of the surroundings is bare
+  float around = 0.0;
+  for (int ring = 1; ring <= BEVEL_RINGS; ring++) {
+    float reach = uBevelOffset * float(ring) / float(BEVEL_RINGS);
+    for (int i = 0; i < BEVEL_DIRECTIONS; i++) {
+      float angle = TAU * float(i) / float(BEVEL_DIRECTIONS);
+      around += sauceAt(uv + reach * vec2(cos(angle), sin(angle)));
+    }
+  }
+  // Right at an edge about half the surroundings are bare; scale so that reads as full shade
+  float bare = min(1.0, (1.0 - around / float(BEVEL_RINGS * BEVEL_DIRECTIONS)) / EDGE_BARE);
+  return texture(uSaucePattern, uv * uSauceRepeat).rgb * (1.0 - bare * uBevelShade);
+}
+`;
+
 const fragment = `
 in vec2 vBallUV;
 in vec2 vRolledUV;
@@ -47,49 +84,61 @@ uniform sampler2D uRolled;
 uniform sampler2D uBaked;
 uniform sampler2D uBurnt;
 uniform vec3 uBakeWeights;
-uniform sampler2D uSauce;
-uniform sampler2D uSaucePattern;
-uniform vec2 uSauceRepeat;
-uniform float uSauceEdge;
-uniform float uSauceEdgeWidth;
-uniform float uBevelOffset;
-uniform float uBevelShade;
+uniform float uSauceShown;
 uniform vec4 uColor;
-// Inner shadow sampling: directions around the point, and rings out to the bevel width (more rounds its profile)
-const int BEVEL_DIRECTIONS = 8;
-const int BEVEL_RINGS = 2;
-const float TAU = 6.2831853;
-const float EDGE_BARE = 0.5;
 // Past the drawn edge the dough fades out over this fraction of it, so texture borders never show
 const float DOUGH_CUTOFF = 0.02;
-
-float sauceAt(vec2 uv) {
-  // Soft stamps are thresholded into a crisp, antialiased edge
-  return smoothstep(uSauceEdge - uSauceEdgeWidth, uSauceEdge + uSauceEdgeWidth, texture(uSauce, uv).a);
-}
-
+${sauceGlsl}
 void main() {
   // Bake phases share the rolled drawing's canvas, so one UV samples all three (premultiplied, so edges fade too)
   vec4 rolled = texture(uRolled, vRolledUV) * uBakeWeights.x + texture(uBaked, vRolledUV) * uBakeWeights.y
     + texture(uBurnt, vRolledUV) * uBakeWeights.z;
   vec4 dough = mix(texture(uBall, vBallUV), rolled, vBlend) * (1.0 - smoothstep(1.0, 1.0 + DOUGH_CUTOFF, vEdgeFraction));
+  // Drawn bare for the later sauce passes to multiply over
+  if (uSauceShown < 0.5) {
+    finalColor = dough * uColor;
+    return;
+  }
   // Sauce multiplies over the dough laid on white, so the dough's drawing and bake show through it and sauce
   // spilled past the dough shows as is
   float sauce = sauceAt(vSauceUV);
-  vec3 red = texture(uSaucePattern, vSauceUV * uSauceRepeat).rgb * (dough.rgb + 1.0 - dough.a);
-  // Inner shadow: darken by how much of the surroundings is bare, so every edge is multiplied
-  float around = 0.0;
-  for (int ring = 1; ring <= BEVEL_RINGS; ring++) {
-    float reach = uBevelOffset * float(ring) / float(BEVEL_RINGS);
-    for (int i = 0; i < BEVEL_DIRECTIONS; i++) {
-      float angle = TAU * float(i) / float(BEVEL_DIRECTIONS);
-      around += sauceAt(vSauceUV + reach * vec2(cos(angle), sin(angle)));
-    }
-  }
-  // Right at an edge about half the surroundings are bare; scale so that reads as full shade
-  float bare = min(1.0, (1.0 - around / float(BEVEL_RINGS * BEVEL_DIRECTIONS)) / EDGE_BARE);
-  red *= 1.0 - bare * uBevelShade;
+  vec3 red = sauceColor(vSauceUV) * (dough.rgb + 1.0 - dough.a);
   finalColor = vec4(mix(dough.rgb, red, sauce), mix(dough.a, 1.0, sauce)) * uColor;
+}
+`;
+
+// A sauce pass on its own: opaque, but multiplied over the pizza without sauce, so sauce over sauce looks like one layer
+const passVertex = `
+in vec2 aPosition;
+in vec2 aSauceUV;
+out vec2 vSauceUV;
+out vec2 vPlainUV;
+uniform float uPlainExtent;
+uniform mat3 uProjectionMatrix;
+uniform mat3 uWorldTransformMatrix;
+uniform mat3 uTransformMatrix;
+
+void main() {
+  mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
+  gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
+  vSauceUV = aSauceUV;
+  // The plain pizza spans uPlainExtent either side of the dough center
+  vPlainUV = aPosition / (2.0 * uPlainExtent) + 0.5;
+}
+`;
+
+const passFragment = `
+in vec2 vSauceUV;
+in vec2 vPlainUV;
+out vec4 finalColor;
+uniform sampler2D uPlain;
+uniform vec4 uColor;
+${sauceGlsl}
+void main() {
+  // Laid on white, like the first pass, so sauce spilled past the dough shows as is
+  vec4 under = texture(uPlain, vPlainUV);
+  float sauce = sauceAt(vSauceUV);
+  finalColor = vec4(sauceColor(vSauceUV) * (under.rgb + 1.0 - under.a) * sauce, sauce) * uColor;
 }
 `;
 
@@ -99,6 +148,7 @@ type Shape = { centerX: number; centerY: number; edge: readonly number[] };
  * Polar mesh (spokes × rings) textured with the dough drawings. Each spoke's last dough ring follows its radius,
  * so the drawing stretches per angle; the ball fades into the rolled base as each spoke grows toward the rim.
  * Sauce is sampled from a mask in the same polar space (see SauceLayer); a few rings past the edge carry only sauce.
+ * Later sauce passes are meshes of their own on the same geometry, so they stretch with the dough too.
  */
 export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly spokes: number;
@@ -109,8 +159,10 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   private readonly sauceUVs: Float32Array;
   private readonly edgeFractions: Float32Array;
   private readonly sauceUniforms: UniformGroup;
+  private readonly pattern: Texture;
   /** Rolled, baked and burnt shares of the base, updated in place. */
   private readonly bakeMix: Float32Array;
+  private readonly bakeUniforms: UniformGroup;
   /** Pattern repeats across the dough, per axis. */
   private readonly sauceRepeat: Float32Array;
   /** Sauce pattern width over height, so tiles keep their drawn shape. */
@@ -155,6 +207,7 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     });
     const bakeUniforms = new UniformGroup({
       uBakeWeights: { value: bakeWeights(0, new Float32Array(BAKE_PHASES.length)), type: 'vec3<f32>' },
+      uSauceShown: { value: 1, type: 'f32' },
     });
     const shader = new Shader({
       glProgram: GlProgram.from({ vertex, fragment, name: 'dough-mesh' }),
@@ -179,7 +232,9 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
     this.sauceUVs = sauceUVs;
     this.edgeFractions = edgeFractions;
     this.sauceUniforms = sauceUniforms;
+    this.pattern = pattern;
     this.bakeMix = bakeUniforms.uniforms.uBakeWeights;
+    this.bakeUniforms = bakeUniforms;
     this.sauceRepeat = sauceRepeat;
     this.patternAspect = pattern.width / pattern.height;
     this.buffers = buffers;
@@ -198,6 +253,29 @@ export class DoughMesh extends Mesh<Geometry, Shader> {
   /** Show the rolled base at a bake level, raw at 0 to burnt at 1. */
   setBake(level: number): void {
     bakeWeights(level, this.bakeMix);
+  }
+
+  /** Draw the first pass's sauce, or the dough bare. */
+  setSauceShown(shown: boolean): void {
+    this.bakeUniforms.uniforms.uSauceShown = shown ? 1 : 0;
+  }
+
+  /**
+   * A sauce pass drawing the given mask over the plain pizza (no sauce), which spans uPlainExtent either side of the
+   * dough center; it follows this dough's shape.
+   */
+  makeSaucePass(mask: Texture, plain: Texture, plainUniforms: UniformGroup): Mesh<Geometry, Shader> {
+    const shader = new Shader({
+      glProgram: GlProgram.from({ vertex: passVertex, fragment: passFragment, name: 'sauce-pass' }),
+      resources: {
+        uSauce: mask.source,
+        uSaucePattern: this.pattern.source,
+        uPlain: plain.source,
+        sauceUniforms: this.sauceUniforms,
+        plainUniforms,
+      },
+    });
+    return new Mesh({ geometry: this.geometry, shader });
   }
 
   /** Reshape to the given radius per spoke. */

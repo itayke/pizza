@@ -178,6 +178,8 @@ export class KitchenScene extends Container {
     this.serveButton.setState(this.canServe(), this.servePressed);
     // The art eases through the bake, lingering around the optimal level
     this.dough.setBake(bakeCurve(this.bakeLevel));
+    // Last, once the pizza is done changing this frame
+    this.dough.drawPlain();
   }
 
   /** The held ingredient's glow fades up while pressed and back out once released. */

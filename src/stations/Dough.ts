@@ -1,4 +1,4 @@
-import { Circle, Container, Graphics, Point, Sprite, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
+import { Circle, Container, Graphics, Matrix, Point, RenderTexture, Sprite, UniformGroup, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
 import { COLORS, DOUGH, PLACEMENT, SAUCE, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { easeOutCubic } from '../core/easing';
@@ -9,6 +9,9 @@ import { SauceLayer } from './SauceLayer';
 import { ToppingLayer, type Topping } from './ToppingLayer';
 
 const TAU = Math.PI * 2;
+const TRANSPARENT = [0, 0, 0, 0];
+// Spokes moving less than this, design px, leave the plain pizza as drawn
+const RESHAPE_EPSILON = 0.01;
 
 /** Kneadable dough: a ring of radii that grow outward where pressed, capped just past the rim. */
 export class Dough extends Container {
@@ -22,6 +25,15 @@ export class Dough extends Container {
   private target = new Float32Array(0);
   private shown = new Float32Array(0);
   private readonly body: DoughMesh;
+  private readonly rim: Graphics;
+  /** The pizza without sauce, for later sauce passes to multiply over; redrawn when it changes while there are any. */
+  private readonly plain: RenderTexture;
+  private readonly plainUniforms = new UniformGroup({ uPlainExtent: { value: 0, type: 'f32' } });
+  private readonly plainTransform = new Matrix();
+  private plainStale = true;
+  /** Topping layer version the plain pizza was drawn at. */
+  private plainToppings = -1;
+  private bakeLevel = 0;
   private readonly pointer = new Point();
   private readonly reach = new Circle();
   private pointerId: number | null = null;
@@ -29,11 +41,14 @@ export class Dough extends Container {
   private placed = false;
   private kneadable = true;
 
-  constructor(renderer: Renderer) {
+  constructor(private readonly renderer: Renderer) {
     super();
     this.sauce = new SauceLayer(renderer);
     this.body = new DoughMesh(DOUGH.points, this.sauce.texture);
-    this.addChild(this.buildRim(), this.body, this.toppings);
+    this.rim = this.buildRim();
+    const size = 2 * plainExtent();
+    this.plain = RenderTexture.create({ width: size, height: size });
+    this.addChild(this.rim, this.body, this.toppings);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -55,6 +70,7 @@ export class Dough extends Container {
     this.slamElapsed = Infinity;
     this.sauce.clear();
     this.toppings.clear();
+    this.plainStale = true;
     this.updateReach();
     this.updateMetrics();
     this.draw();
@@ -75,6 +91,8 @@ export class Dough extends Container {
 
   /** Bake the base and toppings to a level, raw at 0 to burnt at 1. */
   setBake(level: number): void {
+    if (level !== this.bakeLevel) this.plainStale = true;
+    this.bakeLevel = level;
     this.body.setBake(level);
     this.toppings.setBake(level);
   }
@@ -82,12 +100,14 @@ export class Dough extends Container {
   /** Stamp sauce along a stroke (dough-local points), pulled in past the inner rim; stamps that would reach past the
    * sauce's drawn area are skipped. */
   paintSauce(from: PointData, to: PointData): void {
+    this.layerSauce();
     this.stampSauce(from, to);
     this.sauce.flush();
   }
 
   /** Cover everything inside the inner rim with sauce, as strokes around rings stepping out from the center. */
   fillSauce(): void {
+    this.layerSauce();
     const step = SAUCE.brushRadius * SAUCE.stampSpacing;
     const widest = PLACEMENT.innerRim * Math.max(...this.shown);
     const rings = Math.ceil(widest / step);
@@ -115,6 +135,36 @@ export class Dough extends Container {
     this.toppings.fill(topping, config, (area * TAU) / this.shown.length);
   }
 
+  /** Sauce laid over toppings starts a pass above them, up to the cap; past it, the newest pass rises over them. */
+  private layerSauce(): void {
+    if (!this.toppings.piecesOnTop) return;
+    if (this.sauce.passes >= SAUCE.maxPasses) {
+      this.toppings.raiseSaucePass();
+      return;
+    }
+    this.toppings.addSaucePass(this.body.makeSaucePass(this.sauce.addPass(), this.plain, this.plainUniforms));
+  }
+
+  /** Redraw the plain pizza if it changed and a later sauce pass shows it; call once everything has moved this frame. */
+  drawPlain(): void {
+    const unchanged = !this.plainStale && this.plainToppings === this.toppings.version;
+    if (this.sauce.passes <= 1 || unchanged) return;
+    const extent = plainExtent();
+    this.plain.source.resize(2 * extent, 2 * extent);
+    this.plainUniforms.uniforms.uPlainExtent = extent;
+    this.rim.visible = false;
+    this.toppings.setSaucePassesVisible(false);
+    this.body.setSauceShown(false);
+    // Dough-local, with its center in the middle of the texture
+    const transform = this.plainTransform.identity().translate(extent, extent);
+    this.renderer.render({ container: this, target: this.plain, clear: true, clearColor: TRANSPARENT, transform });
+    this.rim.visible = true;
+    this.toppings.setSaucePassesVisible(true);
+    this.body.setSauceShown(true);
+    this.plainStale = false;
+    this.plainToppings = this.toppings.version;
+  }
+
   /** Queue sauce stamps along a stroke; drawn on flush. */
   private stampSauce(from: PointData, to: PointData): void {
     const dx = to.x - from.x;
@@ -138,6 +188,7 @@ export class Dough extends Container {
     this.target.fill(DOUGH.rimRadius);
     this.shown.fill(DOUGH.rimRadius);
     this.slamElapsed = Infinity;
+    this.plainStale = true;
     this.updateMetrics();
     this.draw();
   }
@@ -156,19 +207,25 @@ export class Dough extends Container {
     if (this.pointerId !== null && this.isPointerInReach()) {
       this.push(DOUGH.holdGrowthPerSecond * dt);
     }
+    let moved = 0;
     if (this.slamElapsed < DOUGH.slamDuration) {
       this.slamElapsed += dt;
       const k = easeOutCubic(Math.min(1, this.slamElapsed / DOUGH.slamDuration));
       const start = DOUGH.rimRadius * DOUGH.startRatio;
       for (let i = 0; i < this.shown.length; i++) {
-        this.shown[i] = start + (this.target[i] - start) * k;
+        const next = start + (this.target[i] - start) * k;
+        moved = Math.max(moved, Math.abs(next - this.shown[i]));
+        this.shown[i] = next;
       }
     } else {
       const ease = 1 - Math.exp(-DOUGH.easeRate * dt);
       for (let i = 0; i < this.shown.length; i++) {
-        this.shown[i] += (this.target[i] - this.shown[i]) * ease;
+        const step = (this.target[i] - this.shown[i]) * ease;
+        moved = Math.max(moved, Math.abs(step));
+        this.shown[i] += step;
       }
     }
+    if (moved > RESHAPE_EPSILON) this.plainStale = true;
     this.updateMetrics();
     this.draw();
   }
@@ -262,7 +319,11 @@ export class Dough extends Container {
   }
 }
 
-/** Dough ball at the kneading start size. */
+/** Furthest any sauce can reach from the dough center, design px: the sauce's reach past the capped dough. */
+function plainExtent(): number {
+  return DOUGH.rimRadius * DOUGH.capRatio * SAUCE.maskReach;
+}
+
 /** Scale at which the dough ball drawing matches the dough as it lands on the peel. */
 export function landedBallScale(): number {
   const { edge } = DOUGH_SHAPES.dough_ball;
