@@ -22,8 +22,6 @@ function names(blade: BladeApi): string[] {
  * back every item and each folder's open state from before.
  */
 export function addPaneFilter(pane: Pane): void {
-  const box = document.createElement('div');
-  box.style.cssText = BOX_STYLE;
   const input = document.createElement('input');
   input.type = 'text';
   input.placeholder = 'Filter';
@@ -32,10 +30,12 @@ export function addPaneFilter(pane: Pane): void {
   clear.textContent = '✕';
   clear.title = 'Clear filter';
   clear.style.cssText = CLEAR_STYLE;
-  box.append(input, clear);
+  // Hosted in a blade of its own, as Tweakpane places later blades by their index among its own
   const first = pane.children.find(isFolder);
-  if (first) first.element.before(box);
-  else pane.element.append(box);
+  const host = pane.addBlade({ view: 'separator', index: first ? pane.children.indexOf(first) : undefined });
+  const box = host.element;
+  box.style.cssText = BOX_STYLE;
+  box.replaceChildren(input, clear);
 
   // Folder open states from before filtering began
   let saved: Map<FolderApi, boolean> | null = null;
@@ -47,6 +47,7 @@ export function addPaneFilter(pane: Pane): void {
   const apply = (parent: Container, query: string, all: boolean): boolean => {
     let any = false;
     for (const blade of parent.children) {
+      if (blade === host) continue;
       const matched = all || names(blade).some((n) => n.toLowerCase().includes(query));
       const shown = isFolder(blade) ? apply(blade, query, matched) : matched;
       blade.hidden = !shown;

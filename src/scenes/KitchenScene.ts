@@ -323,6 +323,8 @@ export class KitchenScene extends Container {
 
   private buildBowl(): void {
     const { bowl } = this;
+    // Anchored at its center, which it scales about
+    bowl.anchor.set(0.5);
     bowl.eventMode = 'static';
     bowl.on('pointerdown', this.pickUpDough, this);
     this.addChild(bowl, this.bowlLabel);
@@ -331,13 +333,13 @@ export class KitchenScene extends Container {
 
   /** Place the bowl, its dough and its label from config. */
   layoutBowl(): void {
-    const drawn = artPoint('bowl', 0, 0);
-    this.bowl.position.set(drawn.x + BOWL.x, drawn.y + BOWL.y);
+    const center = artPoint('bowl', 0.5, 0.5);
+    this.bowl.position.set(center.x + BOWL.x, center.y + BOWL.y);
+    this.bowl.scale.set(BOWL.scale);
     // The label sits by its center, which it grows about
     const label = artPoint('label_dough', 0.5, 0.5);
     this.bowlLabel.position.set(label.x + BOWL.x + BOWL.labelX, label.y + BOWL.y + BOWL.labelY);
-    const center = artPoint('bowl', 0.5, 0.5);
-    this.ballRest.set(center.x + BOWL.x, center.y + BOWL.y);
+    this.ballRest.copyFrom(this.bowl.position);
     this.ballRestScale = (BOWL.fillWidth * this.bowl.width) / this.doughBall.texture.width;
     if (this.doughPhase === 'inBowl') this.restBall();
   }
