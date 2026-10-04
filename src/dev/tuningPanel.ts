@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, NARROW, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
@@ -10,8 +10,8 @@ const SKIP_KEY = 's';
 const PANEL_MARGIN = 8;
 const BAKE_LEVEL_REFRESH_MS = 100;
 
-/** Dev-only live tuning. Edits config objects in place; values reset on reload. */
-export function createTuningPanel(scene: KitchenScene): void {
+/** Dev-only live tuning. Edits config objects in place; values reset on reload. refit re-fits the screen. */
+export function createTuningPanel(scene: KitchenScene, refit: () => void): void {
   const pane = new Pane({ title: 'Tuning' });
   // Scroll when taller than the window
   const container = pane.element.parentElement;
@@ -20,6 +20,7 @@ export function createTuningPanel(scene: KitchenScene): void {
     container.style.overflowY = 'auto';
   }
   const resetDough = () => scene.resetDough();
+  const layout = () => scene.layout();
 
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
   pane.addButton({ title: `Skip step (${SKIP_KEY.toUpperCase()})` }).on('click', () => scene.skipStep());
@@ -107,7 +108,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   for (const key of Object.keys(LABEL_NUDGE) as (keyof typeof LABEL_NUDGE)[]) {
     bins.addBinding(LABEL_NUDGE, key, { label: `${key}Label`, min: -100, max: 100, step: 1 });
   }
-  bins.on('change', () => scene.layoutBins());
+  bins.on('change', layout);
 
   const bowl = pane.addFolder({ title: 'Bowl', expanded: false });
   bowl.addBinding(BOWL, 'x', { min: -200, max: 200, step: 1 });
@@ -116,14 +117,14 @@ export function createTuningPanel(scene: KitchenScene): void {
   bowl.addBinding(BOWL, 'labelX', { min: -200, max: 200, step: 1 });
   bowl.addBinding(BOWL, 'labelY', { min: -200, max: 200, step: 1 });
   bowl.addBinding(BOWL, 'fillWidth', { min: 0.2, max: 1 });
-  bowl.on('change', () => scene.layoutBowl());
+  bowl.on('change', layout);
 
   const peel = pane.addFolder({ title: 'Peel', expanded: false });
   peel.addBinding(PEEL, 'x', { min: -200, max: 200, step: 1 });
   peel.addBinding(PEEL, 'y', { min: -200, max: 200, step: 1 });
   peel.addBinding(PEEL, 'faceX', { min: 0, max: 1 });
   peel.addBinding(PEEL, 'faceY', { min: 0, max: 1 });
-  peel.on('change', () => scene.layoutPeel());
+  peel.on('change', layout);
 
   const dragon = pane.addFolder({ title: 'Dragon', expanded: false });
   dragon.addBinding(DRAGON, 'x', { min: 1200, max: 2800, step: 1 });
@@ -135,7 +136,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   dragon.addBinding(FIRE, 'mouthX', { min: 0, max: 1 });
   dragon.addBinding(FIRE, 'mouthY', { min: 0, max: 1 });
   dragon.addBinding(FIRE, 'reach', { min: 0.2, max: 1.5 });
-  dragon.on('change', () => scene.layoutDragon());
+  dragon.on('change', layout);
 
   const bake = pane.addFolder({ title: 'Bake', expanded: false });
   bake.addBinding(BAKE_GAUGE, 'x', { min: 0, max: 2048, step: 1 });
@@ -151,11 +152,24 @@ export function createTuningPanel(scene: KitchenScene): void {
   bake.addBinding(BAKE, 'minBaked', { min: 0, max: 1 });
   bake.addBinding(BAKE, 'easePower', { min: 1, max: 5 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
+  bake.on('change', layout);
 
   const serve = pane.addFolder({ title: 'Serve', expanded: false });
   serve.addBinding(SERVE_BUTTON, 'x', { min: 0, max: 2048, step: 1 });
   serve.addBinding(SERVE_BUTTON, 'y', { min: 0, max: 1536, step: 1 });
   serve.addBinding(SERVE_BUTTON, 'width', { min: 40, max: 600, step: 1 });
+  serve.on('change', layout);
+
+  // Shows on screens narrower than belowAspect; narrow the window to see it
+  const narrow = pane.addFolder({ title: 'Narrow', expanded: false });
+  narrow.addBinding(NARROW, 'belowAspect', { min: 0.5, max: 2 });
+  narrow.addBinding(NARROW, 'minAspect', { min: 0.3, max: 1 });
+  narrow.addBinding(NARROW, 'width', { min: 600, max: 2048, step: 1 });
+  const fitKeys = ['belowAspect', 'minAspect', 'width'];
+  for (const key of Object.keys(NARROW).filter((k) => !fitKeys.includes(k)) as (keyof typeof NARROW)[]) {
+    narrow.addBinding(NARROW, key, key.endsWith('Scale') ? { min: 0.2, max: 1.5 } : { min: -200, max: 2048, step: 1 });
+  }
+  narrow.on('change', refit);
 
   // After every folder is in, so it can sit above the first
   addPaneFilter(pane);
@@ -163,7 +177,7 @@ export function createTuningPanel(scene: KitchenScene): void {
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, NARROW }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

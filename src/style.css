@@ -16,23 +16,3 @@ body {
 canvas {
   display: block;
 }
-
-#rotate-hint {
-  display: none;
-  position: fixed;
-  inset: 0;
-  align-items: center;
-  justify-content: center;
-  background: #3b2418;
-  color: #fff4d6;
-  font: bold 2rem system-ui, sans-serif;
-  text-align: center;
-  z-index: 10;
-}
-
-/* Landscape-only game: nag touch devices held in portrait */
-@media (orientation: portrait) and (pointer: coarse) {
-  #rotate-hint {
-    display: flex;
-  }
-}

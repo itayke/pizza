@@ -10,7 +10,7 @@ export type PickHandler = (id: IngredientId, e: FederatedPointerEvent) => void;
 export class IngredientBin extends Container {
   private readonly fills = new Map<IngredientId, Sprite>();
   private readonly labels = new Map<IngredientId, SelectableLabel>();
-  private readonly art: BinSpec['art'];
+  readonly art: BinSpec['art'];
 
   /** onPick fires on a press on a compartment's food, available or not. */
   constructor(spec: BinSpec, onPick: PickHandler) {

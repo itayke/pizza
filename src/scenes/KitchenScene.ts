@@ -2,16 +2,16 @@ import { Container, Point, Sprite, type FederatedPointerEvent, type Rectangle, t
 import {
   BAKE,
   BAKE_BUTTON,
+  BAKE_GAUGE,
   BINS,
   BOWL,
   CHEESE,
-  DESIGN_HEIGHT,
-  DESIGN_WIDTH,
   DOUGH,
   DRAGON,
   FIRE,
   HELD,
   INGREDIENT_IDS,
+  NARROW,
   PEEL,
   PIECES,
   PULSE,
@@ -20,7 +20,7 @@ import {
   TOPPINGS,
   type IngredientId,
 } from '../config';
-import { artPoint, artSprite, artTexture } from '../core/art';
+import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
 import { easeInQuad } from '../core/easing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { StateButton } from '../stations/StateButton';
@@ -32,6 +32,12 @@ import { SelectableLabel } from '../stations/SelectableLabel';
 const TOPPINGS_READY: readonly IngredientId[] = INGREDIENT_IDS;
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
+
+// Stations in drawing order; each holds its art in the wide design space and is placed for the current layout
+const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'peel', 'gauge', 'dragon', 'bakeButton', 'serveButton'] as const;
+type Station = (typeof STATIONS)[number];
+
+const ORIGIN = { x: 0, y: 0 };
 
 /** The main play screen, laid out from the art. Serve is still a placeholder. */
 export class KitchenScene extends Container {
@@ -61,7 +67,10 @@ export class KitchenScene extends Container {
   private readonly fire = artSprite('fire');
   private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
+  private readonly stations = Object.fromEntries(STATIONS.map((name) => [name, new Container()])) as Record<Station, Container>;
+  private narrow = false;
   private readonly pointer = new Point();
+  /** Where the dough sits, in scene space; the ball lands there. */
   private readonly peelCenter = new Point();
   private readonly dropFrom = new Point();
   private readonly strokeEnd = new Point();
@@ -82,15 +91,14 @@ export class KitchenScene extends Container {
     this.dough = new Dough(renderer);
 
     this.background.anchor.set(0.5);
-    this.background.position.set(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2);
     // Interactive so a press anywhere reaches the scene (painting)
     this.background.eventMode = 'static';
     this.addChild(this.background);
+    this.addChild(...STATIONS.map((name) => this.stations[name]));
     this.buildBins(unlocked);
     this.buildBowl();
     this.buildPeel();
-    this.addChild(this.dough);
-    this.addChild(this.gauge);
+    this.stations.gauge.addChild(this.gauge);
     this.buildDragon();
     this.buildBakeButton();
     this.buildServeButton();
@@ -107,14 +115,52 @@ export class KitchenScene extends Container {
     this.on('pointerup', this.stopPainting, this);
     this.on('pointerupoutside', this.stopPainting, this);
 
+    this.layout();
     this.setTool(null);
     this.resetDough();
     this.applyAvailability();
   }
 
-  /** Stretch the paper to cover the screen area outside the design rect too. */
+  /** Cover the whole screen area with paper, margins included. */
   fitBackground(screenArea: Rectangle): void {
-    this.background.scale.set(Math.max(screenArea.width / DESIGN_WIDTH, screenArea.height / DESIGN_HEIGHT));
+    const { background } = this;
+    background.position.set(screenArea.x + screenArea.width / 2, screenArea.y + screenArea.height / 2);
+    background.scale.set(Math.max(screenArea.width / background.texture.width, screenArea.height / background.texture.height));
+  }
+
+  /** Arrange the stations for a narrow screen or a wide one. */
+  setNarrow(narrow: boolean): void {
+    this.narrow = narrow;
+    this.layout();
+  }
+
+  /** Place everything from config, in the current arrangement; stations go first, since the rest reads where they are. */
+  layout(): void {
+    for (const bin of this.bins) {
+      bin.layout();
+      const center = artPoint(bin.art, 0.5, 0.5);
+      this.placeStation(bin.art, center.x + bin.x, center.y + bin.y);
+    }
+    this.layoutBowl();
+    this.layoutPeel();
+    this.placeStation('gauge', BAKE_GAUGE.x, BAKE_GAUGE.y);
+    this.placeStation('bakeButton', BAKE_BUTTON.x, BAKE_BUTTON.y);
+    this.placeStation('serveButton', SERVE_BUTTON.x, SERVE_BUTTON.y);
+    this.layoutDragon();
+    this.scaleHeld();
+  }
+
+  /** Wide, a station stays as drawn; narrow, its anchor (a point in the wide layout) moves to its spot and scale. */
+  private placeStation(name: Station, anchorX: number, anchorY: number): void {
+    const station = this.stations[name];
+    station.pivot.set(anchorX, anchorY);
+    if (this.narrow) {
+      station.position.set(NARROW[`${name}X`], NARROW[`${name}Y`]);
+      station.scale.set(NARROW[`${name}Scale`]);
+    } else {
+      station.position.set(anchorX, anchorY);
+      station.scale.set(1);
+    }
   }
 
   /** Back to an empty peel with the dough in its bowl. */
@@ -204,18 +250,20 @@ export class KitchenScene extends Container {
     this.tool = tool;
     this.painting = false;
     this.held.visible = !!tool && !this.touch;
-    // Sauce has its own cursor art; toppings show the raw piece they drop, larger than it lands
-    if (tool === 'sauce') {
-      this.heldArt.texture = artTexture('held_sauce');
-      this.held.scale.set(HELD.scale);
-    } else if (tool) {
-      this.heldArt.texture = artTexture(`topping_${tool}_raw`);
-      this.held.scale.set(TOPPINGS.scale * HELD.pieceScale);
-    }
+    // Sauce has its own cursor art; toppings show the raw piece they drop
+    if (tool === 'sauce') this.heldArt.texture = artTexture('held_sauce');
+    else if (tool) this.heldArt.texture = artTexture(`topping_${tool}_raw`);
+    this.scaleHeld();
     this.heldGlow.texture = this.heldArt.texture;
     this.heldGlow.alpha = 0;
     this.held.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);
+  }
+
+  /** Held art follows the dough's size on screen; toppings show larger than they land. */
+  private scaleHeld(): void {
+    const scale = this.tool === 'sauce' ? HELD.scale : TOPPINGS.scale * HELD.pieceScale;
+    this.held.scale.set(scale * this.stations.peel.scale.x);
   }
 
   /** A press on the peel with an ingredient in hand paints until release; presses elsewhere are ignored. */
@@ -261,8 +309,8 @@ export class KitchenScene extends Container {
   /** Dragging the dough from the bowl and letting go inside the rim places it too. */
   private releaseOverPeel(e: FederatedPointerEvent): void {
     this.trackPointer(e);
-    const { x, y } = this.pointer;
-    if (Math.hypot(x - this.peelCenter.x, y - this.peelCenter.y) <= DOUGH.rimRadius) this.dropDough();
+    const { x, y } = this.dough.toLocal(e.global);
+    if (Math.hypot(x, y) <= DOUGH.rimRadius) this.dropDough();
   }
 
   private updateDrop(dt: number): void {
@@ -274,7 +322,8 @@ export class KitchenScene extends Container {
       this.dropFrom.x + (this.peelCenter.x - this.dropFrom.x) * k,
       this.dropFrom.y + (this.peelCenter.y - this.dropFrom.y) * k,
     );
-    this.doughBall.scale.set(this.dropFromScale + (landedBallScale() - this.dropFromScale) * k);
+    const landedScale = landedBallScale() * this.stations.peel.scale.x;
+    this.doughBall.scale.set(this.dropFromScale + (landedScale - this.dropFromScale) * k);
     if (t < 1) return;
 
     this.doughPhase = 'onPeel';
@@ -300,17 +349,12 @@ export class KitchenScene extends Container {
     if (this.tool && !this.available.has(this.tool)) this.setTool(null);
   }
 
-  layoutBins(): void {
-    this.bins.forEach((bin) => bin.layout());
-  }
-
   private buildBins(unlocked: ReadonlySet<IngredientId>): void {
     for (const spec of BINS) {
       const bin = new IngredientBin(spec, (id, e) => this.pickIngredient(id, e));
       bin.refresh(unlocked);
       this.bins.push(bin);
-      this.addChild(bin);
-      bin.layout();
+      this.stations[bin.art].addChild(bin);
     }
   }
 
@@ -320,20 +364,21 @@ export class KitchenScene extends Container {
     bowl.anchor.set(0.5);
     bowl.eventMode = 'static';
     bowl.on('pointerdown', this.pickUpDough, this);
-    this.addChild(bowl, this.bowlLabel);
-    this.layoutBowl();
+    this.stations.bowl.addChild(bowl, this.bowlLabel);
   }
 
   /** Place the bowl, its dough and its label from config. */
-  layoutBowl(): void {
+  private layoutBowl(): void {
     const center = artPoint('bowl', 0.5, 0.5);
     this.bowl.position.set(center.x + BOWL.x, center.y + BOWL.y);
     this.bowl.scale.set(BOWL.scale);
     // The label sits by its center, which it grows about
     const label = artPoint('label_dough', 0.5, 0.5);
     this.bowlLabel.position.set(label.x + BOWL.x + BOWL.labelX, label.y + BOWL.y + BOWL.labelY);
-    this.ballRest.copyFrom(this.bowl.position);
-    this.ballRestScale = (BOWL.fillWidth * this.bowl.width) / this.doughBall.texture.width;
+    this.placeStation('bowl', this.bowl.x, this.bowl.y);
+    // The ball lives on the scene itself, free to travel to the peel
+    this.toLocal(this.bowl.position, this.stations.bowl, this.ballRest);
+    this.ballRestScale = (BOWL.fillWidth * this.bowl.width * this.stations.bowl.scale.x) / this.doughBall.texture.width;
     if (this.doughPhase === 'inBowl') this.restBall();
   }
 
@@ -349,22 +394,21 @@ export class KitchenScene extends Container {
     peel.eventMode = 'static';
     peel.on('pointerdown', this.dropDough, this);
     peel.on('pointerup', this.releaseOverPeel, this);
-    this.addChild(peel);
-    this.layoutPeel();
+    this.stations.peel.addChild(peel, this.dough);
   }
 
-  /** Place the peel from config; the dough sits on its face and the fire aims there. */
-  layoutPeel(): void {
+  /** Place the peel from config, with the dough on its face. */
+  private layoutPeel(): void {
     const drawn = artPoint('peel', 0, 0);
     this.peel.position.set(drawn.x + PEEL.x, drawn.y + PEEL.y);
     const face = artPoint('peel', PEEL.faceX, PEEL.faceY);
-    this.peelCenter.set(face.x + PEEL.x, face.y + PEEL.y);
-    this.dough.position.copyFrom(this.peelCenter);
-    this.layoutDragon();
+    this.dough.position.set(face.x + PEEL.x, face.y + PEEL.y);
+    this.placeStation('peel', this.dough.x, this.dough.y);
+    this.toLocal(ORIGIN, this.dough, this.peelCenter);
   }
 
-  /** Place the dragon from config and aim the fire from its mouth at the dough. */
-  layoutDragon(): void {
+  /** Place the dragon from config and aim the fire from its mouth at the dough, once the peel is placed. */
+  private layoutDragon(): void {
     const { dragon, fire } = this;
     dragon.anchor.set(DRAGON.pivotX, DRAGON.pivotY);
     dragon.scale.set(DRAGON.scale);
@@ -377,9 +421,11 @@ export class KitchenScene extends Container {
     const sin = Math.sin(dragon.rotation);
     const mouthX = DRAGON.x + offsetX * cos - offsetY * sin;
     const mouthY = DRAGON.y + offsetX * sin + offsetY * cos;
+    this.placeStation('dragon', DRAGON.x, DRAGON.y);
     // Flame art has its round head on the left; the head sits in the mouth, tips reaching for the dough
-    const dx = this.peelCenter.x - mouthX;
-    const dy = this.peelCenter.y - mouthY;
+    const target = this.stations.dragon.toLocal(ORIGIN, this.dough);
+    const dx = target.x - mouthX;
+    const dy = target.y - mouthY;
     fire.position.set(mouthX, mouthY);
     fire.rotation = Math.atan2(dy, dx);
     this.fireScale = (Math.hypot(dx, dy) * FIRE.reach) / fire.texture.width;
@@ -389,19 +435,20 @@ export class KitchenScene extends Container {
     this.fire.anchor.set(0, 0.5);
     this.fire.eventMode = 'none';
     this.setFiring(false);
-    this.layoutDragon();
 
     const { dragon } = this;
     dragon.eventMode = 'static';
+    // It may overlap the peel, which should still take presses beside the dragon
+    dragon.hitArea = opaqueHitArea(dragon);
     dragon.cursor = 'pointer';
     this.onFirePress(dragon, () => true);
-    this.addChild(dragon, this.fire);
+    this.stations.dragon.addChild(dragon, this.fire);
   }
 
   /** A second way to bake, disabled until the dough is rolled out. */
   private buildBakeButton(): void {
     this.onFirePress(this.bakeButton, () => this.doughReady);
-    this.addChild(this.bakeButton);
+    this.stations.bakeButton.addChild(this.bakeButton);
   }
 
   /** Breathe fire while target is held, if it's enabled; baking puts down whatever ingredient is in hand. */
@@ -430,7 +477,7 @@ export class KitchenScene extends Container {
     for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
       button.on(end, () => (this.servePressed = false));
     }
-    this.addChild(button);
+    this.stations.serveButton.addChild(button);
   }
 
   private canServe(): boolean {

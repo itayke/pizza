@@ -1,7 +1,8 @@
 // All tunables live here. Positions are in design-space pixels (DESIGN_WIDTH × DESIGN_HEIGHT).
 // Art placement comes from src/generated/artLayout.ts (tools/art/extract.py).
 
-// Matches the art layout; wider or taller screens see more background paper
+// Matches the art layout. The screen shows the full design height: wider screens see more paper at the sides, narrower
+// ones clip them, down to NARROW.minAspect, past which it shrinks instead, with paper above and below
 export const DESIGN_WIDTH = 2048;
 export const DESIGN_HEIGHT = 1536;
 // Caps device pixel ratio; high-DPI screens otherwise render a much larger buffer
@@ -32,6 +33,43 @@ export const SELECTED_LABEL = {
   color: '#850670',
   scale: 1.2,
   seconds: 0.15,
+};
+
+// Screens narrower than belowAspect (width over height) rearrange the stations into a column width design px wide,
+// centered. Each station keeps its wide-layout look and moves its anchor to <station>X, <station>Y, scaled by
+// <station>Scale. Anchors: a bin's center, the bowl's center, the dough on the peel, the dragon's pivot, the gauge hub
+// and each button's center. Screens narrower than minAspect still show that aspect's width, shrinking to fit
+export const NARROW = {
+  belowAspect: 1.333,
+  minAspect: 0.563,
+  width: 1152,
+  bin2X: 361,
+  bin2Y: 150,
+  bin2Scale: 0.8,
+  bin3X: 791,
+  bin3Y: 156,
+  bin3Scale: 0.8,
+  bowlX: 361,
+  bowlY: 528,
+  bowlScale: 0.83,
+  bin1X: 791,
+  bin1Y: 540,
+  bin1Scale: 0.8,
+  peelX: 431,
+  peelY: 1105,
+  peelScale: 0.7,
+  dragonX: 970,
+  dragonY: 1364,
+  dragonScale: 0.73,
+  gaugeX: 630,
+  gaugeY: 1540,
+  gaugeScale: 0.7,
+  bakeButtonX: 733,
+  bakeButtonY: 1350,
+  bakeButtonScale: 0.8,
+  serveButtonX: 238,
+  serveButtonY: 1500,
+  serveButtonScale: 0.7,
 };
 
 // Per-bin nudge from its drawn spot, in design px, and whether it shows. Keys are `${art}X`, `${art}Y`, `${art}Enabled`.

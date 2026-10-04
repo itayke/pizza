@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { COLORS, MAX_RESOLUTION, STARTING_UNLOCKED } from './config';
+import { COLORS, DESIGN_HEIGHT, DESIGN_WIDTH, MAX_RESOLUTION, NARROW, STARTING_UNLOCKED } from './config';
 import { loadArt } from './core/art';
 import { Viewport } from './core/Viewport';
 import { KitchenScene } from './scenes/KitchenScene';
@@ -26,16 +26,19 @@ async function start(): Promise<void> {
   app.stage.addChild(viewport);
   app.ticker.add((ticker) => scene.update(ticker.deltaMS / MS_PER_SECOND));
 
-  const fit = (width: number, height: number) => {
-    viewport.fit(width, height);
+  const fit = () => {
+    const { width, height } = app.screen;
+    const narrow = width / height < NARROW.belowAspect;
+    viewport.fit(width, height, narrow ? NARROW.width : DESIGN_WIDTH, NARROW.minAspect * DESIGN_HEIGHT);
+    scene.setNarrow(narrow);
     scene.fitBackground(viewport.screenArea);
   };
-  fit(app.screen.width, app.screen.height);
+  fit();
   app.renderer.on('resize', fit);
 
   if (import.meta.env.DEV) {
     const { createTuningPanel } = await import('./dev/tuningPanel');
-    createTuningPanel(scene);
+    createTuningPanel(scene, fit);
   }
 }
 
