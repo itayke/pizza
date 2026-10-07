@@ -78,6 +78,8 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const pieces = pane.addFolder({ title: 'Pieces', expanded: false });
   pieces.addBinding(PIECES, 'holdRate', { min: 0, max: 20 });
   pieces.addBinding(HELD, 'pieceScale', { label: 'heldScale', min: 0.5, max: 4 });
+  pieces.addBinding(HELD, 'refillSeconds', { label: 'heldRefill', min: 0, max: 1 });
+  pieces.addBinding(HELD, 'refillFadeSeconds', { label: 'heldFadeIn', min: 0, max: 1 });
   pieces.addBinding(PULSE, 'strength', { label: 'pulseStrength', min: 0, max: 2 });
   pieces.addBinding(PULSE, 'seconds', { label: 'pulseSeconds', min: 0, max: 1 });
   pieces.addBinding(SELECTED_LABEL, 'color', { label: 'labelColor' });

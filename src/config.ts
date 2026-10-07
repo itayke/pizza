@@ -210,8 +210,9 @@ export const CHEESE = {
   scatterRadius: 45,
 };
 
-// Placed pieces land from <topping>Scale times their size down to it over <topping>Seconds, easing in, and roll into
-// their angle from a random offset of up to <topping>Roll degrees either way
+// Placed pieces land from their starting size down to it over <topping>Seconds, easing in, and roll into their angle
+// from a random offset of up to <topping>Roll degrees either way. A piece held in hand starts from its held size;
+// one with nothing held (by touch) starts from <topping>Scale times its size
 export const LANDING = {
   cheeseScale: 1.2,
   cheeseSeconds: 0.2,
@@ -230,8 +231,8 @@ export const LANDING = {
   olivesRoll: 30,
 };
 
-// The ingredient in hand brightens while pressed: a copy drawn additively fades up to strength on press and back out
-// on release, each over seconds
+// Brightening by an additive copy of the art: held sauce fades up to strength on press and back out on release, each
+// over seconds; a dropped piece pulses up and back out the same way as it lands
 export const PULSE = {
   strength: 0.1,
   seconds: 0.1,
@@ -251,11 +252,14 @@ export const SKIP = {
   cheeseAfterSauce: 0.1,
 };
 
-// Ingredients in hand follow the pointer: sauce shows its own art at scale, a fraction of its sheet size; toppings show
-// the raw piece they drop at pieceScale times the size it lands
+// Ingredients in hand follow the pointer: sauce shows its own art at scale, a fraction of its sheet size; toppings hold
+// the very piece they drop next, at pieceScale times the size it lands. After a drop the hand stays empty for
+// refillSeconds, then the next piece fades in over refillFadeSeconds; a drop before then takes it at once, whole
 export const HELD = {
   scale: 0.56,
   pieceScale: 1.5,
+  refillSeconds: 0.1,
+  refillFadeSeconds: 0.1,
 };
 
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.

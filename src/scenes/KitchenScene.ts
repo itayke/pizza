@@ -17,7 +17,6 @@ import {
   PULSE,
   SERVE_BUTTON,
   SKIP,
-  TOPPINGS,
   type IngredientId,
 } from '../config';
 import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
@@ -60,9 +59,10 @@ export class KitchenScene extends Container {
   /** Ball position relative to the pointer, kept from where it was grabbed. */
   private readonly grabOffset = new Point();
   private dropFromScale = 1;
+  /** Follows the pointer at the pizza's scale, with sauce's art or the topping piece to be dropped next. */
   private readonly held = new Container();
   private readonly heldArt = new Sprite({ anchor: 0.5 });
-  /** Additive copy of the held art that brightens it while pressed. */
+  /** Additive copy of the held sauce art that brightens it while pressed. */
   private readonly heldGlow = new Sprite({ anchor: 0.5, blendMode: 'add', alpha: 0 });
   private readonly fire = artSprite('fire');
   private readonly dragon = artSprite('dragon');
@@ -106,6 +106,7 @@ export class KitchenScene extends Container {
     this.doughBall.eventMode = 'none';
     this.held.addChild(this.heldArt, this.heldGlow);
     this.held.eventMode = 'none';
+    this.dough.toppings.hand = this.held;
     this.addChild(this.doughBall, this.held);
 
     // Track the pointer everywhere so held things can follow it
@@ -231,6 +232,7 @@ export class KitchenScene extends Container {
     this.toLocal(e.global, undefined, this.pointer);
     this.touch = e.pointerType === 'touch';
     this.held.visible = !!this.tool && !this.touch;
+    this.holdPiece();
     // Move in the event itself, not next frame, so held things stick to the pointer
     if (this.doughPhase === 'held') {
       this.doughBall.position.set(this.pointer.x + this.grabOffset.x, this.pointer.y + this.grabOffset.y);
@@ -250,20 +252,27 @@ export class KitchenScene extends Container {
     this.tool = tool;
     this.painting = false;
     this.held.visible = !!tool && !this.touch;
-    // Sauce has its own cursor art; toppings show the raw piece they drop
-    if (tool === 'sauce') this.heldArt.texture = artTexture('held_sauce');
-    else if (tool) this.heldArt.texture = artTexture(`topping_${tool}_raw`);
-    this.scaleHeld();
-    this.heldGlow.texture = this.heldArt.texture;
+    // Sauce has its own cursor art; toppings hold the very piece they drop next
+    const sauce = tool === 'sauce';
+    this.heldArt.visible = this.heldGlow.visible = sauce;
+    if (sauce) this.heldArt.texture = this.heldGlow.texture = artTexture('held_sauce');
     this.heldGlow.alpha = 0;
+    this.holdPiece();
     this.held.position.copyFrom(this.pointer);
     this.dough.setKneadable(tool === null);
   }
 
-  /** Held art follows the dough's size on screen; toppings show larger than they land. */
+  /** A topping in hand waits as its next piece, except by touch, where the finger covers it and nothing is held. */
+  private holdPiece(): void {
+    const tool = this.tool;
+    this.dough.toppings.hold(tool && tool !== 'sauce' && !this.touch ? tool : null);
+  }
+
+  /** Held things follow the dough's size on screen. */
   private scaleHeld(): void {
-    const scale = this.tool === 'sauce' ? HELD.scale : TOPPINGS.scale * HELD.pieceScale;
-    this.held.scale.set(scale * this.stations.peel.scale.x);
+    this.held.scale.set(this.stations.peel.scale.x);
+    this.heldArt.scale.set(HELD.scale);
+    this.heldGlow.scale.set(HELD.scale);
   }
 
   /** A press on the peel with an ingredient in hand paints until release; presses elsewhere are ignored. */

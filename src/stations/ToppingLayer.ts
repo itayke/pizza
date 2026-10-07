@@ -1,5 +1,5 @@
-import { Container, Sprite, type Geometry, type Mesh, type PointData, type Shader } from 'pixi.js';
-import { LANDING, PLACEMENT, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
+import { Container, Point, Sprite, type Geometry, type Mesh, type PointData, type Shader } from 'pixi.js';
+import { HELD, LANDING, PLACEMENT, PULSE, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { BAKE_PHASES, bakeCurve, bakeStep, type BakePhase } from '../core/bake';
 import { easeInQuad } from '../core/easing';
@@ -8,29 +8,41 @@ import { placedDistance } from '../core/placement';
 const TAU = Math.PI * 2;
 const DEG_TO_RAD = Math.PI / 180;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const ORIGIN = { x: 0, y: 0 };
 
 /** Toppings placed as pieces; each has topping_<id>_<phase> art. */
 export type Topping = Exclude<IngredientId, 'sauce'>;
 
-/** One placed piece with every bake phase stacked on it, later phases on top; baking cross-fades them. */
+/**
+ * One piece with every bake phase stacked on it, later phases on top; baking cross-fades them. It may wait in hand
+ * first, posed as it will start landing, and is then dropped as is.
+ */
 class Piece extends Container {
   private readonly phases: Sprite[];
+  /** Additive copy of the raw art that pulses as it lands. */
+  private glow: Sprite | null;
   /** Resting scale, jitter included. */
   private readonly size: number;
   /** Resting angle, radians. */
   private readonly restAngle: number;
   /** Where it starts rolling from, off the resting angle, radians. */
   private readonly roll: number;
-  /** Seconds since placed. */
+  /** Position in the dough's polar space: angle, and distance as a fraction of the edge there. */
+  polarAngle = 0;
+  fraction = 0;
+  /** The pizza's bake level when it landed, so it bakes only from then on. */
+  private placedAt = 0;
+  /** Where it was let go of, off its resting spot, closing in as it lands. */
+  private readonly letGo = new Point();
+  /** Seconds since dropped. */
   private age = 0;
+  /** Landing progress, eased: 0 as dropped, 1 at rest. */
+  private settled = 0;
 
-  /** Position in the dough's polar space: angle, and distance as a fraction of the edge there; placedAt is the
-   * pizza's bake level when it landed, so it bakes only from then on. */
+  /** startScale: how large it starts landing, as a multiple of its resting size. */
   constructor(
     readonly topping: Topping,
-    readonly polarAngle: number,
-    readonly fraction: number,
-    private readonly placedAt: number,
+    private readonly startScale: number,
   ) {
     super();
     const sprite = (phase: BakePhase) => {
@@ -39,22 +51,54 @@ class Piece extends Container {
       return this.addChild(s);
     };
     this.phases = BAKE_PHASES.map(sprite);
+    this.glow = this.addChild(new Sprite({ texture: this.phases[0].texture, anchor: 0.5, blendMode: 'add', alpha: 0 }));
     this.restAngle = Math.random() * TAU;
     this.roll = LANDING[`${topping}Roll`] * DEG_TO_RAD * (2 * Math.random() - 1);
     this.size = TOPPINGS.scale * (1 + TOPPINGS.scaleJitter * (2 * Math.random() - 1));
+    this.setBake(this.placedAt);
     this.land(0);
   }
 
-  /** Shrink from the topping's landing scale to rest; true once it has landed. */
+  /** Let go at a polar spot at the pizza's bake level, from offset (layer px) off it. */
+  drop(polarAngle: number, fraction: number, level: number, offset: PointData): void {
+    this.polarAngle = polarAngle;
+    this.fraction = fraction;
+    this.placedAt = level;
+    this.letGo.copyFrom(offset);
+    this.age = 0;
+    this.land(0);
+  }
+
+  /** Shrink and roll from its starting pose to rest, pulsing once; true once it has landed and the pulse is over. */
   land(dt: number): boolean {
     this.age += dt;
     const seconds = LANDING[`${this.topping}Seconds`];
     const t = seconds > 0 ? Math.min(1, this.age / seconds) : 1;
-    const start = LANDING[`${this.topping}Scale`];
-    const k = easeInQuad(t);
-    this.scale.set(this.size * (start + (1 - start) * k));
+    this.settled = easeInQuad(t);
+    const k = this.settled;
+    this.scale.set(this.size * (this.startScale + (1 - this.startScale) * k));
     this.rotation = this.restAngle + this.roll * (1 - k);
-    return t >= 1;
+    const pulsed = this.pulse();
+    return t >= 1 && pulsed;
+  }
+
+  /** Place at its spot in the layer, still off it by what's left of where it was let go. */
+  placeAt(x: number, y: number): void {
+    const away = 1 - this.settled;
+    this.position.set(x + this.letGo.x * away, y + this.letGo.y * away);
+  }
+
+  /** Brighten up and back out, each over the pulse's seconds; true once over, when the glow goes. */
+  private pulse(): boolean {
+    if (!this.glow) return true;
+    const t = PULSE.seconds > 0 ? this.age / PULSE.seconds : Infinity;
+    if (t < 2) {
+      this.glow.alpha = PULSE.strength * (1 - Math.abs(t - 1));
+      return false;
+    }
+    this.glow.destroy();
+    this.glow = null;
+    return true;
   }
 
   /**
@@ -90,6 +134,14 @@ export class ToppingLayer extends Container {
   private readonly passes: Mesh<Geometry, Shader>[] = [];
   /** Bumped whenever a piece is added, moves or goes; sauce passes don't count. */
   private changes = 0;
+  /** Where the next piece waits, following the pointer at this layer's scale; set by whoever shows it. */
+  hand: Container | null = null;
+  /** The topping kept in hand, if any. */
+  private holding: Topping | null = null;
+  /** The next piece, waiting in hand to be dropped as is; briefly none after a drop. */
+  private held: Piece | null = null;
+  /** Seconds until the hand gets its next piece after a drop. */
+  private refillIn = 0;
 
   get pieces(): number {
     return this.placed.length;
@@ -107,6 +159,23 @@ export class ToppingLayer extends Container {
   constructor(private readonly radiusAt: (angle: number) => number) {
     super();
     this.eventMode = 'none';
+  }
+
+  /** Keep the next piece of topping waiting in hand, or none. */
+  hold(topping: Topping | null): void {
+    if (topping === this.holding) return;
+    this.holding = topping;
+    this.held?.destroy({ children: true });
+    this.held = null;
+    this.refill();
+  }
+
+  /** Put the next piece in hand, if a topping is held and the hand is empty; fading, it starts clear and fades in. */
+  private refill(fade = false): void {
+    this.refillIn = 0;
+    if (this.held || !this.holding || !this.hand) return;
+    this.held = this.hand.addChild(new Piece(this.holding, HELD.pieceScale));
+    if (fade && HELD.refillFadeSeconds > 0) this.held.alpha = 0;
   }
 
   /** A new press drops a piece right away. */
@@ -147,8 +216,9 @@ export class ToppingLayer extends Container {
     const count = Math.round(area / swath);
     // A sunflower spiral spreads them evenly, with no bald spots or clumps
     const start = Math.random() * TAU;
-    for (let i = 0; i < count; i++) {
-      this.add(topping, start + i * GOLDEN_ANGLE, PLACEMENT.innerRim * Math.sqrt((i + 0.5) / count));
+    for (let i = 0; i < count && this.pieces < TOPPINGS.maxPieces; i++) {
+      const fraction = PLACEMENT.innerRim * Math.sqrt((i + 0.5) / count);
+      this.add(new Piece(topping, LANDING[`${topping}Scale`]), start + i * GOLDEN_ANGLE, fraction);
     }
   }
 
@@ -173,9 +243,13 @@ export class ToppingLayer extends Container {
 
   /** Advance pieces that are still landing. */
   update(dt: number): void {
+    if (this.refillIn > 0 && (this.refillIn -= dt) <= 0) this.refill(true);
+    const { held } = this;
+    if (held && held.alpha < 1) held.alpha = Math.min(1, held.alpha + dt / HELD.refillFadeSeconds);
     if (this.landing.size) this.changes++;
     for (const piece of this.landing) {
       if (piece.land(dt)) this.landing.delete(piece);
+      this.place(piece);
     }
   }
 
@@ -199,22 +273,39 @@ export class ToppingLayer extends Container {
     for (const child of this.removeChildren()) child.destroy({ children: true });
   }
 
-  /** A piece lands somewhere within scatterRadius of (x, y), pulled in past the inner rim. */
+  /**
+   * A piece lands somewhere within scatterRadius of (x, y), pulled in past the inner rim. The piece in hand is the one
+   * dropped, from where it is; the next takes its place after a moment and fades in, or comes at once and whole if
+   * another drop comes first.
+   */
   private drop(topping: Topping, config: { scatterRadius: number }, x: number, y: number): void {
+    if (this.pieces >= TOPPINGS.maxPieces) return;
     const spread = config.scatterRadius * Math.sqrt(Math.random());
     const heading = Math.random() * TAU;
     const px = x + Math.cos(heading) * spread;
     const py = y + Math.sin(heading) * spread;
     const angle = Math.atan2(py, px);
     const edge = this.radiusAt(angle);
-    this.add(topping, angle, placedDistance(Math.hypot(px, py), edge) / edge);
+    const fraction = placedDistance(Math.hypot(px, py), edge) / edge;
+    if (this.refillIn > 0) this.refill();
+    const held = this.held?.topping === topping ? this.held : null;
+    if (!held) {
+      this.add(new Piece(topping, LANDING[`${topping}Scale`]), angle, fraction);
+      return;
+    }
+    held.alpha = 1;
+    const from = this.toLocal(held.getGlobalPosition());
+    const r = edge * fraction;
+    this.add(held, angle, fraction, { x: from.x - Math.cos(angle) * r, y: from.y - Math.sin(angle) * r });
+    this.held = null;
+    this.refillIn = HELD.refillSeconds;
+    if (this.refillIn <= 0) this.refill();
   }
 
-  /** A new piece at a polar spot, landing raw. */
-  private add(topping: Topping, angle: number, fraction: number): void {
-    if (this.pieces >= TOPPINGS.maxPieces) return;
-    const piece = this.addChild(new Piece(topping, angle, fraction, this.bakeLevel));
-    this.placed.push(piece);
+  /** Lay a piece at a polar spot, landing raw, let go from offset off it. */
+  private add(piece: Piece, angle: number, fraction: number, offset: PointData = ORIGIN): void {
+    piece.drop(angle, fraction, this.bakeLevel, offset);
+    this.placed.push(this.addChild(piece));
     this.changes++;
     this.landing.add(piece);
     piece.setBake(this.bakeLevel);
@@ -223,6 +314,6 @@ export class ToppingLayer extends Container {
 
   private place(piece: Piece): void {
     const r = this.radiusAt(piece.polarAngle) * piece.fraction;
-    piece.position.set(Math.cos(piece.polarAngle) * r, Math.sin(piece.polarAngle) * r);
+    piece.placeAt(Math.cos(piece.polarAngle) * r, Math.sin(piece.polarAngle) * r);
   }
 }
