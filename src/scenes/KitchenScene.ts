@@ -474,7 +474,7 @@ export class KitchenScene extends Container {
     }
   }
 
-  /** Pressable once the pizza is baked enough; serving itself isn't in yet. */
+  /** Pressable once the pizza is baked enough; until serving is in, releasing it on the button starts a new pizza. */
   private buildServeButton(): void {
     const button = this.serveButton;
     button.on('pointerdown', (e) => {
@@ -482,6 +482,9 @@ export class KitchenScene extends Container {
       // Never also a press on the pizza
       e.stopPropagation();
       this.servePressed = true;
+    });
+    button.on('pointerup', () => {
+      if (this.servePressed) this.resetDough();
     });
     for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
       button.on(end, () => (this.servePressed = false));
