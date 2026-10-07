@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, NARROW, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
@@ -162,16 +162,16 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   serve.addBinding(SERVE_BUTTON, 'width', { min: 40, max: 600, step: 1 });
   serve.on('change', layout);
 
-  // Shows on screens narrower than belowAspect; narrow the window to see it
-  const narrow = pane.addFolder({ title: 'Narrow', expanded: false });
-  narrow.addBinding(NARROW, 'belowAspect', { min: 0.5, max: 2 });
-  narrow.addBinding(NARROW, 'minAspect', { min: 0.3, max: 1 });
-  narrow.addBinding(NARROW, 'width', { min: 600, max: 2048, step: 1 });
-  const fitKeys = ['belowAspect', 'minAspect', 'width'];
-  for (const key of Object.keys(NARROW).filter((k) => !fitKeys.includes(k)) as (keyof typeof NARROW)[]) {
-    narrow.addBinding(NARROW, key, key.endsWith('Scale') ? { min: 0.2, max: 1.5 } : { min: -200, max: 2048, step: 1 });
+  // Shows on screens at least fromAspect wide; widen the window to see it
+  const widescreen = pane.addFolder({ title: 'Widescreen', expanded: false });
+  widescreen.addBinding(WIDESCREEN, 'fromAspect', { min: 1, max: 2.5 });
+  widescreen.addBinding(WIDESCREEN, 'width', { min: 2048, max: 4000, step: 1 });
+  const fitKeys = ['fromAspect', 'width'];
+  for (const key of Object.keys(WIDESCREEN).filter((k) => !fitKeys.includes(k)) as (keyof typeof WIDESCREEN)[]) {
+    const range = key.endsWith('Scale') ? { min: 0.2, max: 2.5 } : { min: -200, max: 4000, step: 1 };
+    widescreen.addBinding(WIDESCREEN, key, range);
   }
-  narrow.on('change', refit);
+  widescreen.on('change', refit);
 
   // After every folder is in, so it can sit above the first
   addPaneFilter(pane);
@@ -179,7 +179,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, NARROW }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

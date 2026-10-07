@@ -11,12 +11,12 @@ import {
   FIRE,
   HELD,
   INGREDIENT_IDS,
-  NARROW,
   PEEL,
   PIECES,
   PULSE,
   SERVE_BUTTON,
   SKIP,
+  WIDESCREEN,
   type IngredientId,
 } from '../config';
 import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
@@ -68,7 +68,7 @@ export class KitchenScene extends Container {
   private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
   private readonly stations = Object.fromEntries(STATIONS.map((name) => [name, new Container()])) as Record<Station, Container>;
-  private narrow = false;
+  private widescreen = false;
   private readonly pointer = new Point();
   /** Where the dough sits, in scene space; the ball lands there. */
   private readonly peelCenter = new Point();
@@ -129,9 +129,9 @@ export class KitchenScene extends Container {
     background.scale.set(Math.max(screenArea.width / background.texture.width, screenArea.height / background.texture.height));
   }
 
-  /** Arrange the stations for a narrow screen or a wide one. */
-  setNarrow(narrow: boolean): void {
-    this.narrow = narrow;
+  /** Arrange the stations side by side for a widescreen, or as drawn. */
+  setWidescreen(widescreen: boolean): void {
+    this.widescreen = widescreen;
     this.layout();
   }
 
@@ -151,13 +151,14 @@ export class KitchenScene extends Container {
     this.scaleHeld();
   }
 
-  /** Wide, a station stays as drawn; narrow, its anchor (a point in the wide layout) moves to its spot and scale. */
+  /** In the standard layout a station stays as drawn; on a widescreen its anchor (a point in the standard layout) moves to
+   * its spot and scale. */
   private placeStation(name: Station, anchorX: number, anchorY: number): void {
     const station = this.stations[name];
     station.pivot.set(anchorX, anchorY);
-    if (this.narrow) {
-      station.position.set(NARROW[`${name}X`], NARROW[`${name}Y`]);
-      station.scale.set(NARROW[`${name}Scale`]);
+    if (this.widescreen) {
+      station.position.set(WIDESCREEN[`${name}X`], WIDESCREEN[`${name}Y`]);
+      station.scale.set(WIDESCREEN[`${name}Scale`]);
     } else {
       station.position.set(anchorX, anchorY);
       station.scale.set(1);

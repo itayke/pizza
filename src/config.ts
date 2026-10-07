@@ -1,8 +1,8 @@
 // All tunables live here. Positions are in design-space pixels (DESIGN_WIDTH × DESIGN_HEIGHT).
 // Art placement comes from src/generated/artLayout.ts (tools/art/extract.py).
 
-// Matches the art layout. The screen shows the full design height: wider screens see more paper at the sides, narrower
-// ones clip them, down to NARROW.minAspect, past which it shrinks instead, with paper above and below
+// Matches the art layout, the standard layout's stage. The whole stage always shows, centered, with paper filling the
+// margins
 export const DESIGN_WIDTH = 2048;
 export const DESIGN_HEIGHT = 1536;
 // Caps device pixel ratio; high-DPI screens otherwise render a much larger buffer
@@ -35,41 +35,41 @@ export const SELECTED_LABEL = {
   seconds: 0.15,
 };
 
-// Screens narrower than belowAspect (width over height) rearrange the stations into a column width design px wide,
-// centered. Each station keeps its wide-layout look and moves its anchor to <station>X, <station>Y, scaled by
+// Screens at least fromAspect wide (width over height) lay the stations out side by side on a stage width design px
+// wide: the bins in a column, then the bowl over the serve button, then the peel spanning the height, then the dragon.
+// Each station keeps its standard-layout look and moves its anchor to <station>X, <station>Y, scaled by
 // <station>Scale. Anchors: a bin's center, the bowl's center, the dough on the peel, the dragon's pivot, the gauge hub
-// and each button's center. Screens narrower than minAspect still show that aspect's width, shrinking to fit
-export const NARROW = {
-  belowAspect: 1.333,
-  minAspect: 0.563,
-  width: 1152,
-  bin2X: 361,
-  bin2Y: 150,
-  bin2Scale: 0.8,
-  bin3X: 791,
-  bin3Y: 156,
-  bin3Scale: 0.8,
-  bowlX: 361,
-  bowlY: 528,
-  bowlScale: 0.83,
-  bin1X: 791,
-  bin1Y: 540,
-  bin1Scale: 0.8,
-  peelX: 431,
-  peelY: 1105,
-  peelScale: 0.7,
-  dragonX: 970,
-  dragonY: 1364,
-  dragonScale: 0.73,
-  gaugeX: 630,
-  gaugeY: 1540,
-  gaugeScale: 0.7,
-  bakeButtonX: 733,
-  bakeButtonY: 1350,
-  bakeButtonScale: 0.8,
-  serveButtonX: 238,
-  serveButtonY: 1500,
-  serveButtonScale: 0.7,
+// and each button's center
+export const WIDESCREEN = {
+  fromAspect: 1.777,
+  width: 2730,
+  bin1X: 210,
+  bin1Y: 254,
+  bin1Scale: 1,
+  bin2X: 210,
+  bin2Y: 728,
+  bin2Scale: 1,
+  bin3X: 210,
+  bin3Y: 1202,
+  bin3Scale: 1,
+  bowlX: 756,
+  bowlY: 276,
+  bowlScale: 1.1,
+  serveButtonX: 1160,
+  serveButtonY: 1392,
+  serveButtonScale: 1.3,
+  peelX: 1565,
+  peelY: 618,
+  peelScale: 1.42,
+  gaugeX: 1986,
+  gaugeY: 1475,
+  gaugeScale: 1.347,
+  bakeButtonX: 2305,
+  bakeButtonY: 1164,
+  bakeButtonScale: 1.297,
+  dragonX: 2869,
+  dragonY: 1083,
+  dragonScale: 1.411,
 };
 
 // Per-bin nudge from its drawn spot, in design px, and whether it shows. Keys are `${art}X`, `${art}Y`, `${art}Enabled`.

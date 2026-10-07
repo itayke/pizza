@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { COLORS, DESIGN_HEIGHT, DESIGN_WIDTH, MAX_RESOLUTION, NARROW, STARTING_UNLOCKED } from './config';
+import { COLORS, DESIGN_WIDTH, MAX_RESOLUTION, STARTING_UNLOCKED, WIDESCREEN } from './config';
 import { loadArt } from './core/art';
 import { Viewport } from './core/Viewport';
 import { KitchenScene } from './scenes/KitchenScene';
@@ -28,9 +28,9 @@ async function start(): Promise<void> {
 
   const fit = () => {
     const { width, height } = app.screen;
-    const narrow = width / height < NARROW.belowAspect;
-    viewport.fit(width, height, narrow ? NARROW.width : DESIGN_WIDTH, NARROW.minAspect * DESIGN_HEIGHT);
-    scene.setNarrow(narrow);
+    const widescreen = width / height >= WIDESCREEN.fromAspect;
+    viewport.fit(width, height, widescreen ? WIDESCREEN.width : DESIGN_WIDTH);
+    scene.setWidescreen(widescreen);
     scene.fitBackground(viewport.screenArea);
   };
   fit();
