@@ -130,6 +130,8 @@ export class ToppingLayer extends Container {
   private readonly landing = new Set<Piece>();
   /** Every piece, in the order placed. */
   private readonly placed: Piece[] = [];
+  /** Pieces placed of each topping. */
+  private readonly counts = new Map<Topping, number>();
   /** Sauce passes in the stack, oldest first. */
   private readonly passes: Mesh<Geometry, Shader>[] = [];
   /** Bumped whenever a piece is added, moves or goes; sauce passes don't count. */
@@ -216,7 +218,7 @@ export class ToppingLayer extends Container {
     const count = Math.round(area / swath);
     // A sunflower spiral spreads them evenly, with no bald spots or clumps
     const start = Math.random() * TAU;
-    for (let i = 0; i < count && this.pieces < TOPPINGS.maxPieces; i++) {
+    for (let i = 0; i < count; i++) {
       const fraction = PLACEMENT.innerRim * Math.sqrt((i + 0.5) / count);
       this.add(new Piece(topping, LANDING[`${topping}Scale`]), start + i * GOLDEN_ANGLE, fraction);
     }
@@ -238,7 +240,35 @@ export class ToppingLayer extends Container {
   }
 
   has(topping: Topping): boolean {
-    return this.placed.some((piece) => piece.topping === topping);
+    return this.counts.has(topping);
+  }
+
+  /** Whether the topping is at its own cap. */
+  private full(topping: Topping): boolean {
+    const cap = topping === 'cheese' ? TOPPINGS.maxCheese : TOPPINGS.maxPieces;
+    return (this.counts.get(topping) ?? 0) >= cap;
+  }
+
+  /** The placed piece of topping showing nearest a layer point. */
+  private nearest(topping: Topping, x: number, y: number): Piece | null {
+    let best: Piece | null = null;
+    let bestDistance = Infinity;
+    for (const piece of this.placed) {
+      if (piece.topping !== topping) continue;
+      const distance = (piece.x - x) ** 2 + (piece.y - y) ** 2;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = piece;
+      }
+    }
+    return best;
+  }
+
+  private remove(piece: Piece): void {
+    this.placed.splice(this.placed.indexOf(piece), 1);
+    this.landing.delete(piece);
+    this.counts.set(piece.topping, (this.counts.get(piece.topping) ?? 0) - 1);
+    piece.destroy({ children: true });
   }
 
   /** Advance pieces that are still landing. */
@@ -267,6 +297,7 @@ export class ToppingLayer extends Container {
   clear(): void {
     this.landing.clear();
     this.placed.length = 0;
+    this.counts.clear();
     this.passes.length = 0;
     this.changes++;
     // Sauce passes share the dough's geometry, which outlives them
@@ -279,7 +310,6 @@ export class ToppingLayer extends Container {
    * another drop comes first.
    */
   private drop(topping: Topping, config: { scatterRadius: number }, x: number, y: number): void {
-    if (this.pieces >= TOPPINGS.maxPieces) return;
     const spread = config.scatterRadius * Math.sqrt(Math.random());
     const heading = Math.random() * TAU;
     const px = x + Math.cos(heading) * spread;
@@ -302,10 +332,19 @@ export class ToppingLayer extends Container {
     if (this.refillIn <= 0) this.refill();
   }
 
-  /** Lay a piece at a polar spot, landing raw, let go from offset off it. */
+  /**
+   * Lay a piece at a polar spot, landing raw, let go from offset off it. At its topping's cap it takes the place of the
+   * nearest piece of that topping, so dropping always works and piling on one spot stops thickening it.
+   */
   private add(piece: Piece, angle: number, fraction: number, offset: PointData = ORIGIN): void {
+    if (this.full(piece.topping)) {
+      const r = this.radiusAt(angle) * fraction;
+      const replaced = this.nearest(piece.topping, Math.cos(angle) * r, Math.sin(angle) * r);
+      if (replaced) this.remove(replaced);
+    }
     piece.drop(angle, fraction, this.bakeLevel, offset);
     this.placed.push(this.addChild(piece));
+    this.counts.set(piece.topping, (this.counts.get(piece.topping) ?? 0) + 1);
     this.changes++;
     this.landing.add(piece);
     piece.setBake(this.bakeLevel);

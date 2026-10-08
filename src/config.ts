@@ -184,11 +184,13 @@ export const SAUCE = {
   maxPasses: 4,
 };
 
-// Placed toppings: sheet-size pieces scaled down with some jitter, in the dough's polar space so they follow it
+// Placed toppings: sheet-size pieces scaled down with some jitter, in the dough's polar space so they follow it. Each
+// topping has its own cap (cheese maxCheese pieces, the rest maxPieces); past it a new piece replaces its nearest kin
 export const TOPPINGS = {
   scale: 0.5,
   scaleJitter: 0.15,
-  maxPieces: 500,
+  maxCheese: 500,
+  maxPieces: 100,
 };
 
 // Sauce and toppings can be applied anywhere. They land where pressed up to innerRim (a fraction of the dough edge at
