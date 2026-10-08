@@ -1,5 +1,5 @@
 import { Container, Point, Sprite, type Geometry, type Mesh, type PointData, type Shader } from 'pixi.js';
-import { HELD, LANDING, PLACEMENT, PULSE, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
+import { BURY, HELD, LANDING, PLACEMENT, PULSE, TOPPINGS, type IngredientId, type RepeatConfig, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { BAKE_PHASES, bakeCurve, bakeStep, type BakePhase } from '../core/bake';
 import { easeInQuad } from '../core/easing';
@@ -30,6 +30,8 @@ class Piece extends Container {
   /** Position in the dough's polar space: angle, and distance as a fraction of the edge there. */
   polarAngle = 0;
   fraction = 0;
+  /** Counts up as pieces are laid, so a later piece lies over an earlier one. */
+  laid = 0;
   /** The pizza's bake level when it landed, so it bakes only from then on. */
   private placedAt = 0;
   /** Where it was let go of, off its resting spot, closing in as it lands. */
@@ -57,6 +59,12 @@ class Piece extends Container {
     this.size = TOPPINGS.scale * (1 + TOPPINGS.scaleJitter * (2 * Math.random() - 1));
     this.setBake(this.placedAt);
     this.land(0);
+  }
+
+  /** Half its art's larger side at rest, layer px. */
+  get halfSize(): number {
+    const { width, height } = this.phases[0].texture;
+    return (Math.max(width, height) / 2) * this.size;
   }
 
   /** Let go at a polar spot at the pizza's bake level, from offset (layer px) off it. */
@@ -128,8 +136,10 @@ export class ToppingLayer extends Container {
   private bakeLevel = 0;
   /** Pieces still shrinking into place. */
   private readonly landing = new Set<Piece>();
-  /** Every piece, in the order placed. */
+  /** Every piece, in the order they go at their topping's cap: buried ones first, then the oldest. */
   private readonly placed: Piece[] = [];
+  /** Pieces laid so far, numbering each. */
+  private laidCount = 0;
   /** Pieces placed of each topping. */
   private readonly counts = new Map<Topping, number>();
   /** Sauce passes in the stack, oldest first. */
@@ -249,19 +259,16 @@ export class ToppingLayer extends Container {
     return (this.counts.get(topping) ?? 0) >= cap;
   }
 
-  /** The placed piece of topping showing nearest a layer point. */
-  private nearest(topping: Topping, x: number, y: number): Piece | null {
-    let best: Piece | null = null;
-    let bestDistance = Infinity;
+  /** Move older pieces of a settled piece's topping centered under it to the front of the line to go. */
+  private bury(top: Piece): void {
+    const reach = BURY[top.topping] * top.halfSize;
+    const buried: Piece[] = [];
+    const rest: Piece[] = [];
     for (const piece of this.placed) {
-      if (piece.topping !== topping) continue;
-      const distance = (piece.x - x) ** 2 + (piece.y - y) ** 2;
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        best = piece;
-      }
+      const under = piece.topping === top.topping && piece.laid < top.laid;
+      (under && (piece.x - top.x) ** 2 + (piece.y - top.y) ** 2 <= reach ** 2 ? buried : rest).push(piece);
     }
-    return best;
+    if (buried.length) this.placed.splice(0, this.placed.length, ...buried, ...rest);
   }
 
   private remove(piece: Piece): void {
@@ -278,8 +285,11 @@ export class ToppingLayer extends Container {
     if (held && held.alpha < 1) held.alpha = Math.min(1, held.alpha + dt / HELD.refillFadeSeconds);
     if (this.landing.size) this.changes++;
     for (const piece of this.landing) {
-      if (piece.land(dt)) this.landing.delete(piece);
+      const landed = piece.land(dt);
       this.place(piece);
+      if (!landed) continue;
+      this.landing.delete(piece);
+      this.bury(piece);
     }
   }
 
@@ -298,6 +308,7 @@ export class ToppingLayer extends Container {
     this.landing.clear();
     this.placed.length = 0;
     this.counts.clear();
+    this.laidCount = 0;
     this.passes.length = 0;
     this.changes++;
     // Sauce passes share the dough's geometry, which outlives them
@@ -334,14 +345,14 @@ export class ToppingLayer extends Container {
 
   /**
    * Lay a piece at a polar spot, landing raw, let go from offset off it. At its topping's cap it takes the place of the
-   * nearest piece of that topping, so dropping always works and piling on one spot stops thickening it.
+   * first of that topping in line to go, so dropping always works.
    */
   private add(piece: Piece, angle: number, fraction: number, offset: PointData = ORIGIN): void {
     if (this.full(piece.topping)) {
-      const r = this.radiusAt(angle) * fraction;
-      const replaced = this.nearest(piece.topping, Math.cos(angle) * r, Math.sin(angle) * r);
-      if (replaced) this.remove(replaced);
+      const next = this.placed.find((p) => p.topping === piece.topping);
+      if (next) this.remove(next);
     }
+    piece.laid = ++this.laidCount;
     piece.drop(angle, fraction, this.bakeLevel, offset);
     this.placed.push(this.addChild(piece));
     this.counts.set(piece.topping, (this.counts.get(piece.topping) ?? 0) + 1);

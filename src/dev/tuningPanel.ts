@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
@@ -86,6 +86,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   pieces.addBinding(SELECTED_LABEL, 'scale', { label: 'labelScale', min: 1, max: 2 });
   pieces.addBinding(SELECTED_LABEL, 'seconds', { label: 'labelSeconds', min: 0, max: 1 });
   pieces.addBinding(PIECES, 'scatterRadius', { min: 0, max: 150, step: 1 });
+  for (const key of Object.keys(BURY) as (keyof typeof BURY)[]) pieces.addBinding(BURY, key, { label: `${key}Bury`, min: 0, max: 1 });
   cheese.addBinding(TOPPINGS, 'scale', { label: 'pieceScale', min: 0.05, max: 1 });
   cheese.addBinding(TOPPINGS, 'scaleJitter', { min: 0, max: 0.5 });
 
@@ -179,7 +180,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

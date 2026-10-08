@@ -56,16 +56,16 @@ export const WIDESCREEN = {
   bowlY: 276,
   bowlScale: 1.1,
   serveButtonX: 1140,
-  serveButtonY: 1392,
+  serveButtonY: 1363,
   serveButtonScale: 1.3,
   peelX: 1530,
   peelY: 618,
   peelScale: 1.42,
-  gaugeX: 1966,
-  gaugeY: 1475,
+  gaugeX: 1962,
+  gaugeY: 1438,
   gaugeScale: 1.347,
-  bakeButtonX: 2285,
-  bakeButtonY: 1164,
+  bakeButtonX: 2275,
+  bakeButtonY: 1118,
   bakeButtonScale: 1.297,
   dragonX: 2830,
   dragonY: 1083,
@@ -185,12 +185,23 @@ export const SAUCE = {
 };
 
 // Placed toppings: sheet-size pieces scaled down with some jitter, in the dough's polar space so they follow it. Each
-// topping has its own cap (cheese maxCheese pieces, the rest maxPieces); past it a new piece replaces its nearest kin
+// topping has its own cap (cheese maxCheese pieces, the rest maxPieces); past it a new piece takes the place of one
+// buried under the rest, or of the oldest if none is
 export const TOPPINGS = {
   scale: 0.5,
   scaleJitter: 0.15,
   maxCheese: 500,
   maxPieces: 100,
+};
+
+// A settling piece buries older pieces of its topping centered within <topping> times its half size, so they're the
+// first to go at the cap
+export const BURY = {
+  cheese: 0.5,
+  pepperoni: 0.5,
+  basil: 0.5,
+  pineapple: 0.5,
+  olives: 0.5,
 };
 
 // Sauce and toppings can be applied anywhere. They land where pressed up to innerRim (a fraction of the dough edge at
