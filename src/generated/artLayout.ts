@@ -196,6 +196,20 @@ export const ART = {
     "width": 98,
     "height": 337
   },
+  "order_tray": {
+    "file": "order_tray.png",
+    "x": 25,
+    "y": 15,
+    "width": 304,
+    "height": 398
+  },
+  "label_order": {
+    "file": "label_order.png",
+    "x": 98,
+    "y": 428,
+    "width": 159,
+    "height": 56
+  },
   "held_sauce": {
     "file": "held_sauce.png",
     "x": 0,

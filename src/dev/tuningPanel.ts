@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, ORDER_TRAY, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
@@ -122,6 +122,14 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   bowl.addBinding(BOWL, 'fillWidth', { min: 0.2, max: 1 });
   bowl.on('change', layout);
 
+  const orderTray = pane.addFolder({ title: 'Order tray', expanded: false });
+  orderTray.addBinding(ORDER_TRAY, 'x', { min: 0, max: 2048, step: 1 });
+  orderTray.addBinding(ORDER_TRAY, 'y', { min: 0, max: 1536, step: 1 });
+  orderTray.addBinding(ORDER_TRAY, 'scale', { min: 0.5, max: 2 });
+  orderTray.addBinding(ORDER_TRAY, 'labelX', { min: -200, max: 200, step: 1 });
+  orderTray.addBinding(ORDER_TRAY, 'labelY', { min: -200, max: 200, step: 1 });
+  orderTray.on('change', layout);
+
   const peel = pane.addFolder({ title: 'Peel', expanded: false });
   peel.addBinding(PEEL, 'x', { min: -200, max: 200, step: 1 });
   peel.addBinding(PEEL, 'y', { min: -200, max: 200, step: 1 });
@@ -180,7 +188,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

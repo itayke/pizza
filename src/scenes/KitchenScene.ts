@@ -11,6 +11,7 @@ import {
   FIRE,
   HELD,
   INGREDIENT_IDS,
+  ORDER_TRAY,
   PEEL,
   PIECES,
   PULSE,
@@ -33,7 +34,7 @@ const TOPPINGS_READY: readonly IngredientId[] = INGREDIENT_IDS;
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 
 // Stations in drawing order; each holds its art in the wide design space and is placed for the current layout
-const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'peel', 'gauge', 'dragon', 'bakeButton', 'serveButton'] as const;
+const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'gauge', 'dragon', 'bakeButton', 'serveButton'] as const;
 type Station = (typeof STATIONS)[number];
 
 const ORIGIN = { x: 0, y: 0 };
@@ -51,6 +52,8 @@ export class KitchenScene extends Container {
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
   private readonly bowlLabel = new SelectableLabel('label_dough');
+  private readonly orderTray = new Sprite({ texture: artTexture('order_tray'), anchor: 0.5 });
+  private readonly orderLabel = new Sprite({ texture: artTexture('label_order'), anchor: 0.5 });
   /** The dough ball: waits in the bowl, is carried by hand, then drops onto the peel where the dough takes over. */
   private readonly doughBall = makeDoughBallSprite();
   /** Where and how large the ball sits in the bowl. */
@@ -97,6 +100,7 @@ export class KitchenScene extends Container {
     this.addChild(...STATIONS.map((name) => this.stations[name]));
     this.buildBins(unlocked);
     this.buildBowl();
+    this.stations.orderTray.addChild(this.orderTray, this.orderLabel);
     this.buildPeel();
     this.stations.gauge.addChild(this.gauge);
     this.buildDragon();
@@ -143,6 +147,7 @@ export class KitchenScene extends Container {
       this.placeStation(bin.art, center.x + bin.x, center.y + bin.y);
     }
     this.layoutBowl();
+    this.layoutOrderTray();
     this.layoutPeel();
     this.placeStation('gauge', BAKE_GAUGE.x, BAKE_GAUGE.y);
     this.placeStation('bakeButton', BAKE_BUTTON.x, BAKE_BUTTON.y);
@@ -390,6 +395,17 @@ export class KitchenScene extends Container {
     this.toLocal(this.bowl.position, this.stations.bowl, this.ballRest);
     this.ballRestScale = (BOWL.fillWidth * this.bowl.width * this.stations.bowl.scale.x) / this.doughBall.texture.width;
     if (this.doughPhase === 'inBowl') this.restBall();
+  }
+
+  /** Place the order tray and its caption from config; the caption keeps its drawn spot below the tray. */
+  private layoutOrderTray(): void {
+    const { x, y, scale, labelX, labelY } = ORDER_TRAY;
+    this.orderTray.position.set(x, y);
+    this.orderTray.scale.set(scale);
+    const tray = artPoint('order_tray', 0.5, 0.5);
+    const label = artPoint('label_order', 0.5, 0.5);
+    this.orderLabel.position.set(x + label.x - tray.x + labelX, y + label.y - tray.y + labelY);
+    this.placeStation('orderTray', x, y);
   }
 
   /** Put the ball back in the bowl. */

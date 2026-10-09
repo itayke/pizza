@@ -36,10 +36,10 @@ export const SELECTED_LABEL = {
 };
 
 // Screens at least fromAspect wide (width over height) lay the stations out side by side on a stage width design px
-// wide: the bins in a column, then the bowl over the serve button, then the peel spanning the height, then the dragon.
-// Each station keeps its standard-layout look and moves its anchor to <station>X, <station>Y, scaled by
-// <station>Scale. Anchors: a bin's center, the bowl's center, the dough on the peel, the dragon's pivot, the gauge hub
-// and each button's center
+// wide: the bins in a column, then the bowl and order tray over the serve button, then the peel spanning the height,
+// then the dragon. Each station keeps its standard-layout look and moves its anchor to <station>X, <station>Y, scaled
+// by <station>Scale. Anchors: a bin's center, the bowl's and tray's centers, the dough on the peel, the dragon's pivot,
+// the gauge hub and each button's center
 export const WIDESCREEN = {
   fromAspect: 1.777,
   width: 2730,
@@ -52,12 +52,15 @@ export const WIDESCREEN = {
   bin3X: 250,
   bin3Y: 1202,
   bin3Scale: 1,
-  bowlX: 750,
-  bowlY: 276,
-  bowlScale: 1.1,
+  bowlX: 734,
+  bowlY: 394,
+  bowlScale: 1.05,
+  orderTrayX: 736,
+  orderTrayY: 1047,
+  orderTrayScale: 1.2,
   serveButtonX: 1140,
   serveButtonY: 1363,
-  serveButtonScale: 1.3,
+  serveButtonScale: 1.2,
   peelX: 1530,
   peelY: 618,
   peelScale: 1.42,
@@ -105,6 +108,16 @@ export const BOWL = {
   labelX: 0,
   labelY: -40,
   fillWidth: 0.72,
+};
+
+// Order tray, with its caption below: its center in design px. It scales about its center, its caption keeping its
+// size, with labelX/labelY moving the caption from its drawn spot. Holds nothing yet
+export const ORDER_TRAY = {
+  x: 318,
+  y: 1226,
+  scale: 1.119,
+  labelX: 0,
+  labelY: 23,
 };
 
 // Peel: nudge from its drawn spot in design px (the dough moves with it), and its face center as fractions of the art
@@ -288,7 +301,7 @@ export const BAKE = {
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
 export const BAKE_GAUGE = {
-  x: 1355,
+  x: 1341,
   y: 1450,
   width: 370,
   hubX: 0.505,
@@ -302,7 +315,7 @@ export const BAKE_GAUGE = {
 // Bake button above the gauge: center and drawn width. Pressing it breathes fire, same as pressing the dragon
 export const BAKE_BUTTON = {
   x: 1533,
-  y: 1150,
+  y: 1182,
   width: 212,
 };
 
@@ -329,7 +342,7 @@ export const FIRE = {
 
 // Serve button: center and drawn width. Enabled once the pizza is baked enough (BAKE.minBaked); does nothing yet
 export const SERVE_BUTTON = {
-  x: 643,
+  x: 697,
   y: 1400,
-  width: 300,
+  width: 293,
 };

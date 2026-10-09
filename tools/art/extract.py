@@ -76,6 +76,11 @@ GAUGE_BOX = (270, 230, 2360, 1270)
 GAUGE_LABEL_BOX = (740, 1290, 1890, 1540)
 GAUGE_NEEDLE_BOX = (2280, 0, 2592, 870)
 GAUGE_SCALE = 0.4
+# Order tray and its caption below: share one scale so they stay aligned, placed in code
+TRAY_SOURCE = 'pizza_order_tray.png'
+TRAY_INK_LUM = 150  # its inner outline has gaps, so the lighter pencil also blocks the flood
+TRAY_LABEL_BOX = (40, 840, 640, 1010)
+TRAY_SCALE = 0.5
 
 # Placed sauce surface: a drawing that roughly repeats every PERIOD px. One period is cut where its far edges best
 # match what precedes its start (searched within ± SLACK px), then those edges are blended over BLEND px so it wraps.
@@ -624,6 +629,14 @@ def main():
     place('gauge', cutout(img, paper, largest(in_box(fg, GAUGE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
     place('gauge_label', rgba(img, paper, lettering(img, paper, GAUGE_LABEL_BOX)), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
     place('gauge_needle', cutout(img, paper, largest(in_box(fg, GAUGE_NEEDLE_BOX))), GAUGE_SCALE, src_to_layout=GAUGE_SCALE / f)
+
+    # Order tray and its caption
+    img = load(TRAY_SOURCE)
+    paper = estimate_paper(img)
+    mask = largest(foreground(img, paper, use_chroma=False, ink_lum=TRAY_INK_LUM))
+    near_tray = ndimage.binary_dilation(mask, iterations=LABEL_CLEARANCE)
+    place('order_tray', cutout(img, paper, mask), TRAY_SCALE, src_to_layout=TRAY_SCALE / f)
+    place('label_order', rgba(img, paper, lettering(img, paper, TRAY_LABEL_BOX, near_tray)), TRAY_SCALE, src_to_layout=TRAY_SCALE / f)
 
     # Held ingredient cursors: not placed in the layout, kept at sheet scale
     sheet = bleed(np.asarray(Image.open(ART / HELD_SOURCE).convert('RGBA')))
