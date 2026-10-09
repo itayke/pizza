@@ -22,10 +22,13 @@ import {
 } from '../config';
 import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
 import { easeInQuad } from '../core/easing';
+import { judge, type Verdict } from '../orders/judge';
+import { drawOrder, type Order } from '../orders/Order';
 import { BakeGauge } from '../stations/BakeGauge';
 import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
+import { OrderTicket } from '../stations/OrderTicket';
 import { SelectableLabel } from '../stations/SelectableLabel';
 
 // Unlocked once the dough is rolled out
@@ -39,7 +42,7 @@ type Station = (typeof STATIONS)[number];
 
 const ORIGIN = { x: 0, y: 0 };
 
-/** The main play screen, laid out from the art. Serve is still a placeholder. */
+/** The main play screen, laid out from the art. Serving scores the pizza against the order and brings the next. */
 export class KitchenScene extends Container {
   readonly dough: Dough;
   /** Doneness, raw at 0 to burnt at 1; rises steadily, and the dial shows it as is. */
@@ -54,6 +57,11 @@ export class KitchenScene extends Container {
   private readonly bowlLabel = new SelectableLabel('label_dough');
   private readonly orderTray = new Sprite({ texture: artTexture('order_tray'), anchor: 0.5 });
   private readonly orderLabel = new Sprite({ texture: artTexture('label_order'), anchor: 0.5 });
+  private readonly ticket = new OrderTicket(this.orderTray.texture.width, this.orderTray.texture.height);
+  /** What the pizza on the peel should be. */
+  order: Order = drawOrder();
+  /** How the last served pizza met its order; none served yet. */
+  lastVerdict: Verdict | null = null;
   /** The dough ball: waits in the bowl, is carried by hand, then drops onto the peel where the dough takes over. */
   private readonly doughBall = makeDoughBallSprite();
   /** Where and how large the ball sits in the bowl. */
@@ -100,7 +108,7 @@ export class KitchenScene extends Container {
     this.addChild(...STATIONS.map((name) => this.stations[name]));
     this.buildBins(unlocked);
     this.buildBowl();
-    this.stations.orderTray.addChild(this.orderTray, this.orderLabel);
+    this.stations.orderTray.addChild(this.orderTray, this.ticket, this.orderLabel);
     this.buildPeel();
     this.stations.gauge.addChild(this.gauge);
     this.buildDragon();
@@ -124,6 +132,7 @@ export class KitchenScene extends Container {
     this.setTool(null);
     this.resetDough();
     this.applyAvailability();
+    this.ticket.show(this.order);
   }
 
   /** Cover the whole screen area with paper, margins included. */
@@ -177,6 +186,24 @@ export class KitchenScene extends Container {
     this.restBall();
     this.dough.reset();
     this.dough.setPlaced(false);
+  }
+
+  /** Replace the order with a new one. */
+  newOrder(): void {
+    this.order = drawOrder();
+    this.ticket.show(this.order);
+  }
+
+  /** How the pizza on the peel meets the order so far. */
+  scoreOrder(): Verdict {
+    return judge(this.order, this.dough.toppings.placedPieces, this.bakeLevel);
+  }
+
+  /** Hand over the pizza: score it, then start the next order on fresh dough. */
+  private serve(): void {
+    this.lastVerdict = this.scoreOrder();
+    this.newOrder();
+    this.resetDough();
   }
 
   /** Testing shortcut, a step per press: place the dough, roll it out to the rim, then sauce it, then cheese it once. */
@@ -402,9 +429,13 @@ export class KitchenScene extends Container {
     const { x, y, scale, labelX, labelY } = ORDER_TRAY;
     this.orderTray.position.set(x, y);
     this.orderTray.scale.set(scale);
+    // The ticket lives in the tray's art space
+    this.ticket.position.set(x, y);
+    this.ticket.scale.set(scale);
     const tray = artPoint('order_tray', 0.5, 0.5);
     const label = artPoint('label_order', 0.5, 0.5);
     this.orderLabel.position.set(x + label.x - tray.x + labelX, y + label.y - tray.y + labelY);
+    this.ticket.layout();
     this.placeStation('orderTray', x, y);
   }
 
@@ -491,7 +522,7 @@ export class KitchenScene extends Container {
     }
   }
 
-  /** Pressable once the pizza is baked enough; until serving is in, releasing it on the button starts a new pizza. */
+  /** Pressable once the pizza is baked enough; releasing it on the button serves the pizza. */
   private buildServeButton(): void {
     const button = this.serveButton;
     button.on('pointerdown', (e) => {
@@ -501,7 +532,7 @@ export class KitchenScene extends Container {
       this.servePressed = true;
     });
     button.on('pointerup', () => {
-      if (this.servePressed) this.resetDough();
+      if (this.servePressed) this.serve();
     });
     for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
       button.on(end, () => (this.servePressed = false));

@@ -1,14 +1,32 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, ORDER_TRAY, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
+import type { Order, Rule } from '../orders/Order';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
 const RESET_KEY = 'r';
 const SKIP_KEY = 's';
+const ORDER_KEY = 'o';
 // Tweakpane's own offset from the window corner, px
 const PANEL_MARGIN = 8;
 const BAKE_LEVEL_REFRESH_MS = 100;
+const ORDER_SCORE_REFRESH_MS = 250;
+const SCORE_DECIMALS = 2;
+
+const describeRule = (rule: Rule): string => {
+  switch (rule.kind) {
+    case 'share':
+      return `1/${rule.parts} ${rule.topping}`;
+    case 'count':
+      return `${rule.n} × ${rule.topping}`;
+    case 'apart':
+      return `${rule.a} apart from ${rule.b}`;
+  }
+};
+
+/** An order spelled out, a line per rule, then how baked. */
+const describeOrder = (order: Order): string => [...order.rules.map(describeRule), `${order.doneness} bake`].join('\n');
 
 /** Dev-only live tuning. Edits config objects in place; values reset on reload. refit re-fits the screen. */
 export function createTuningPanel(scene: KitchenScene, refit: () => void): void {
@@ -24,12 +42,14 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
 
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
   pane.addButton({ title: `Skip step (${SKIP_KEY.toUpperCase()})` }).on('click', () => scene.skipStep());
+  pane.addButton({ title: `New order (${ORDER_KEY.toUpperCase()})` }).on('click', () => scene.newOrder());
   window.addEventListener('keydown', (e) => {
     // Typing in a field (the filter, a number box) isn't a shortcut
     if (e.target instanceof HTMLInputElement) return;
     const key = e.key.toLowerCase();
     if (key === RESET_KEY) resetDough();
     if (key === SKIP_KEY) scene.skipStep();
+    if (key === ORDER_KEY) scene.newOrder();
   });
 
   const dough = pane.addFolder({ title: 'Dough', expanded: false });
@@ -130,6 +150,58 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orderTray.addBinding(ORDER_TRAY, 'labelY', { min: -200, max: 200, step: 1 });
   orderTray.on('change', layout);
 
+  // Live scores of the pizza on the peel against the order, a line per rule then doneness and the mean
+  const orders = pane.addFolder({ title: 'Orders', expanded: false });
+  const live = { order: '', score: '', served: '' };
+  const lines = ORDERS.maxRules + 2;
+  const scoreLines = (scores: number[]) => scores.map((s) => s.toFixed(SCORE_DECIMALS)).join('\n');
+  const liveOrder = orders.addBinding(live, 'order', { readonly: true, multiline: true, rows: lines });
+  const liveScore = orders.addBinding(live, 'score', { readonly: true, multiline: true, rows: lines });
+  const lastServed = orders.addBinding(live, 'served', { label: 'last served', readonly: true });
+  setInterval(() => {
+    const verdict = scene.scoreOrder();
+    live.order = describeOrder(scene.order);
+    live.score = scoreLines([...verdict.rules, verdict.doneness, verdict.total]);
+    live.served = scene.lastVerdict ? scene.lastVerdict.total.toFixed(SCORE_DECIMALS) : '';
+    liveOrder.refresh();
+    liveScore.refresh();
+    lastServed.refresh();
+  }, ORDER_SCORE_REFRESH_MS);
+  orders.addBinding(ORDERS, 'minRules', { min: 1, max: 4, step: 1 });
+  orders.addBinding(ORDERS, 'maxRules', { min: 1, max: 4, step: 1 });
+  for (const key of ['wholeWeight', 'halfWeight', 'thirdWeight', 'quarterWeight'] as const) orders.addBinding(ORDERS, key, { min: 0, max: 2 });
+  orders.addBinding(ORDERS, 'countWeight', { min: 0, max: 2 });
+  orders.addBinding(ORDERS, 'apartWeight', { min: 0, max: 2 });
+  orders.addBinding(ORDERS, 'maxCount', { min: 1, max: 9, step: 1 });
+  orders.addBinding(ORDERS, 'wellChance', { min: 0, max: 1 });
+  orders.addBinding(ORDERS, 'burntChance', { min: 0, max: 1 });
+  orders.addBinding(ORDERS, 'gapDegrees', { min: 0, max: 90 });
+  orders.addBinding(ORDER_JUDGE, 'centerFree', { min: 0, max: 0.8 });
+  orders.addBinding(ORDER_JUDGE, 'sectorsPerTurn', { min: 1, max: 24, step: 1 });
+  orders.addBinding(ORDER_JUDGE, 'rings', { min: 1, max: 6, step: 1 });
+  orders.addBinding(ORDER_JUDGE, 'fillFull', { min: 0.1, max: 1 });
+  orders.addBinding(ORDER_JUDGE, 'strays', { min: 0, max: 10, step: 1 });
+  orders.addBinding(ORDER_JUDGE, 'strayPenalty', { min: 0, max: 1 });
+  orders.addBinding(ORDER_JUDGE, 'edgeSlackDegrees', { min: 0, max: 30 });
+  orders.addBinding(ORDER_JUDGE, 'countPenalty', { min: 0, max: 1 });
+  orders.addBinding(ORDER_JUDGE, 'touchFactor', { min: 0.2, max: 1.5 });
+  orders.addBinding(ORDER_JUDGE, 'touchPenalty', { min: 0, max: 1 });
+  orders.addBinding(ORDER_JUDGE, 'bakeTolerance', { min: 0, max: 0.5 });
+  orders.addBinding(ORDER_TICKET, 'width', { label: 'ticketWidth', min: 0.2, max: 1 });
+  orders.addBinding(ORDER_TICKET, 'height', { label: 'ticketHeight', min: 0.2, max: 1 });
+  orders.addBinding(ORDER_TICKET, 'offsetY', { label: 'ticketOffsetY', min: -0.5, max: 0.5 });
+  orders.addBinding(ORDER_TICKET, 'rowHeight', { min: 20, max: 200, step: 1 });
+  orders.addBinding(ORDER_TICKET, 'rowGap', { min: 0, max: 60, step: 1 });
+  orders.addBinding(ORDER_TICKET, 'itemGap', { min: -20, max: 60, step: 1 });
+  orders.addBinding(ORDER_TICKET, 'toppingSize', { min: 0.2, max: 1.5 });
+  orders.addBinding(ORDER_TICKET, 'pieTopping', { min: 0.1, max: 1 });
+  orders.addBinding(ORDER_TICKET, 'pieRadius', { min: 0.2, max: 0.5 });
+  for (const key of ['digitSize', 'timesSize', 'apartSize', 'flameSize'] as const) orders.addBinding(ORDER_TICKET, key, { min: 0.1, max: 1.5 });
+  for (const key of Object.keys(ORDER_ICON_SCALE) as (keyof typeof ORDER_ICON_SCALE)[]) {
+    orders.addBinding(ORDER_ICON_SCALE, key, { label: `${key}Icon`, min: 0.5, max: 2 });
+  }
+  orders.on('change', layout);
+
   const peel = pane.addFolder({ title: 'Peel', expanded: false });
   peel.addBinding(PEEL, 'x', { min: -200, max: 200, step: 1 });
   peel.addBinding(PEEL, 'y', { min: -200, max: 200, step: 1 });
@@ -161,6 +233,8 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   bake.addBinding(BAKE, 'secondsToBurnt', { min: 1, max: 40 });
   bake.addBinding(BAKE, 'optimalLevel', { min: 0.05, max: 0.95 });
   bake.addBinding(BAKE, 'minBaked', { min: 0, max: 1 });
+  bake.addBinding(BAKE, 'wellFrom', { min: 0, max: 1 });
+  bake.addBinding(BAKE, 'burntFrom', { min: 0, max: 1 });
   bake.addBinding(BAKE, 'easePower', { min: 1, max: 5 });
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
   bake.on('change', layout);
@@ -188,7 +262,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

@@ -6,13 +6,13 @@ No real failure. Mistakes are capped or look funny; scores are internal.
 
 ## Core loop
 
-Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right, bake gauge between peel and dragon. Not in the layout art, drawn on its own: Serve button.
+Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bowl on the left, pizza peel in the center, dragon on the right, bake gauge between peel and dragon. Not in the layout art, drawn on their own: Serve button, order tray under the bowl.
 
 1. **Dough** — tap the bowl to pick up a ball, tap the peel to slam it down (it splats out on impact), then press/hold to spread it toward the rim. Enough coverage enables sauce.
 2. **Sauce / Cheese** — tap a bin to take it (tap again to put it back), then press or drag over the dough to paint sauce or scatter cheese; dragging straight from the bin works too. Kneading pauses while an ingredient is in hand.
 3. **Toppings** — tap to place one, hold to keep dropping.
 4. **Bake** — hold the dragon to breathe fire; once the dough is rolled out, the gauge needle climbs from raw to burnt. Land it in the green zone, past it the pizza chars.
-5. **Serve** — peel leaves with the pizza, returns empty.
+5. **Serve** — scored against the order, then a new order on fresh dough. Peel leaving with the pizza and a reaction to come.
 
 Meta game: later.
 
@@ -31,6 +31,7 @@ Meta game: later.
 - **Scattered toppings** — pieces drop along the drag (and steadily while resting), stored as angle + fraction of the dough edge so they follow it; each piece stacks its raw, baked and burnt sprites for a later bake cross-fade.
 - **Toppings** — sprites with rotation/scale jitter.
 - **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker. Each topping bakes only from when it lands, so one added late stays fresh.
+- **Orders** — a ticket in the tray, a row of icons per rule, no text: a topping only within some share of the pizza (any rotation; whole means all over it), exactly a count of a topping, or two toppings not touching; plus well baked or burnt when past normal. Rules combine into small puzzles. Drawn orders are kept only if some pizza can meet them (wedges for shares, apart pairs in wedges that don't overlap or a free gap). Each rule scores 0–1 (shares by filled cells of the best-fitting wedge less strays, counts by how far off, apart pairs by touches, doneness by bake range); the scores stay internal. Icons are placeholders until drawn.
 - **Bins** — fixed two-compartment art; each compartment shows its food once unlocked, empty until then.
 - **Input** — tool state machine: none → selected → applying. Tap a bin or drag from it.
 
@@ -49,11 +50,11 @@ Meta game: later.
 
 ## Dev
 
-Dev builds show a tuning panel (`src/dev/`) that edits config live, with a filter box that narrows it by name; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`). Keys: R resets the dough, S skips ahead (place the dough, roll it to the rim, then cover the inner rim in sauce, then cheese).
+Dev builds show a tuning panel (`src/dev/`) that edits config live, with a filter box that narrows it by name; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`). Keys: R resets the dough, S skips ahead (place the dough, roll it to the rim, then cover the inner rim in sauce, then cheese), O draws a new order. The Orders folder shows the order and its live scores.
 
 ## Art
 
-Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (the sauce brush) are procedural placeholders from `tools/art/placeholders.py`. More may be generated from them, especially for animation.
+Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (the sauce brush, order icons) are procedural placeholders from `tools/art/placeholders.py`. More may be generated from them, especially for animation.
 
 ## Milestones
 
@@ -63,6 +64,6 @@ Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (the sa
 - [ ] 3. Sauce & cheese + coverage — sauce painting and cheese scatter done (raw only); cheese coverage and bake cross-fade next
 - [ ] 4. Toppings
 - [ ] 5. Dragon, fire, bake filter, gauge — fire and gauge done, pizza effects next
-- [ ] 6. Serve loop & feedback (sound, reactions)
+- [ ] 6. Serve loop & feedback (sound, reactions) — orders and scoring done (placeholder icons), reactions next
 - [ ] 7. Art pass — kid drawings as cut-out sprites (layout done), brush textures, animation
 - [ ] 8. Later — meta game, PWA

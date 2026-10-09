@@ -13,6 +13,16 @@ const ORIGIN = { x: 0, y: 0 };
 /** Toppings placed as pieces; each has topping_<id>_<phase> art. */
 export type Topping = Exclude<IngredientId, 'sauce'>;
 
+/** What a placed piece shows of itself: its topping, polar spot, position and half size in layer px. */
+export interface PlacedPiece {
+  readonly topping: Topping;
+  readonly polarAngle: number;
+  readonly fraction: number;
+  readonly x: number;
+  readonly y: number;
+  readonly halfSize: number;
+}
+
 /**
  * One piece with every bake phase stacked on it, later phases on top; baking cross-fades them. It may wait in hand
  * first, posed as it will start landing, and is then dropped as is.
@@ -157,6 +167,11 @@ export class ToppingLayer extends Container {
 
   get pieces(): number {
     return this.placed.length;
+  }
+
+  /** Every placed piece, in no particular order. */
+  get placedPieces(): readonly PlacedPiece[] {
+    return this.placed;
   }
 
   get version(): number {

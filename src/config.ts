@@ -120,6 +120,82 @@ export const ORDER_TRAY = {
   labelY: 23,
 };
 
+// Order ticket in the tray, a row of icons per rule: within width × height of the tray (fractions of its art),
+// centered offsetY below its center (same units). Rows are up to rowHeight tray px tall, rowGap apart, each centered,
+// its icons itemGap apart by what's drawn of them. Icons are sized by what's drawn, as fractions of a row's height: a
+// share's pie whole, toppings at toppingSize (pieTopping inside a pie, whose radius is pieRadius of its art), counts'
+// digits at digitSize, the × at timesSize, the apart mark at apartSize and the bake flame at flameSize
+export const ORDER_TICKET = {
+  width: 0.76,
+  height: 0.8,
+  offsetY: 0,
+  rowHeight: 70,
+  rowGap: 10,
+  itemGap: 20,
+  toppingSize: 0.8,
+  pieTopping: 0.45,
+  pieRadius: 0.44,
+  digitSize: 0.75,
+  timesSize: 0.45,
+  apartSize: 0.9,
+  flameSize: 0.85,
+};
+
+// Each topping's icon on the ticket, as a multiple of its size there, so they read alike
+export const ORDER_ICON_SCALE = {
+  cheese: 1,
+  pepperoni: 1,
+  basil: 1.25,
+  pineapple: 1,
+  olives: 1,
+};
+
+// Orders: rules a pizza should meet, each a topping only within some share of it (any one; a whole share is all over
+// it), exactly a count of a topping, or two toppings kept from touching; plus how baked. An order has minRules to
+// maxRules rules, each drawn by its weight: a share of the whole, half, third or quarter, a count (up to maxCount) or
+// an apart pair. wellChance and burntChance of orders ask for past normally baked. An order is kept only if a pizza
+// can meet it, leaving gapDegrees of arc free for a topping kept from others; up to tries orders are drawn, then it
+// falls back to a single whole share
+export const ORDERS = {
+  minRules: 1,
+  maxRules: 3,
+  wholeWeight: 1,
+  halfWeight: 0.75,
+  thirdWeight: 0.25,
+  quarterWeight: 0.5,
+  countWeight: 0.1,
+  apartWeight: 0.1,
+  maxCount: 5,
+  wellChance: 0.1,
+  burntChance: 0.025,
+  gapDegrees: 20,
+  tries: 50,
+};
+// Toppings a share may ask for; counts and apart pairs use whole toppings, never scattered cheese
+export const SHARE_TOPPINGS = ['cheese', 'pepperoni', 'basil', 'pineapple', 'olives'] as const;
+export const WHOLE_TOPPINGS = ['pepperoni', 'basil', 'pineapple', 'olives'] as const;
+
+// Scoring a served pizza, each rule from 0 to 1. A share looks at pieces past centerFree of the inner rim (the center
+// is in every wedge), split into sectorsPerTurn sectors a whole turn by rings rings of equal area. The best of
+// rotations wedges scores by its cells holding a piece, full at fillFull of them, less strayPenalty for each piece
+// outside it past strays; a piece within edgeSlackDegrees of it counts as in. A count loses countPenalty per piece off;
+// an apart pair loses touchPenalty per touch, pieces touching when closer than touchFactor of their summed half sizes.
+// Doneness loses its score over bakeTolerance of bake level outside its range
+export const ORDER_JUDGE = {
+  centerFree: 0.25,
+  sectorsPerTurn: 8,
+  rings: 2,
+  rotations: 72,
+  fillFull: 0.7,
+  strays: 1,
+  strayPenalty: 0.25,
+  edgeSlackDegrees: 5,
+  countPenalty: 0.5,
+  touchFactor: 0.8,
+  touchPenalty: 0.25,
+  bakeTolerance: 0.1,
+};
+
 // Peel: nudge from its drawn spot in design px (the dough moves with it), and its face center as fractions of the art
 export const PEEL = {
   x: 0,
@@ -291,12 +367,15 @@ export const HELD = {
 // Doneness rises linearly while the dragon breathes fire on rolled dough, raw at 0 to burnt at 1; the dial shows it.
 // The art cross-fades raw to baked up to optimalLevel, where it looks fully baked, then baked to burnt, eased by
 // easePower: 1 is linear; higher rushes the art through raw and burnt and lingers around optimalLevel.
-// From minBaked on, it's baked enough to serve
+// From minBaked on, it's baked enough to serve. Orders take it as normally baked up to wellFrom, well baked up to
+// burntFrom, then burnt
 export const BAKE = {
   secondsToBurnt: 8,
   optimalLevel: 0.734,
   easePower: 1.256,
   minBaked: 0.5,
+  wellFrom: 0.84,
+  burntFrom: 0.93,
 };
 
 // Dial between the peel and the dragon's feet: hub position and drawn width; hub and needle pivot are fractions of their art
