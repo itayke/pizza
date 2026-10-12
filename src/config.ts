@@ -150,12 +150,12 @@ export const ORDER_ICON_SCALE = {
   olives: 1,
 };
 
-// Orders: rules a pizza should meet, each a topping only within some share of it (any one; a whole share is all over
-// it), exactly a count of a topping, or two toppings kept from touching; plus how baked. An order has minRules to
-// maxRules rules, each drawn by its weight: a share of the whole, half, third or quarter, a count (up to maxCount) or
-// an apart pair. wellChance and burntChance of orders ask for past normally baked. An order is kept only if a pizza
-// can meet it, leaving gapDegrees of arc free for a topping kept from others; up to tries orders are drawn, then it
-// falls back to a single whole share
+// Orders: rules a pizza should meet, each a topping covering some share of its slices and no others (a whole share is
+// all of them), exactly a count of a topping, or two toppings kept from touching; plus how baked. An order has
+// minRules to maxRules rules, each drawn by its weight: a share of the whole, half, third or quarter (only those the
+// slicing can show), a count (up to maxCount) or an apart pair. wellChance and burntChance of orders ask for past
+// normally baked. An order is kept only if its toppings fit the slices (see Order.ts); up to tries orders are drawn,
+// then it falls back to a single whole share
 export const ORDERS = {
   minRules: 1,
   maxRules: 3,
@@ -168,28 +168,35 @@ export const ORDERS = {
   maxCount: 5,
   wellChance: 0.1,
   burntChance: 0.025,
-  gapDegrees: 20,
   tries: 50,
+};
+
+// Slicing as the pizza is served: cuts lines through its center, evenly spaced, the first top to bottom. Each shows as
+// a dip across the pizza, multiplied over it: a line of color coreWidth design px wide, fading out over fadeWidth to
+// either side. The sliced pizza shows for showSeconds before the next order
+export const SLICING = {
+  cuts: 3,
+  coreWidth: 1,
+  fadeWidth: 3.5,
+  color: '#000000',
+  showSeconds: 1.5,
 };
 // Toppings a share may ask for; counts and apart pairs use whole toppings, never scattered cheese
 export const SHARE_TOPPINGS = ['cheese', 'pepperoni', 'basil', 'pineapple', 'olives'] as const;
 export const WHOLE_TOPPINGS = ['pepperoni', 'basil', 'pineapple', 'olives'] as const;
 
-// Scoring a served pizza, each rule from 0 to 1. A share looks at pieces past centerFree of the inner rim (the center
-// is in every wedge), split into sectorsPerTurn sectors a whole turn by rings rings of equal area. The best of
-// rotations wedges scores by its cells holding a piece, full at fillFull of them, less strayPenalty for each piece
-// outside it past strays; a piece within edgeSlackDegrees of it counts as in. A count loses countPenalty per piece off;
-// an apart pair loses touchPenalty per touch, pieces touching when closer than touchFactor of their summed half sizes.
-// Doneness loses its score over bakeTolerance of bake level outside its range
+// Scoring a served pizza, each rule from 0 to 1. A piece belongs to the slice its center lies in; a slice's coverage
+// by a topping is how much of it, out to the inner rim, its own pieces of it cover, each a disc coverRadius of its half
+// size, sampled sliceSamples by sliceSamples. A share takes its most covered slices that make up its part: it scores
+// how much of the pizza is as asked, each of those covered at least coverFull and every other slice at most clearMax.
+// A count loses countPenalty per piece off; an apart pair loses touchPenalty per touch, pieces touching when closer
+// than touchFactor of their summed half sizes. Doneness loses its score over bakeTolerance of bake level outside its
+// range
 export const ORDER_JUDGE = {
-  centerFree: 0.25,
-  sectorsPerTurn: 8,
-  rings: 2,
-  rotations: 72,
-  fillFull: 0.7,
-  strays: 1,
-  strayPenalty: 0.25,
-  edgeSlackDegrees: 5,
+  coverFull: 0.75,
+  clearMax: 0.1,
+  coverRadius: 0.9,
+  sliceSamples: 12,
   countPenalty: 0.5,
   touchFactor: 0.8,
   touchPenalty: 0.25,

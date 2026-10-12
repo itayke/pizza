@@ -1,28 +1,34 @@
 import { BAKE, ORDER_JUDGE, PLACEMENT } from '../config';
 import type { PlacedPiece, Topping } from '../stations/ToppingLayer';
 import type { Doneness, Order, Parts, Rule } from './Order';
+import { inWedge, slicesOf, type Wedge } from './slicing';
 
 const TAU = Math.PI * 2;
-const DEG_TO_RAD = Math.PI / 180;
+// Slack when adding up slices to a share, radians
+const SHARE_EPSILON = 1e-6;
+
+/** A pizza to score: its pieces, bake level, and its dough's edge at an angle (layer px). */
+export type Pizza = { pieces: readonly PlacedPiece[]; bakeLevel: number; radiusAt: (angle: number) => number };
 
 /** How well a pizza meets an order: each rule's score and its doneness's, each 0 to 1, and their mean. */
 export type Verdict = { rules: number[]; doneness: number; total: number };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/** Score a pizza, as its pieces and bake level, against an order. */
-export function judge(order: Order, pieces: readonly PlacedPiece[], bakeLevel: number): Verdict {
-  const rules = order.rules.map((rule) => scoreRule(rule, pieces));
-  const doneness = scoreDoneness(order.doneness, bakeLevel);
+/** Score a pizza cut along cut lines (angles through its center) against an order. */
+export function judge(order: Order, pizza: Pizza, cuts: readonly number[]): Verdict {
+  const slices = slicesOf(cuts);
+  const rules = order.rules.map((rule) => scoreRule(rule, pizza, slices));
+  const doneness = scoreDoneness(order.doneness, pizza.bakeLevel);
   const scores = [...rules, doneness];
   return { rules, doneness, total: scores.reduce((sum, s) => sum + s, 0) / scores.length };
 }
 
-function scoreRule(rule: Rule, pieces: readonly PlacedPiece[]): number {
-  const of = (topping: Topping) => pieces.filter((p) => p.topping === topping);
+function scoreRule(rule: Rule, pizza: Pizza, slices: Wedge[]): number {
+  const of = (topping: Topping) => pizza.pieces.filter((p) => p.topping === topping);
   switch (rule.kind) {
     case 'share':
-      return scoreShare(of(rule.topping), rule.parts);
+      return scoreShare(of(rule.topping), rule.parts, slices, pizza.radiusAt);
     case 'count':
       return clamp01(1 - Math.abs(of(rule.topping).length - rule.n) * ORDER_JUDGE.countPenalty);
     case 'apart':
@@ -31,44 +37,46 @@ function scoreRule(rule: Rule, pieces: readonly PlacedPiece[]): number {
 }
 
 /**
- * The best-fitting wedge, of every rotation tried: how many of its cells hold a piece, less the pieces outside it.
- * The center belongs to every wedge, so pieces there count neither way.
+ * The most covered slices that make up the share should be covered and the rest clear: how much of the pizza is as
+ * asked.
  */
-function scoreShare(pieces: readonly PlacedPiece[], parts: Parts): number {
-  const { centerFree, sectorsPerTurn, rings, rotations, fillFull, strays, strayPenalty, edgeSlackDegrees } = ORDER_JUDGE;
-  const center2 = centerFree ** 2;
-  const spots = pieces
-    .map((p) => ({ angle: p.polarAngle, reach: Math.min(1, p.fraction / PLACEMENT.innerRim) }))
-    .filter((s) => s.reach >= centerFree);
-  if (!spots.length) return 0;
-  const width = TAU / parts;
-  const slack = edgeSlackDegrees * DEG_TO_RAD;
-  const sectors = Math.max(1, Math.round(sectorsPerTurn / parts));
-  const cells = new Uint8Array(sectors * rings);
-  // A whole pizza looks the same at any rotation
-  const tries = parts === 1 ? 1 : rotations;
-  let best = 0;
-  for (let i = 0; i < tries; i++) {
-    const start = (i / tries) * TAU;
-    cells.fill(0);
-    let outside = 0;
-    for (const { angle, reach } of spots) {
-      // Offset into the wedge, slack included on both sides
-      const offset = ((((angle - start + slack) % TAU) + TAU) % TAU) - slack;
-      if (offset >= width + slack) {
-        outside++;
-        continue;
-      }
-      const sector = Math.min(sectors - 1, Math.max(0, Math.floor((offset / width) * sectors)));
-      // Rings of equal area between the free center and the inner rim
-      const ring = Math.min(rings - 1, Math.floor(((reach ** 2 - center2) / (1 - center2)) * rings));
-      cells[ring * sectors + sector] = 1;
-    }
-    const filled = cells.reduce((sum, c) => sum + c, 0) / cells.length;
-    const fill = fillFull > 0 ? Math.min(1, filled / fillFull) : 1;
-    best = Math.max(best, fill * clamp01(1 - Math.max(0, outside - strays) * strayPenalty));
+function scoreShare(pieces: readonly PlacedPiece[], parts: Parts, slices: Wedge[], radiusAt: (angle: number) => number): number {
+  if (!pieces.length) return 0;
+  const covered = slices.map((slice) => ({ slice, coverage: sliceCoverage(pieces, slice, radiusAt) }));
+  covered.sort((a, b) => b.coverage - a.coverage);
+  let taken = 0;
+  let right = 0;
+  for (const { slice, coverage } of covered) {
+    const asked = taken < TAU / parts - SHARE_EPSILON;
+    if (asked) taken += slice.width;
+    if (asked ? coverage >= ORDER_JUDGE.coverFull : coverage <= ORDER_JUDGE.clearMax) right += slice.width;
   }
-  return best;
+  return right / TAU;
+}
+
+/**
+ * How much of a slice, out to the inner rim, its own pieces cover: those centered in it, each a disc. Sampled evenly
+ * over its area.
+ */
+export function sliceCoverage(pieces: readonly PlacedPiece[], slice: Wedge, radiusAt: (angle: number) => number): number {
+  const own = pieces.filter((p) => inWedge(p.polarAngle, slice));
+  if (!own.length) return 0;
+  const n = ORDER_JUDGE.sliceSamples;
+  let hits = 0;
+  for (let i = 0; i < n; i++) {
+    const angle = slice.start + ((i + 0.5) / n) * slice.width;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const rim = PLACEMENT.innerRim * radiusAt(angle);
+    for (let j = 0; j < n; j++) {
+      // Even steps of area, out from the center
+      const r = rim * Math.sqrt((j + 0.5) / n);
+      const x = cos * r;
+      const y = sin * r;
+      if (own.some((p) => (p.x - x) ** 2 + (p.y - y) ** 2 <= (p.halfSize * ORDER_JUDGE.coverRadius) ** 2)) hits++;
+    }
+  }
+  return hits / (n * n);
 }
 
 /** Both toppings on the pizza, losing score for each touching pair. */

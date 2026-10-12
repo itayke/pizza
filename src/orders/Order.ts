@@ -1,33 +1,22 @@
 import { ORDERS, SHARE_TOPPINGS, WHOLE_TOPPINGS } from '../config';
 import type { Topping } from '../stations/ToppingLayer';
+import { autoSliceCount } from './slicing';
 
-const TAU = Math.PI * 2;
-const DEG_TO_RAD = Math.PI / 180;
-// Share wedges in a drawn-up order start on this many even steps around, so neighbors can line up edge to edge
-const WEDGE_STEPS = 12;
-// Angles checked around the pizza when telling whether an order can be met
-const ANGLE_SAMPLES = 360;
 // Count digits drawn for the ticket
 export const MAX_COUNT_DIGIT = 9;
 
-/** Equal wedges a share cuts the pizza into, one of which holds the topping. */
+/** Equal parts a share splits the pizza into, one of which holds the topping. */
 export type Parts = 1 | 2 | 3 | 4;
 export type Doneness = 'normal' | 'well' | 'burnt';
 
-/** One line of an order: a topping only within one of parts equal wedges, exactly n of a topping, or a and b never
- * touching. Any rule's toppings must be on the pizza. */
+/** One line of an order: a topping covering one of parts equal shares of the slices and no others, exactly n of a
+ * topping, or a and b never touching. Any rule's toppings must be on the pizza. */
 export type Rule =
   | { kind: 'share'; topping: Topping; parts: Parts }
   | { kind: 'count'; topping: Topping; n: number }
   | { kind: 'apart'; a: Topping; b: Topping };
 
 export type Order = { rules: Rule[]; doneness: Doneness };
-
-/** A wedge of the pizza, radians clockwise from its start. */
-export type Wedge = { start: number; width: number };
-
-/** An order with the pizza it was drawn along with: a wedge for each shared topping. */
-export type Plan = { order: Order; wedges: Map<Topping, Wedge> };
 
 const KIND_ORDER: Rule['kind'][] = ['share', 'count', 'apart'];
 
@@ -55,21 +44,13 @@ function weighted<T>(items: { draw: T; weight: number }[]): T | null {
 const pick = <T>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
 const between = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1));
 
-/** A new order a pizza can meet, its rules grouped by kind. */
-export function drawOrder(): Order {
-  return drawPlan().order;
-}
-
-/** A new order along with the pizza that meets it. */
-export function drawPlan(): Plan {
+/** A new order a pizza cut into slices can meet, its rules grouped by kind. */
+export function drawOrder(slices = autoSliceCount()): Order {
   for (let i = 0; i < ORDERS.tries; i++) {
-    const drawn = drawRules();
-    if (!drawn) continue;
-    const rules = drawn.rules.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
-    return { order: { rules, doneness: drawDoneness() }, wedges: drawn.wedges };
+    const rules = drawRules(slices);
+    if (rules) return { rules: rules.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)), doneness: drawDoneness() };
   }
-  const topping = pick(SHARE_TOPPINGS);
-  return { order: { rules: [{ kind: 'share', topping, parts: 1 }], doneness: 'normal' }, wedges: new Map([[topping, { start: 0, width: TAU }]]) };
+  return { rules: [{ kind: 'share', topping: pick(SHARE_TOPPINGS), parts: 1 }], doneness: 'normal' };
 }
 
 function drawDoneness(): Doneness {
@@ -78,16 +59,13 @@ function drawDoneness(): Doneness {
   return r < ORDERS.burntChance + ORDERS.wellChance ? 'well' : 'normal';
 }
 
-/**
- * Rules drawn along with a pizza that meets them: each share gets a wedge on it, kept only if every apart pair can sit
- * in wedges that don't overlap, or in a free gap; null if this draw can't be met or ran out of toppings.
- */
-function drawRules(): { rules: Rule[]; wedges: Map<Topping, Wedge> } | null {
-  const pool = draws();
+/** Rules drawn by weight, shares only in parts the slices split evenly into; null if they can't be met or ran out of
+ * toppings. */
+function drawRules(slices: number): Rule[] | null {
+  const pool = draws().filter(({ draw }) => draw.kind !== 'share' || slices % draw.parts === 0);
   const rules: Rule[] = [];
   // Toppings already given a share or a count, which each topping gets at most one of
   const placed = new Set<Topping>();
-  const wedges = new Map<Topping, Wedge>();
   const count = between(ORDERS.minRules, ORDERS.maxRules);
   for (let i = 0; i < count; i++) {
     const draw = weighted(pool);
@@ -95,8 +73,7 @@ function drawRules(): { rules: Rule[]; wedges: Map<Topping, Wedge> } | null {
     if (draw.kind === 'apart') {
       const a = pick(WHOLE_TOPPINGS);
       const b = pick(WHOLE_TOPPINGS.filter((t) => t !== a));
-      const same = (rule: Rule) => rule.kind === 'apart' && ((rule.a === a && rule.b === b) || (rule.a === b && rule.b === a));
-      if (rules.some(same)) return null;
+      if (rules.some((rule) => isPair(rule, a, b))) return null;
       rules.push({ kind: 'apart', a, b });
       continue;
     }
@@ -104,38 +81,36 @@ function drawRules(): { rules: Rule[]; wedges: Map<Topping, Wedge> } | null {
     if (!free.length) return null;
     const topping = pick(free);
     placed.add(topping);
-    if (draw.kind === 'count') {
-      rules.push({ kind: 'count', topping, n: between(1, Math.min(ORDERS.maxCount, MAX_COUNT_DIGIT)) });
-      continue;
-    }
-    const { parts } = draw;
-    wedges.set(topping, { start: (between(0, WEDGE_STEPS - 1) / WEDGE_STEPS) * TAU, width: TAU / parts });
-    rules.push({ kind: 'share', topping, parts });
+    rules.push(draw.kind === 'count' ? { kind: 'count', topping, n: between(1, Math.min(ORDERS.maxCount, MAX_COUNT_DIGIT)) } : { kind: 'share', topping, parts: draw.parts });
   }
-  return canMeet(rules, wedges) ? { rules, wedges } : null;
+  return canMeet(rules, slices) ? rules : null;
 }
 
-/** Whether each apart pair can stay apart: two shared toppings need wedges that don't overlap, a topping without a
- * share needs a free gap outside its partners' wedges. */
-function canMeet(rules: Rule[], wedges: Map<Topping, Wedge>): boolean {
-  // Sampled between whole steps, so wedges that only meet at an edge never share a sample
-  const angles = Array.from({ length: ANGLE_SAMPLES }, (_, i) => ((i + 0.5) / ANGLE_SAMPLES) * TAU);
-  const inside = (topping: Topping, angle: number) => {
-    const wedge = wedges.get(topping);
-    return !!wedge && (angle - wedge.start + TAU) % TAU < wedge.width;
+const isPair = (rule: Rule, a: Topping, b: Topping) =>
+  rule.kind === 'apart' && ((rule.a === a && rule.b === b) || (rule.a === b && rule.b === a));
+
+/**
+ * Whether every topping kept apart from others has room: the slices it takes (its share, or one) plus those its
+ * partners take must fit the pizza. Partners kept apart from each other take slices of their own; the rest may
+ * overlap, so only the roomiest such group counts.
+ */
+export function canMeet(rules: readonly Rule[], slices: number): boolean {
+  const takes = (t: Topping) => {
+    const share = rules.find((rule) => rule.kind === 'share' && rule.topping === t);
+    return share?.kind === 'share' ? slices / share.parts : 1;
   };
-  const gapSamples = (ORDERS.gapDegrees * DEG_TO_RAD * ANGLE_SAMPLES) / TAU;
-  const partners = new Map<Topping, Topping[]>();
-  for (const rule of rules) {
-    if (rule.kind !== 'apart') continue;
-    if (wedges.has(rule.a) && wedges.has(rule.b) && angles.some((angle) => inside(rule.a, angle) && inside(rule.b, angle))) return false;
-    partners.set(rule.a, [...(partners.get(rule.a) ?? []), rule.b]);
-    partners.set(rule.b, [...(partners.get(rule.b) ?? []), rule.a]);
-  }
-  for (const [topping, others] of partners) {
-    if (wedges.has(topping)) continue;
-    const free = angles.filter((angle) => !others.some((other) => inside(other, angle))).length;
-    if (free < gapSamples) return false;
+  const apart = (a: Topping, b: Topping) => rules.some((rule) => isPair(rule, a, b));
+  const toppings = new Set(rules.flatMap((rule) => (rule.kind === 'apart' ? [rule.a, rule.b] : [])));
+  for (const t of toppings) {
+    const partners = [...toppings].filter((other) => apart(t, other));
+    // Every group of partners that are all apart from each other
+    let room = 0;
+    for (let mask = 1; mask < 1 << partners.length; mask++) {
+      const group = partners.filter((_, i) => mask & (1 << i));
+      if (group.some((a, i) => group.slice(i + 1).some((b) => !apart(a, b)))) continue;
+      room = Math.max(room, group.reduce((sum, p) => sum + takes(p), 0));
+    }
+    if (takes(t) + room > slices) return false;
   }
   return true;
 }

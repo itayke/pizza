@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SLICING, TOPPINGS, WIDESCREEN } from '../config';
 import type { Order, Rule } from '../orders/Order';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
@@ -175,14 +175,15 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orders.addBinding(ORDERS, 'maxCount', { min: 1, max: 9, step: 1 });
   orders.addBinding(ORDERS, 'wellChance', { min: 0, max: 1 });
   orders.addBinding(ORDERS, 'burntChance', { min: 0, max: 1 });
-  orders.addBinding(ORDERS, 'gapDegrees', { min: 0, max: 90 });
-  orders.addBinding(ORDER_JUDGE, 'centerFree', { min: 0, max: 0.8 });
-  orders.addBinding(ORDER_JUDGE, 'sectorsPerTurn', { min: 1, max: 24, step: 1 });
-  orders.addBinding(ORDER_JUDGE, 'rings', { min: 1, max: 6, step: 1 });
-  orders.addBinding(ORDER_JUDGE, 'fillFull', { min: 0.1, max: 1 });
-  orders.addBinding(ORDER_JUDGE, 'strays', { min: 0, max: 10, step: 1 });
-  orders.addBinding(ORDER_JUDGE, 'strayPenalty', { min: 0, max: 1 });
-  orders.addBinding(ORDER_JUDGE, 'edgeSlackDegrees', { min: 0, max: 30 });
+  orders.addBinding(SLICING, 'cuts', { min: 0, max: 10, step: 1 });
+  orders.addBinding(SLICING, 'coreWidth', { label: 'cutCore', min: 0, max: 10 });
+  orders.addBinding(SLICING, 'fadeWidth', { label: 'cutFade', min: 0, max: 20 });
+  orders.addBinding(SLICING, 'color', { label: 'cutColor' });
+  orders.addBinding(SLICING, 'showSeconds', { label: 'slicedSeconds', min: 0, max: 5 });
+  orders.addBinding(ORDER_JUDGE, 'coverFull', { min: 0.1, max: 1 });
+  orders.addBinding(ORDER_JUDGE, 'clearMax', { min: 0, max: 0.5 });
+  orders.addBinding(ORDER_JUDGE, 'coverRadius', { min: 0.2, max: 1.5 });
+  orders.addBinding(ORDER_JUDGE, 'sliceSamples', { min: 4, max: 32, step: 1 });
   orders.addBinding(ORDER_JUDGE, 'countPenalty', { min: 0, max: 1 });
   orders.addBinding(ORDER_JUDGE, 'touchFactor', { min: 0.2, max: 1.5 });
   orders.addBinding(ORDER_JUDGE, 'touchPenalty', { min: 0, max: 1 });
@@ -262,7 +263,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

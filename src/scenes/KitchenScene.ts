@@ -17,6 +17,7 @@ import {
   PULSE,
   SERVE_BUTTON,
   SKIP,
+  SLICING,
   WIDESCREEN,
   type IngredientId,
 } from '../config';
@@ -24,6 +25,7 @@ import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
 import { easeInQuad } from '../core/easing';
 import { judge, type Verdict } from '../orders/judge';
 import { drawOrder, type Order } from '../orders/Order';
+import { autoCuts } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
@@ -51,6 +53,8 @@ export class KitchenScene extends Container {
   private readonly bakeButton = new StateButton('bake_button', BAKE_BUTTON);
   private readonly serveButton = new StateButton('serve_button', SERVE_BUTTON);
   private servePressed = false;
+  /** Seconds the served, sliced pizza still shows before the next order; nothing is pressable meanwhile. */
+  private servingFor = 0;
   private readonly background = artSprite('bg');
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
@@ -194,16 +198,24 @@ export class KitchenScene extends Container {
     this.ticket.show(this.order);
   }
 
-  /** How the pizza on the peel meets the order so far. */
+  /** How the pizza on the peel meets the order so far, as if sliced now. */
   scoreOrder(): Verdict {
-    return judge(this.order, this.dough.toppings.placedPieces, this.bakeLevel);
+    const { dough } = this;
+    return judge(this.order, { pieces: dough.toppings.placedPieces, bakeLevel: this.bakeLevel, radiusAt: (a) => dough.radiusAt(a) }, autoCuts());
   }
 
-  /** Hand over the pizza: score it, then start the next order on fresh dough. */
+  /** Hand over the pizza: slice and score it, show it sliced for a moment, then start the next order on fresh dough. */
   private serve(): void {
     this.lastVerdict = this.scoreOrder();
-    this.newOrder();
-    this.resetDough();
+    this.setTool(null);
+    this.setFiring(false);
+    this.dough.setKneadable(false);
+    this.dough.showCuts(autoCuts());
+    this.servingFor = SLICING.showSeconds;
+  }
+
+  private get serving(): boolean {
+    return this.servingFor > 0;
   }
 
   /** Testing shortcut, a step per press: place the dough, roll it out to the rim, then sauce it, then cheese it once. */
@@ -223,6 +235,11 @@ export class KitchenScene extends Container {
   }
 
   update(dt: number): void {
+    if (this.serving && (this.servingFor -= dt) <= 0) {
+      this.newOrder();
+      this.resetDough();
+      this.dough.setKneadable(true);
+    }
     if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
     // Rolled out enough for toppings and baking
@@ -276,6 +293,7 @@ export class KitchenScene extends Container {
   /** Tap a bin to take its ingredient, tap it again to put it back. The press never reaches the pizza. */
   private pickIngredient(id: IngredientId, e: FederatedPointerEvent): void {
     e.stopPropagation();
+    if (this.serving) return;
     this.trackPointer(e);
     if (this.tool === id) this.setTool(null);
     else if (this.available.has(id)) this.setTool(id);
@@ -310,7 +328,7 @@ export class KitchenScene extends Container {
 
   /** A press on the peel with an ingredient in hand paints until release; presses elsewhere are ignored. */
   private startPainting(e: FederatedPointerEvent): void {
-    if (!this.tool || !this.peel.getBounds().containsPoint(e.global.x, e.global.y)) return;
+    if (!this.tool || this.serving || !this.peel.getBounds().containsPoint(e.global.x, e.global.y)) return;
     this.trackPointer(e);
     this.painting = true;
     this.strokeEnd.copyFrom(this.pointer);
@@ -334,7 +352,7 @@ export class KitchenScene extends Container {
   }
 
   private pickUpDough(e: FederatedPointerEvent): void {
-    if (this.doughPhase !== 'inBowl') return;
+    if (this.doughPhase !== 'inBowl' || this.serving) return;
     this.trackPointer(e);
     this.doughPhase = 'held';
     this.grabOffset.set(this.doughBall.x - this.pointer.x, this.doughBall.y - this.pointer.y);
@@ -511,7 +529,7 @@ export class KitchenScene extends Container {
   /** Breathe fire while target is held, if it's enabled; baking puts down whatever ingredient is in hand. */
   private onFirePress(target: Container, enabled: () => boolean): void {
     target.on('pointerdown', (e) => {
-      if (!enabled()) return;
+      if (!enabled() || this.serving) return;
       // Never also a press on the pizza
       e.stopPropagation();
       this.setTool(null);
@@ -541,6 +559,6 @@ export class KitchenScene extends Container {
   }
 
   private canServe(): boolean {
-    return this.bakeLevel >= BAKE.minBaked;
+    return this.bakeLevel >= BAKE.minBaked && !this.serving;
   }
 }

@@ -1,5 +1,5 @@
-import { Circle, Container, Graphics, Matrix, Point, RenderTexture, Sprite, UniformGroup, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
-import { COLORS, DOUGH, PLACEMENT, SAUCE, type ScatterConfig } from '../config';
+import { Circle, Container, Graphics, Matrix, Point, RenderTexture, Sprite, Texture, UniformGroup, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
+import { COLORS, DOUGH, PLACEMENT, SAUCE, SLICING, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { bakeCurve } from '../core/bake';
 import { easeOutCubic } from '../core/easing';
@@ -13,6 +13,10 @@ const TAU = Math.PI * 2;
 const TRANSPARENT = [0, 0, 0, 0];
 // Spokes moving less than this, design px, leave the plain pizza as drawn
 const RESHAPE_EPSILON = 0.01;
+// Texels across a cut's dip, its profile stretched to the cut's width
+const DIP_TEXELS = 64;
+const RGBA = 4;
+const OPAQUE = 255;
 
 /** Kneadable dough: a ring of radii that grow outward where pressed, capped just past the rim. */
 export class Dough extends Container {
@@ -27,6 +31,9 @@ export class Dough extends Container {
   private shown = new Float32Array(0);
   private readonly body: DoughMesh;
   private readonly rim: Graphics;
+  /** Slicing cuts across the pizza, each a dip multiplied over it. */
+  private readonly cuts = new Container({ visible: false });
+  private dip: Texture | null = null;
   /** The pizza without sauce, for later sauce passes to multiply over; redrawn when it changes while there are any. */
   private readonly plain: RenderTexture;
   private readonly plainUniforms = new UniformGroup({ uPlainExtent: { value: 0, type: 'f32' } });
@@ -49,7 +56,7 @@ export class Dough extends Container {
     this.rim = this.buildRim();
     const size = 2 * plainExtent();
     this.plain = RenderTexture.create({ width: size, height: size });
-    this.addChild(this.rim, this.body, this.toppings);
+    this.addChild(this.rim, this.body, this.toppings, this.cuts);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -71,10 +78,32 @@ export class Dough extends Container {
     this.slamElapsed = Infinity;
     this.sauce.clear();
     this.toppings.clear();
+    this.showCuts(null);
     this.plainStale = true;
     this.updateReach();
     this.updateMetrics();
     this.draw();
+  }
+
+  /** Show cuts (angles of lines through the center) across the pizza, edge to edge, or none. */
+  showCuts(cuts: readonly number[] | null): void {
+    for (const child of this.cuts.removeChildren()) child.destroy();
+    this.dip?.destroy(true);
+    this.dip = cuts?.length ? dipTexture() : null;
+    this.cuts.visible = !!this.dip;
+    if (!this.dip) return;
+    for (const angle of cuts ?? []) {
+      // Its own edge on each side of the center, which the strip's anchor sits on
+      const ahead = this.radiusAt(angle);
+      const behind = this.radiusAt(angle + Math.PI);
+      const strip = new Sprite({ texture: this.dip, blendMode: 'multiply', tint: SLICING.color });
+      strip.anchor.set(0.5, behind / (ahead + behind));
+      strip.width = SLICING.coreWidth + 2 * SLICING.fadeWidth;
+      strip.height = ahead + behind;
+      // The strip runs down its own y axis, a quarter turn from the cut's angle
+      strip.rotation = angle - Math.PI / 2;
+      this.cuts.addChild(strip);
+    }
   }
 
   /** Show the dough body and accept kneading, or hide it (rim stays visible). */
@@ -155,12 +184,15 @@ export class Dough extends Container {
     this.plain.source.resize(2 * extent, 2 * extent);
     this.plainUniforms.uniforms.uPlainExtent = extent;
     this.rim.visible = false;
+    const cutsShown = this.cuts.visible;
+    this.cuts.visible = false;
     this.toppings.setSaucePassesVisible(false);
     this.body.setSauceShown(false);
     // Dough-local, with its center in the middle of the texture
     const transform = this.plainTransform.identity().translate(extent, extent);
     this.renderer.render({ container: this, target: this.plain, clear: true, clearColor: TRANSPARENT, transform });
     this.rim.visible = true;
+    this.cuts.visible = cutsShown;
     this.toppings.setSaucePassesVisible(true);
     this.body.setSauceShown(true);
     this.plainStale = false;
@@ -282,7 +314,7 @@ export class Dough extends Container {
   }
 
   /** Interpolated drawn radius at an angle. */
-  private radiusAt(angle: number): number {
+  radiusAt(angle: number): number {
     const n = this.shown.length;
     const f = (((angle / TAU) * n) % n + n) % n;
     const i = Math.floor(f);
@@ -361,4 +393,24 @@ function overRimMultiplier(radius: number): number {
 
 function wrapAngle(a: number): number {
   return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
+/** A cut's profile across, its core and fade to either side: opaque white through the core, easing out to clear;
+ * tinted where drawn. */
+function dipTexture(): Texture {
+  const canvas = document.createElement('canvas');
+  canvas.width = DIP_TEXELS;
+  canvas.height = 1;
+  const context = canvas.getContext('2d')!;
+  const image = context.createImageData(DIP_TEXELS, 1);
+  for (let i = 0; i < DIP_TEXELS; i++) {
+    // Design px from the middle, then how far into the fade
+    const { coreWidth, fadeWidth } = SLICING;
+    const across = Math.abs((i + 0.5) / DIP_TEXELS - 0.5) * (coreWidth + 2 * fadeWidth);
+    const t = fadeWidth > 0 ? Math.min(1, Math.max(0, (across - coreWidth / 2) / fadeWidth)) : 0;
+    const alpha = 1 - t * t * (3 - 2 * t);
+    image.data.set([OPAQUE, OPAQUE, OPAQUE, Math.round(alpha * OPAQUE)], i * RGBA);
+  }
+  context.putImageData(image, 0, 0);
+  return Texture.from(canvas);
 }
