@@ -260,6 +260,7 @@ export class KitchenScene extends Container {
     this.bowlLabel.update(this.doughPhase === 'held', dt);
     const inBowl = this.doughPhase === 'inBowl';
     this.bowl.cursor = inBowl ? 'pointer' : 'default';
+    this.dragon.cursor = this.doughReady && !this.serving ? 'pointer' : 'default';
     this.gauge.setLevel(this.bakeLevel);
     this.bakeButton.layout();
     this.bakeButton.setState(this.doughReady, this.fire.visible);
@@ -515,8 +516,8 @@ export class KitchenScene extends Container {
     dragon.eventMode = 'static';
     // It may overlap the peel, which should still take presses beside the dragon
     dragon.hitArea = opaqueHitArea(dragon);
-    dragon.cursor = 'pointer';
-    this.onFirePress(dragon, () => true);
+    // Like the bake button, it only breathes fire once the dough is rolled out
+    this.onFirePress(dragon, () => this.doughReady);
     this.stations.dragon.addChild(dragon, this.fire);
   }
 
