@@ -172,8 +172,8 @@ export const ORDERS = {
 };
 
 // Slicing as the pizza is served: cuts lines through its center, evenly spaced, the first top to bottom. Each shows as
-// a dip across the pizza, multiplied over it: a line of color coreWidth design px wide, fading out over fadeWidth to
-// either side. The sliced pizza shows for showSeconds before the next order
+// a dip across the pizza, multiplied over it: a line of color coreWidth design px wide, dropping off fast to clear over
+// fadeWidth to either side. The sliced pizza shows for showSeconds before the next order
 export const SLICING = {
   cuts: 3,
   coreWidth: 1,

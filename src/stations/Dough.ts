@@ -2,7 +2,7 @@ import { Circle, Container, Graphics, Matrix, Point, RenderTexture, Sprite, Text
 import { COLORS, DOUGH, PLACEMENT, SAUCE, SLICING, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { bakeCurve } from '../core/bake';
-import { easeOutCubic } from '../core/easing';
+import { easeOutCirc, easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
 import { DoughMesh } from './DoughMesh';
@@ -395,8 +395,8 @@ function wrapAngle(a: number): number {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
-/** A cut's profile across, its core and fade to either side: opaque white through the core, easing out to clear;
- * tinted where drawn. */
+/** A cut's profile across, its core and fade to either side: opaque white through the core, then dropping off fast
+ * (ease-out circ) to clear; tinted where drawn. */
 function dipTexture(): Texture {
   const canvas = document.createElement('canvas');
   canvas.width = DIP_TEXELS;
@@ -408,7 +408,7 @@ function dipTexture(): Texture {
     const { coreWidth, fadeWidth } = SLICING;
     const across = Math.abs((i + 0.5) / DIP_TEXELS - 0.5) * (coreWidth + 2 * fadeWidth);
     const t = fadeWidth > 0 ? Math.min(1, Math.max(0, (across - coreWidth / 2) / fadeWidth)) : 0;
-    const alpha = 1 - t * t * (3 - 2 * t);
+    const alpha = 1 - easeOutCirc(t);
     image.data.set([OPAQUE, OPAQUE, OPAQUE, Math.round(alpha * OPAQUE)], i * RGBA);
   }
   context.putImageData(image, 0, 0);
