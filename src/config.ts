@@ -172,13 +172,26 @@ export const ORDERS = {
 };
 
 // Slicing as the pizza is served: cuts lines through its center, evenly spaced, the first top to bottom. Each shows as
-// a dip across the pizza, multiplied over it: a line of color coreWidth design px wide, dropping off fast to clear over
-// fadeWidth to either side. The sliced pizza shows for showSeconds before the next order
+// a groove multiplied over the pizza at alpha: color coreWidth design px wide, dropping off fast to clear over fadeWidth
+// to either side. A lip of lipColor (lipCore and lipFade likewise) is screened at lipAlpha lipOffset design px to the side
+// away from the light, coming from lightAngle degrees (0 from the right, clockwise); lipFacing is how much less a cut
+// running toward the light gets. Cuts wander up to wobble design px to either side, swaying about every wobbleWave.
+// The sliced pizza shows for showSeconds before the next order
 export const SLICING = {
   cuts: 3,
-  coreWidth: 1,
-  fadeWidth: 3.5,
-  color: '#000000',
+  coreWidth: 0.625,
+  fadeWidth: 5,
+  color: '#3a2216',
+  alpha: 0.6,
+  lipCore: 1.25,
+  lipFade: 1.875,
+  lipColor: '#fff4dc',
+  lipAlpha: 0.5,
+  lipOffset: 3.125,
+  lightAngle: -135,
+  lipFacing: 0.5,
+  wobble: 1.5,
+  wobbleWave: 90,
   showSeconds: 1.5,
 };
 // Toppings a share may ask for; counts and apart pairs use whole toppings, never scattered cheese

@@ -179,6 +179,16 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orders.addBinding(SLICING, 'coreWidth', { label: 'cutCore', min: 0, max: 10 });
   orders.addBinding(SLICING, 'fadeWidth', { label: 'cutFade', min: 0, max: 20 });
   orders.addBinding(SLICING, 'color', { label: 'cutColor' });
+  orders.addBinding(SLICING, 'alpha', { label: 'cutAlpha', min: 0, max: 1 });
+  orders.addBinding(SLICING, 'lipCore', { min: 0, max: 10 });
+  orders.addBinding(SLICING, 'lipFade', { min: 0, max: 20 });
+  orders.addBinding(SLICING, 'lipColor');
+  orders.addBinding(SLICING, 'lipAlpha', { min: 0, max: 1 });
+  orders.addBinding(SLICING, 'lipOffset', { min: -10, max: 10 });
+  orders.addBinding(SLICING, 'lightAngle', { min: -180, max: 180, step: 1 });
+  orders.addBinding(SLICING, 'lipFacing', { min: 0, max: 1 });
+  orders.addBinding(SLICING, 'wobble', { label: 'cutWobble', min: 0, max: 10 });
+  orders.addBinding(SLICING, 'wobbleWave', { label: 'cutWobbleWave', min: 10, max: 400 });
   orders.addBinding(SLICING, 'showSeconds', { label: 'slicedSeconds', min: 0, max: 5 });
   orders.addBinding(ORDER_JUDGE, 'coverFull', { min: 0.1, max: 1 });
   orders.addBinding(ORDER_JUDGE, 'clearMax', { min: 0, max: 0.5 });
