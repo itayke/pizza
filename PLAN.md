@@ -57,6 +57,8 @@ Dev builds show a tuning panel (`src/dev/`) that edits config live, with a filte
 
 Drawings in `art/` are cut out by `tools/art/extract.py`. Undrawn pieces (the sauce brush, order icons) are procedural placeholders from `tools/art/placeholders.py`. More may be generated from them, especially for animation.
 
+Words are text in the hand font, bent on an arc to match the drawn lettering, so new toppings and languages need no new art. Every caption is a word, all at one size.
+
 ## Milestones
 
 - [x] 0. Scaffold — scaling, rotate hint, standard and widescreen layouts

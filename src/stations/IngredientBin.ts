@@ -1,6 +1,7 @@
 import { Container, Sprite, type FederatedPointerEvent } from 'pixi.js';
 import { BIN_LAYOUT, DISABLED_ALPHA, LABEL_NUDGE, type BINS, type IngredientId } from '../config';
-import { artSprite } from '../core/art';
+import { artPoint, artSprite } from '../core/art';
+import { WORDS } from '../words';
 import { SelectableLabel } from './SelectableLabel';
 
 type BinSpec = (typeof BINS)[number];
@@ -25,7 +26,7 @@ export class IngredientBin extends Container {
       this.addChild(fill);
     }
     for (const id of spec.items) {
-      const label = new SelectableLabel(`label_${id}`);
+      const label = new SelectableLabel(WORDS[id], 'bin', `label_${id}`);
       this.labels.set(id, label);
       this.addChild(label);
     }
@@ -37,7 +38,12 @@ export class IngredientBin extends Container {
     this.position.set(Number(values[`${this.art}X`] ?? 0), Number(values[`${this.art}Y`] ?? 0));
     // Hidden bins aren't hit-tested either
     this.visible = values[`${this.art}Enabled`] !== false;
-    for (const [id, label] of this.labels) label.nudge(LABEL_NUDGE[id]);
+    // Words sit where their drawn labels were, on an arc centered on the bin
+    const middle = artPoint(this.art, 0.5, 0.5).x;
+    for (const [id, label] of this.labels) {
+      const drawn = artPoint(`label_${id}`, 0.5, 0.5);
+      label.layout(drawn.x + LABEL_NUDGE[id], drawn.y, middle);
+    }
   }
 
   refresh(unlocked: ReadonlySet<IngredientId>): void {

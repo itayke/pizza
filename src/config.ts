@@ -9,6 +9,13 @@ export const DESIGN_HEIGHT = 1536;
 export const MAX_RESOLUTION = 1;
 export const ASSET_DIR = 'assets/';
 
+// The hand font words are set in, under ASSET_DIR; weights is the range the file covers
+export const FONT = {
+  family: 'Playpen Sans',
+  file: 'fonts/PlaypenSans.woff2',
+  weights: '100 800',
+} as const;
+
 export const COLORS = {
   paper: 0xf3e6da,
   rim: 0x5a3a24,
@@ -20,7 +27,8 @@ export type IngredientId = (typeof INGREDIENT_IDS)[number];
 // Everything unlocked until the meta game exists
 export const STARTING_UNLOCKED: readonly IngredientId[] = INGREDIENT_IDS;
 
-// Containers along the top, by art name, each compartment labeled label_<item>. Locked compartments show empty.
+// Containers along the top, by art name, each compartment labeled with its word at label_<item>'s drawn spot. Locked
+// compartments show empty.
 export const BINS = [
   { art: 'bin1', items: ['sauce', 'cheese'] },
   { art: 'bin2', items: ['pepperoni', 'basil'] },
@@ -33,6 +41,31 @@ export const SELECTED_LABEL = {
   color: '#850670',
   scale: 1.2,
   seconds: 0.15,
+};
+
+// Labels are words in the hand font, in ink, squeezed sideways by condense, all with capitals cap design px tall, or
+// smaller together so each word fits its <place>Width (none if 0). Each sits on a smile-shaped arc of <place>Radius
+// (flat if 0) centered under what it names: it bends with the arc and tilts by where it sits on it, plus a steady
+// per-word wobble up to tiltJitter degrees. The texture is drawn at resolution times design size, bent along segments
+// about segment design px wide. artAlpha shows the drawn label over the word, to compare while tuning
+export const LABEL_TEXT = {
+  weight: 450,
+  ink: '#1d1713',
+  uppercase: true,
+  condense: 0.8,
+  cap: 49,
+  tiltJitter: 3,
+  binWidth: 250,
+  binRadius: 900,
+  bowlWidth: 300,
+  bowlRadius: 440,
+  trayWidth: 280,
+  trayRadius: 730,
+  gaugeWidth: 360,
+  gaugeRadius: 0,
+  resolution: 2,
+  segment: 8,
+  artAlpha: 0,
 };
 
 // Screens at least fromAspect wide (width over height) lay the stations out side by side on a stage width design px
@@ -111,7 +144,7 @@ export const BOWL = {
 };
 
 // Order tray, with its caption below: its center in design px. It scales about its center, its caption keeping its
-// size, with labelX/labelY moving the caption from its drawn spot. Holds nothing yet
+// spot and size, with labelX/labelY moving the caption from its drawn spot. Holds nothing yet
 export const ORDER_TRAY = {
   x: 318,
   y: 1226,

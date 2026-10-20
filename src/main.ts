@@ -1,6 +1,7 @@
 import { Application } from 'pixi.js';
 import { COLORS, DESIGN_WIDTH, MAX_RESOLUTION, STARTING_UNLOCKED, WIDESCREEN } from './config';
 import { loadArt } from './core/art';
+import { loadFonts } from './core/fonts';
 import { Viewport } from './core/Viewport';
 import { KitchenScene } from './scenes/KitchenScene';
 
@@ -18,7 +19,7 @@ async function start(): Promise<void> {
     resolution: Math.min(window.devicePixelRatio, MAX_RESOLUTION),
   });
   document.body.appendChild(app.canvas);
-  await loadArt();
+  await Promise.all([loadArt(), loadFonts()]);
 
   const viewport = new Viewport();
   const scene = new KitchenScene(new Set(STARTING_UNLOCKED), app.renderer);

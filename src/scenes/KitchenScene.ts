@@ -31,7 +31,9 @@ import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
 import { OrderTicket } from '../stations/OrderTicket';
+import { keepLabelSizes, Label } from '../stations/Label';
 import { SelectableLabel } from '../stations/SelectableLabel';
+import { WORDS } from '../words';
 
 // Unlocked once the dough is rolled out
 const TOPPINGS_READY: readonly IngredientId[] = INGREDIENT_IDS;
@@ -58,9 +60,9 @@ export class KitchenScene extends Container {
   private readonly background = artSprite('bg');
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
-  private readonly bowlLabel = new SelectableLabel('label_dough');
+  private readonly bowlLabel = new SelectableLabel(WORDS.dough, 'bowl', 'label_dough');
   private readonly orderTray = new Sprite({ texture: artTexture('order_tray'), anchor: 0.5 });
-  private readonly orderLabel = new Sprite({ texture: artTexture('label_order'), anchor: 0.5 });
+  private readonly orderLabel = new Label(WORDS.order, 'tray', 'label_order');
   private readonly ticket = new OrderTicket(this.orderTray.texture.width, this.orderTray.texture.height);
   /** What the pizza on the peel should be. */
   order: Order = drawOrder();
@@ -162,11 +164,14 @@ export class KitchenScene extends Container {
     this.layoutBowl();
     this.layoutOrderTray();
     this.layoutPeel();
+    this.gauge.layout();
     this.placeStation('gauge', BAKE_GAUGE.x, BAKE_GAUGE.y);
     this.placeStation('bakeButton', BAKE_BUTTON.x, BAKE_BUTTON.y);
     this.placeStation('serveButton', SERVE_BUTTON.x, SERVE_BUTTON.y);
     this.layoutDragon();
     this.scaleHeld();
+    // Last, once every station has its scale
+    keepLabelSizes(this);
   }
 
   /** In the standard layout a station stays as drawn; on a widescreen its anchor (a point in the standard layout) moves to
@@ -435,7 +440,7 @@ export class KitchenScene extends Container {
     this.bowl.scale.set(BOWL.scale);
     // The label sits by its center, which it grows about
     const label = artPoint('label_dough', 0.5, 0.5);
-    this.bowlLabel.position.set(label.x + BOWL.x + BOWL.labelX, label.y + BOWL.y + BOWL.labelY);
+    this.bowlLabel.layout(label.x + BOWL.x + BOWL.labelX, label.y + BOWL.y + BOWL.labelY, this.bowl.x);
     this.placeStation('bowl', this.bowl.x, this.bowl.y);
     // The ball lives on the scene itself, free to travel to the peel
     this.toLocal(this.bowl.position, this.stations.bowl, this.ballRest);
@@ -453,7 +458,7 @@ export class KitchenScene extends Container {
     this.ticket.scale.set(scale);
     const tray = artPoint('order_tray', 0.5, 0.5);
     const label = artPoint('label_order', 0.5, 0.5);
-    this.orderLabel.position.set(x + label.x - tray.x + labelX, y + label.y - tray.y + labelY);
+    this.orderLabel.layout(x + label.x - tray.x + labelX, y + label.y - tray.y + labelY, x);
     this.ticket.layout();
     this.placeStation('orderTray', x, y);
   }

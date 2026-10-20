@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SLICING, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SLICING, TOPPINGS, WIDESCREEN } from '../config';
 import type { Order, Rule } from '../orders/Order';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
@@ -132,6 +132,23 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     bins.addBinding(LABEL_NUDGE, key, { label: `${key}Label`, min: -100, max: 100, step: 1 });
   }
   bins.on('change', layout);
+
+  const labels = pane.addFolder({ title: 'Labels', expanded: false });
+  labels.addBinding(LABEL_TEXT, 'weight', { min: 100, max: 800, step: 10 });
+  labels.addBinding(LABEL_TEXT, 'ink');
+  labels.addBinding(LABEL_TEXT, 'uppercase');
+  labels.addBinding(LABEL_TEXT, 'condense', { min: 0.5, max: 1.2 });
+  labels.addBinding(LABEL_TEXT, 'cap', { min: 10, max: 150, step: 1 });
+  for (const place of ['bin', 'bowl', 'tray', 'gauge'] as const) {
+    labels.addBinding(LABEL_TEXT, `${place}Width`, { min: 0, max: 600, step: 1 });
+    // No curve at all is a radius of 0
+    labels.addBinding(LABEL_TEXT, `${place}Radius`, { min: 0, max: 3000, step: 10 });
+  }
+  labels.addBinding(LABEL_TEXT, 'tiltJitter', { min: 0, max: 15 });
+  labels.addBinding(LABEL_TEXT, 'resolution', { min: 0.5, max: 4 });
+  labels.addBinding(LABEL_TEXT, 'segment', { min: 1, max: 50, step: 1 });
+  labels.addBinding(LABEL_TEXT, 'artAlpha', { min: 0, max: 1 });
+  labels.on('change', layout);
 
   const bowl = pane.addFolder({ title: 'Bowl', expanded: false });
   bowl.addBinding(BOWL, 'x', { min: -200, max: 200, step: 1 });
@@ -273,7 +290,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }
