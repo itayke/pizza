@@ -42,7 +42,7 @@ export class IngredientBin extends Container {
     const middle = artPoint(this.art, 0.5, 0.5).x;
     for (const [id, label] of this.labels) {
       const drawn = artPoint(`label_${id}`, 0.5, 0.5);
-      label.layout(drawn.x + LABEL_NUDGE[id], drawn.y, middle);
+      label.layout(drawn.x + LABEL_NUDGE[`${id}X`], drawn.y + LABEL_NUDGE[`${id}Y`], middle, LABEL_NUDGE[`${id}Tilt`]);
     }
   }
 

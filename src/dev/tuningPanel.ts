@@ -129,7 +129,8 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     bins.addBinding(BIN_LAYOUT, key, isFlag ? {} : { min: -400, max: 400, step: 1 });
   }
   for (const key of Object.keys(LABEL_NUDGE) as (keyof typeof LABEL_NUDGE)[]) {
-    bins.addBinding(LABEL_NUDGE, key, { label: `${key}Label`, min: -100, max: 100, step: 1 });
+    const range = key.endsWith('Tilt') ? { min: -20, max: 20, step: 0.5 } : { min: -100, max: 100, step: 1 };
+    bins.addBinding(LABEL_NUDGE, key, { label: `${key}Label`, ...range });
   }
   bins.on('change', layout);
 

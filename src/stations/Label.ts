@@ -52,13 +52,16 @@ export class Label extends Container {
     this.addChild(this.text, this.art);
   }
 
-  /** Center the word at x, y on its arc, whose middle is above arcX; it tilts by how far off that middle it sits. */
-  layout(x: number, y: number, arcX: number): void {
+  /**
+   * Center the word at x, y on its arc, whose middle is above arcX; it tilts by how far off that middle it sits, plus
+   * tilt degrees clockwise.
+   */
+  layout(x: number, y: number, arcX: number, tilt = 0): void {
     const radius = LABEL_TEXT[`${this.place}Radius`];
     this.position.set(x, y);
     this.text.set(this.word, sharedCap(), radius ? 1 / radius : 0);
     const along = radius ? Math.asin(Math.max(-1, Math.min(1, (x - arcX) / radius))) : 0;
-    this.text.rotation = -along + wobble(this.word) * LABEL_TEXT.tiltJitter * DEGREES;
+    this.text.rotation = -along + (tilt + wobble(this.word) * LABEL_TEXT.tiltJitter) * DEGREES;
     this.art.alpha = LABEL_TEXT.artAlpha;
     this.art.visible = LABEL_TEXT.artAlpha > 0;
     this.inkToward(0);
