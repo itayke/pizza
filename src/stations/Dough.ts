@@ -1,10 +1,11 @@
 import { Circle, Container, Graphics, Matrix, Mesh, Point, RenderTexture, RopeGeometry, Sprite, Texture, UniformGroup, type BLEND_MODES, type ColorSource, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
-import { COLORS, DOUGH, PLACEMENT, SAUCE, SLICING, type ScatterConfig } from '../config';
+import { COLORS, CUTTER, DOUGH, PLACEMENT, SAUCE, SLICING, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { bakeCurve } from '../core/bake';
 import { easeOutCirc, easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
+import { lineAngle, lineGap, sliceEdges, withSpan, type CutLine } from '../orders/slicing';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
 import { ToppingLayer, type Topping } from './ToppingLayer';
@@ -20,8 +21,17 @@ const PROFILE_TEXELS = 64;
 const WOBBLE_STEPS_PER_WAVE = 8;
 const WOBBLE_OVERTONE = 2.3;
 const WOBBLE_OVERTONE_WEIGHT = 0.5;
+// Path points within a cut's taper, so it narrows smoothly
+const TAPER_STEPS = 4;
+// Cut lines closer than this, radians, are one line
+const SAME_LINE = 1e-4;
+// A cut end within this of the dough's edge, design px, reaches it
+const EDGE_EPSILON = 0.5;
 const RGBA = 4;
 const OPAQUE = 255;
+
+/** A cut line as drawn: its wobble's phases and its strips. */
+type DrawnCut = CutLine & { phase: number; overtonePhase: number; strips: Container<Mesh> };
 
 /** Kneadable dough: a ring of radii that grow outward where pressed, capped just past the rim. */
 export class Dough extends Container {
@@ -36,10 +46,13 @@ export class Dough extends Container {
   private shown = new Float32Array(0);
   private readonly body: DoughMesh;
   private readonly rim: Graphics;
-  /** Slicing cuts across the pizza, each a groove multiplied over it with a lit lip screened along one side. */
-  private readonly cuts = new Container<Mesh>({ visible: false });
+  /** Cuts across the pizza, a container of strips per line. */
+  private readonly cuts = new Container<Container<Mesh>>();
+  private readonly lines: DrawnCut[] = [];
   private groove: Texture | null = null;
   private lip: Texture | null = null;
+  /** Where the cutter aims. */
+  private readonly guide = new Graphics();
   /** The pizza without sauce, for later sauce passes to multiply over; redrawn when it changes while there are any. */
   private readonly plain: RenderTexture;
   private readonly plainUniforms = new UniformGroup({ uPlainExtent: { value: 0, type: 'f32' } });
@@ -62,7 +75,8 @@ export class Dough extends Container {
     this.rim = this.buildRim();
     const size = 2 * plainExtent();
     this.plain = RenderTexture.create({ width: size, height: size });
-    this.addChild(this.rim, this.body, this.toppings, this.cuts);
+    this.guide.eventMode = 'none';
+    this.addChild(this.rim, this.body, this.toppings, this.cuts, this.guide);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -84,64 +98,135 @@ export class Dough extends Container {
     this.slamElapsed = Infinity;
     this.sauce.clear();
     this.toppings.clear();
-    this.showCuts(null);
+    this.clearCuts();
     this.plainStale = true;
     this.updateReach();
     this.updateMetrics();
     this.draw();
   }
 
+  /** The cut lines so far. */
+  get cutLines(): readonly CutLine[] {
+    return this.lines;
+  }
+
+  get isCut(): boolean {
+    return this.lines.length > 0;
+  }
+
+  /** The slice edges the cuts make so far: rays cut nearly from the center to the edge. */
+  sliceEdges(): number[] {
+    return sliceEdges(this.lines, (angle) => this.radiusAt(angle), CUTTER.completeAt);
+  }
+
   /**
-   * Show cuts (angles of lines through the center) across the pizza, edge to edge, or none. Each is a groove with a
-   * lip lit along the side away from the light, whose slice edge faces it, wandering slightly as a knife does.
+   * Cut along a line through the center (angle) from `from` to `to`, signed design px from the center, positive toward
+   * the angle; clipped to the dough and joined with whatever is cut along that line already.
    */
-  showCuts(cuts: readonly number[] | null): void {
-    for (const child of this.cuts.removeChildren()) {
-      child.geometry.destroy();
-      child.destroy();
+  cut(angle: number, from: number, to: number): void {
+    const line = lineAngle(angle);
+    const start = Math.max(from, -this.radiusAt(line + Math.PI));
+    const end = Math.min(to, this.radiusAt(line));
+    if (end <= start) return;
+    let drawn = this.lines.find((other) => lineGap(other.angle, line) < SAME_LINE);
+    if (!drawn) {
+      const strips = this.cuts.addChild(new Container<Mesh>());
+      drawn = { angle: line, spans: [], phase: Math.random() * TAU, overtonePhase: Math.random() * TAU, strips };
+      this.lines.push(drawn);
     }
-    this.groove?.destroy(true);
-    this.lip?.destroy(true);
+    const spans = withSpan(drawn.spans, start, end);
+    const same = spans.length === drawn.spans.length && spans.every((span, i) => span.from === drawn.spans[i].from && span.to === drawn.spans[i].to);
+    if (same) return;
+    drawn.spans = spans;
+    this.drawCut(drawn);
+  }
+
+  /**
+   * Show the cutter's aim, dotted along a line through the center (angle) edge to edge, with the cutter on it as a bar
+   * at `at` (signed design px from the center) while cutting; or nothing.
+   */
+  showGuide(angle: number | null, at: number | null = null): void {
+    const g = this.guide.clear();
+    if (angle === null) return;
+    const { guideDot, guideGap, guideColor, guideAlpha, span } = CUTTER;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const ahead = this.radiusAt(angle);
+    // A dot on the center, the rest stepping out to either edge
+    if (guideGap > 0) {
+      for (let along = -Math.floor(this.radiusAt(angle + Math.PI) / guideGap) * guideGap; along <= ahead; along += guideGap) {
+        g.circle(dx * along, dy * along, guideDot / 2);
+      }
+      g.fill({ color: guideColor, alpha: guideAlpha });
+    }
+    if (at === null) return;
+    g.moveTo(dx * (at - span / 2), dy * (at - span / 2)).lineTo(dx * (at + span / 2), dy * (at + span / 2));
+    g.stroke({ width: guideDot, color: guideColor, alpha: guideAlpha, cap: 'round' });
+  }
+
+  /** Redraw a cut line: a groove per span with a lip lit along the side away from the light, whose slice edge faces it. */
+  private drawCut(line: DrawnCut): void {
+    for (const strip of line.strips.removeChildren()) destroyStrip(strip);
     const { coreWidth, fadeWidth, lipCore, lipFade } = SLICING;
-    const shown = !!cuts?.length;
-    this.groove = shown ? profileTexture(coreWidth, fadeWidth) : null;
-    this.lip = shown ? profileTexture(lipCore, lipFade) : null;
-    this.cuts.visible = shown;
-    if (!this.groove || !this.lip) return;
+    this.groove ??= profileTexture(coreWidth, fadeWidth);
+    this.lip ??= profileTexture(lipCore, lipFade);
     const light = SLICING.lightAngle * DEG_TO_RAD;
-    for (const angle of cuts ?? []) {
-      const path = this.cutPath(angle);
-      // Across the cut, and how squarely the light meets it
-      const nx = -Math.sin(angle);
-      const ny = Math.cos(angle);
-      const facing = nx * Math.cos(light) + ny * Math.sin(light);
-      const lipShift = (facing > 0 ? -1 : 1) * SLICING.lipOffset;
-      const lipPath = path.map((p) => new Point(p.x + nx * lipShift, p.y + ny * lipShift));
-      const lipAlpha = SLICING.lipAlpha * (1 - SLICING.lipFacing + SLICING.lipFacing * Math.abs(facing));
-      this.cuts.addChild(
-        cutStrip(path, this.groove, coreWidth + 2 * fadeWidth, 'multiply', SLICING.color, SLICING.alpha),
-        cutStrip(lipPath, this.lip, lipCore + 2 * lipFade, 'screen', SLICING.lipColor, lipAlpha),
+    // Across the cut, and how squarely the light meets it
+    const nx = -Math.sin(line.angle);
+    const ny = Math.cos(line.angle);
+    const facing = nx * Math.cos(light) + ny * Math.sin(light);
+    const lipShift = (facing > 0 ? -1 : 1) * SLICING.lipOffset;
+    const lipAlpha = SLICING.lipAlpha * (1 - SLICING.lipFacing + SLICING.lipFacing * Math.abs(facing));
+    const behind = this.radiusAt(line.angle + Math.PI);
+    const ahead = this.radiusAt(line.angle);
+    for (const { from, to } of line.spans) {
+      // Ends short of the edge narrow to a point
+      const { points, widths } = this.cutPath(line, from, to, from > -behind + EDGE_EPSILON, to < ahead - EDGE_EPSILON);
+      const lipPoints = points.map((p) => new Point(p.x + nx * lipShift, p.y + ny * lipShift));
+      line.strips.addChild(
+        cutStrip(points, widths, this.groove, coreWidth + 2 * fadeWidth, 'multiply', SLICING.color, SLICING.alpha),
+        cutStrip(lipPoints, widths, this.lip, lipCore + 2 * lipFade, 'screen', SLICING.lipColor, lipAlpha),
       );
     }
   }
 
-  /** Points along a cut through the center from edge to edge, wandering to either side by up to the wobble. */
-  private cutPath(angle: number): Point[] {
-    const { wobble, wobbleWave } = SLICING;
-    const behind = this.radiusAt(angle + Math.PI);
-    const length = behind + this.radiusAt(angle);
-    const steps = wobbleWave > 0 ? Math.max(1, Math.ceil((length / wobbleWave) * WOBBLE_STEPS_PER_WAVE)) : 1;
-    const phase = Math.random() * TAU;
-    const overtonePhase = Math.random() * TAU;
-    const dx = Math.cos(angle);
-    const dy = Math.sin(angle);
-    return Array.from({ length: steps + 1 }, (_, i) => {
-      const along = (i / steps) * length - behind;
+  /**
+   * Points from `from` to `to` along a cut line, wandering by up to the wobble the same way wherever along it they're
+   * cut, and how wide the cut is at each, from 0 to 1: narrowing to a point over the taper at the ends that taper.
+   */
+  private cutPath(line: DrawnCut, from: number, to: number, taperFrom: boolean, taperTo: boolean): { points: Point[]; widths: number[] } {
+    const { wobble, wobbleWave, taper } = SLICING;
+    const length = to - from;
+    let step = wobbleWave > 0 ? wobbleWave / WOBBLE_STEPS_PER_WAVE : length;
+    if (taper > 0 && (taperFrom || taperTo)) step = Math.min(step, taper / TAPER_STEPS);
+    const steps = Math.max(1, Math.ceil(length / step));
+    const dx = Math.cos(line.angle);
+    const dy = Math.sin(line.angle);
+    const points: Point[] = [];
+    const widths: number[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const along = from + (i / steps) * length;
       const wave = wobbleWave > 0 ? (TAU * along) / wobbleWave : 0;
-      const sway = Math.sin(wave + phase) + WOBBLE_OVERTONE_WEIGHT * Math.sin(wave * WOBBLE_OVERTONE + overtonePhase);
+      const sway = Math.sin(wave + line.phase) + WOBBLE_OVERTONE_WEIGHT * Math.sin(wave * WOBBLE_OVERTONE + line.overtonePhase);
       const off = (wobble * sway) / (1 + WOBBLE_OVERTONE_WEIGHT);
-      return new Point(dx * along - dy * off, dy * along + dx * off);
-    });
+      points.push(new Point(dx * along - dy * off, dy * along + dx * off));
+      const fromEnd = Math.min(taperFrom ? along - from : Infinity, taperTo ? to - along : Infinity);
+      widths.push(taper > 0 ? easeOutCirc(Math.min(1, fromEnd / taper)) : 1);
+    }
+    return { points, widths };
+  }
+
+  private clearCuts(): void {
+    for (const line of this.cuts.removeChildren()) {
+      for (const strip of line.removeChildren()) destroyStrip(strip);
+      line.destroy();
+    }
+    this.lines.length = 0;
+    // Made afresh for the next pizza's first cut, so tuning applies
+    this.groove?.destroy(true);
+    this.lip?.destroy(true);
+    this.groove = this.lip = null;
+    this.guide.clear();
   }
 
   /** Show the dough body and accept kneading, or hide it (rim stays visible). */
@@ -222,15 +307,14 @@ export class Dough extends Container {
     this.plain.source.resize(2 * extent, 2 * extent);
     this.plainUniforms.uniforms.uPlainExtent = extent;
     this.rim.visible = false;
-    const cutsShown = this.cuts.visible;
-    this.cuts.visible = false;
+    this.cuts.visible = this.guide.visible = false;
     this.toppings.setSaucePassesVisible(false);
     this.body.setSauceShown(false);
     // Dough-local, with its center in the middle of the texture
     const transform = this.plainTransform.identity().translate(extent, extent);
     this.renderer.render({ container: this, target: this.plain, clear: true, clearColor: TRANSPARENT, transform });
     this.rim.visible = true;
-    this.cuts.visible = cutsShown;
+    this.cuts.visible = this.guide.visible = true;
     this.toppings.setSaucePassesVisible(true);
     this.body.setSauceShown(true);
     this.plainStale = false;
@@ -454,9 +538,24 @@ function profileTexture(coreWidth: number, fadeWidth: number): Texture {
   return Texture.from(canvas);
 }
 
-/** A strip of a profile texture, width design px across, running along a path. */
-function cutStrip(points: Point[], texture: Texture, width: number, blendMode: BLEND_MODES, tint: ColorSource, alpha: number): Mesh {
+/** A strip of a profile texture running along a path, width design px across times its width there (0 to 1). */
+function cutStrip(points: Point[], widths: number[], texture: Texture, width: number, blendMode: BLEND_MODES, tint: ColorSource, alpha: number): Mesh {
   // Stretched once along the whole path, so the profile only varies across
   const geometry = new RopeGeometry({ points, width, textureScale: 0 });
+  // Each point has a vertex to either side; pull them in toward it
+  const buffer = geometry.getBuffer('aPosition');
+  const vertices = buffer.data;
+  points.forEach((p, i) => {
+    for (const v of [i * 4, i * 4 + 2]) {
+      vertices[v] = p.x + (vertices[v] - p.x) * widths[i];
+      vertices[v + 1] = p.y + (vertices[v + 1] - p.y) * widths[i];
+    }
+  });
+  buffer.update();
   return new Mesh({ geometry, texture, blendMode, tint, alpha });
+}
+
+function destroyStrip(strip: Mesh): void {
+  strip.geometry.destroy();
+  strip.destroy();
 }

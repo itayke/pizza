@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SLICING, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SLICING, TOPPINGS, WIDESCREEN } from '../config';
 import type { Order, Rule } from '../orders/Order';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
@@ -193,20 +193,39 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orders.addBinding(ORDERS, 'wellChance', { min: 0, max: 1 });
   orders.addBinding(ORDERS, 'burntChance', { min: 0, max: 1 });
   orders.addBinding(SLICING, 'cuts', { min: 0, max: 10, step: 1 });
-  orders.addBinding(SLICING, 'coreWidth', { label: 'cutCore', min: 0, max: 10 });
-  orders.addBinding(SLICING, 'fadeWidth', { label: 'cutFade', min: 0, max: 20 });
-  orders.addBinding(SLICING, 'color', { label: 'cutColor' });
-  orders.addBinding(SLICING, 'alpha', { label: 'cutAlpha', min: 0, max: 1 });
-  orders.addBinding(SLICING, 'lipCore', { min: 0, max: 10 });
-  orders.addBinding(SLICING, 'lipFade', { min: 0, max: 20 });
-  orders.addBinding(SLICING, 'lipColor');
-  orders.addBinding(SLICING, 'lipAlpha', { min: 0, max: 1 });
-  orders.addBinding(SLICING, 'lipOffset', { min: -10, max: 10 });
-  orders.addBinding(SLICING, 'lightAngle', { min: -180, max: 180, step: 1 });
-  orders.addBinding(SLICING, 'lipFacing', { min: 0, max: 1 });
-  orders.addBinding(SLICING, 'wobble', { label: 'cutWobble', min: 0, max: 10 });
-  orders.addBinding(SLICING, 'wobbleWave', { label: 'cutWobbleWave', min: 10, max: 400 });
-  orders.addBinding(SLICING, 'showSeconds', { label: 'slicedSeconds', min: 0, max: 5 });
+
+  // How cuts look, and how long the cut pizza shows once served
+  const slicing = pane.addFolder({ title: 'Slicing', expanded: false });
+  slicing.addBinding(SLICING, 'coreWidth', { label: 'cutCore', min: 0, max: 10 });
+  slicing.addBinding(SLICING, 'fadeWidth', { label: 'cutFade', min: 0, max: 20 });
+  slicing.addBinding(SLICING, 'color', { label: 'cutColor' });
+  slicing.addBinding(SLICING, 'alpha', { label: 'cutAlpha', min: 0, max: 1 });
+  slicing.addBinding(SLICING, 'lipCore', { min: 0, max: 10 });
+  slicing.addBinding(SLICING, 'lipFade', { min: 0, max: 20 });
+  slicing.addBinding(SLICING, 'lipColor');
+  slicing.addBinding(SLICING, 'lipAlpha', { min: 0, max: 1 });
+  slicing.addBinding(SLICING, 'lipOffset', { min: -10, max: 10 });
+  slicing.addBinding(SLICING, 'lightAngle', { min: -180, max: 180, step: 1 });
+  slicing.addBinding(SLICING, 'lipFacing', { min: 0, max: 1 });
+  slicing.addBinding(SLICING, 'wobble', { label: 'cutWobble', min: 0, max: 10 });
+  slicing.addBinding(SLICING, 'wobbleWave', { label: 'cutWobbleWave', min: 10, max: 400 });
+  slicing.addBinding(SLICING, 'taper', { label: 'cutTaper', min: 0, max: 40 });
+  slicing.addBinding(SLICING, 'showSeconds', { label: 'slicedSeconds', min: 0, max: 5 });
+
+  const cutter = pane.addFolder({ title: 'Cutter', expanded: false });
+  cutter.addBinding(CUTTER, 'x', { min: 0, max: 2048, step: 1 }).on('change', () => scene.layout());
+  cutter.addBinding(CUTTER, 'y', { min: 0, max: 1536, step: 1 }).on('change', () => scene.layout());
+  cutter.addBinding(CUTTER, 'size', { min: 40, max: 400, step: 1 }).on('change', () => scene.layout());
+  cutter.addBinding(CUTTER, 'span', { min: 5, max: 200, step: 1 });
+  cutter.addBinding(CUTTER, 'completeAt', { min: 0.5, max: 1 });
+  cutter.addBinding(CUTTER, 'snapToCut', { min: 0, max: 45 });
+  cutter.addBinding(CUTTER, 'gridDegrees', { min: 0, max: 90, step: 0.25 });
+  cutter.addBinding(CUTTER, 'deadZone', { min: 0, max: 150, step: 1 });
+  cutter.addBinding(CUTTER, 'reach', { min: 0, max: 200, step: 1 });
+  cutter.addBinding(CUTTER, 'guideDot', { min: 1, max: 20 });
+  cutter.addBinding(CUTTER, 'guideGap', { min: 2, max: 60 });
+  cutter.addBinding(CUTTER, 'guideColor');
+  cutter.addBinding(CUTTER, 'guideAlpha', { min: 0, max: 1 });
   orders.addBinding(ORDER_JUDGE, 'coverFull', { min: 0.1, max: 1 });
   orders.addBinding(ORDER_JUDGE, 'clearMax', { min: 0, max: 0.5 });
   orders.addBinding(ORDER_JUDGE, 'coverRadius', { min: 0.2, max: 1.5 });
@@ -290,7 +309,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

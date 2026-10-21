@@ -6,6 +6,7 @@ import {
   BINS,
   BOWL,
   CHEESE,
+  CUTTER,
   DOUGH,
   DRAGON,
   FIRE,
@@ -25,8 +26,9 @@ import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
 import { easeInQuad } from '../core/easing';
 import { judge, type Verdict } from '../orders/judge';
 import { drawOrder, type Order } from '../orders/Order';
-import { autoCuts } from '../orders/slicing';
+import { lineAngle, nearestLine, snapLine } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
+import { CutterButton } from '../stations/CutterButton';
 import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
@@ -39,14 +41,20 @@ import { WORDS } from '../words';
 const TOPPINGS_READY: readonly IngredientId[] = INGREDIENT_IDS;
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
+/** What's in hand: an ingredient from its bin, or the cutter. */
+type Tool = IngredientId | 'cutter';
+const DEG_TO_RAD = Math.PI / 180;
 
 // Stations in drawing order; each holds its art in the wide design space and is placed for the current layout
-const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'gauge', 'dragon', 'bakeButton', 'serveButton'] as const;
+const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'gauge', 'dragon', 'bakeButton', 'cutter', 'serveButton'] as const;
 type Station = (typeof STATIONS)[number];
 
 const ORIGIN = { x: 0, y: 0 };
 
-/** The main play screen, laid out from the art. Serving scores the pizza against the order and brings the next. */
+/**
+ * The main play screen, laid out from the art. Once baked, the pizza is cut with the cutter, which locks the toppings,
+ * baking and kneading; serving then scores it against the order and brings the next.
+ */
 export class KitchenScene extends Container {
   readonly dough: Dough;
   /** Doneness, raw at 0 to burnt at 1; rises steadily, and the dial shows it as is. */
@@ -55,6 +63,13 @@ export class KitchenScene extends Container {
   private readonly bakeButton = new StateButton('bake_button', BAKE_BUTTON);
   private readonly serveButton = new StateButton('serve_button', SERVE_BUTTON);
   private servePressed = false;
+  private readonly cutterButton = new CutterButton();
+  /** The line the cutter aims along, as a line through the dough's center, and whether it's an existing cut's. */
+  private cutAngle = Math.PI / 2;
+  private onCutLine = false;
+  /** The cutter is pressed, cutting along its line; it last met the line at cutAt (signed design px from the center). */
+  private cutting = false;
+  private cutAt = 0;
   /** Seconds the served, sliced pizza still shows before the next order; nothing is pressable meanwhile. */
   private servingFor = 0;
   private readonly background = artSprite('bg');
@@ -95,8 +110,7 @@ export class KitchenScene extends Container {
   private doughPhase: DoughPhase = 'inBowl';
   private doughReady = false;
   private available = new Set<IngredientId>();
-  /** Ingredient in hand, picked from its bin. */
-  private tool: IngredientId | null = null;
+  private tool: Tool | null = null;
   /** The last pointer was a finger; a finger covers the cursor, so the held ingredient hides. */
   private touch = false;
   private painting = false;
@@ -120,6 +134,7 @@ export class KitchenScene extends Container {
     this.buildDragon();
     this.buildBakeButton();
     this.buildServeButton();
+    this.buildCutter();
     // Presses on the ball go to whatever is under it: the bowl, or the peel to drop it
     this.doughBall.eventMode = 'none';
     this.held.addChild(this.heldArt, this.heldGlow);
@@ -167,6 +182,8 @@ export class KitchenScene extends Container {
     this.gauge.layout();
     this.placeStation('gauge', BAKE_GAUGE.x, BAKE_GAUGE.y);
     this.placeStation('bakeButton', BAKE_BUTTON.x, BAKE_BUTTON.y);
+    this.cutterButton.layout();
+    this.placeStation('cutter', CUTTER.x, CUTTER.y);
     this.placeStation('serveButton', SERVE_BUTTON.x, SERVE_BUTTON.y);
     this.layoutDragon();
     this.scaleHeld();
@@ -203,19 +220,18 @@ export class KitchenScene extends Container {
     this.ticket.show(this.order);
   }
 
-  /** How the pizza on the peel meets the order so far, as if sliced now. */
+  /** How the pizza on the peel meets the order so far, sliced as cut so far. */
   scoreOrder(): Verdict {
     const { dough } = this;
-    return judge(this.order, { pieces: dough.toppings.placedPieces, bakeLevel: this.bakeLevel, radiusAt: (a) => dough.radiusAt(a) }, autoCuts());
+    return judge(this.order, { pieces: dough.toppings.placedPieces, bakeLevel: this.bakeLevel, radiusAt: (a) => dough.radiusAt(a) }, dough.sliceEdges());
   }
 
-  /** Hand over the pizza: slice and score it, show it sliced for a moment, then start the next order on fresh dough. */
+  /** Hand over the pizza: score it as cut, show it for a moment, then start the next order on fresh dough. */
   private serve(): void {
     this.lastVerdict = this.scoreOrder();
     this.setTool(null);
     this.setFiring(false);
     this.dough.setKneadable(false);
-    this.dough.showCuts(autoCuts());
     this.servingFor = SLICING.showSeconds;
   }
 
@@ -261,14 +277,15 @@ export class KitchenScene extends Container {
       if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
     }
     this.updateGlow(dt);
-    this.bins.forEach((bin) => bin.update(this.tool, dt));
+    this.bins.forEach((bin) => bin.update(this.ingredient, dt));
     this.bowlLabel.update(this.doughPhase === 'held', dt);
     const inBowl = this.doughPhase === 'inBowl';
     this.bowl.cursor = inBowl ? 'pointer' : 'default';
-    this.dragon.cursor = this.doughReady && !this.serving ? 'pointer' : 'default';
+    this.dragon.cursor = this.canBake() && !this.serving ? 'pointer' : 'default';
     this.gauge.setLevel(this.bakeLevel);
     this.bakeButton.layout();
-    this.bakeButton.setState(this.doughReady, this.fire.visible);
+    this.bakeButton.setState(this.canBake(), this.fire.visible);
+    this.cutterButton.setState(this.canCut(), this.tool === 'cutter');
     this.serveButton.layout();
     this.serveButton.setState(this.canServe(), this.servePressed);
     this.dough.setBake(this.bakeLevel);
@@ -287,8 +304,9 @@ export class KitchenScene extends Container {
   private trackPointer(e: FederatedPointerEvent): void {
     this.toLocal(e.global, undefined, this.pointer);
     this.touch = e.pointerType === 'touch';
-    this.held.visible = !!this.tool && !this.touch;
+    this.held.visible = !!this.ingredient && !this.touch;
     this.holdPiece();
+    if (this.tool === 'cutter') this.aimCutter();
     // Move in the event itself, not next frame, so held things stick to the pointer
     if (this.doughPhase === 'held') {
       this.doughBall.position.set(this.pointer.x + this.grabOffset.x, this.pointer.y + this.grabOffset.y);
@@ -305,10 +323,18 @@ export class KitchenScene extends Container {
     else if (this.available.has(id)) this.setTool(id);
   }
 
-  private setTool(tool: IngredientId | null): void {
+  /** The ingredient in hand, if it's one. */
+  private get ingredient(): IngredientId | null {
+    return this.tool === 'cutter' ? null : this.tool;
+  }
+
+  private setTool(tool: Tool | null): void {
     this.tool = tool;
     this.painting = false;
-    this.held.visible = !!tool && !this.touch;
+    this.cutting = false;
+    this.onCutLine = false;
+    this.dough.showGuide(null);
+    this.held.visible = !!this.ingredient && !this.touch;
     // Sauce has its own cursor art; toppings hold the very piece they drop next
     const sauce = tool === 'sauce';
     this.heldArt.visible = this.heldGlow.visible = sauce;
@@ -316,12 +342,12 @@ export class KitchenScene extends Container {
     this.heldGlow.alpha = 0;
     this.holdPiece();
     this.held.position.copyFrom(this.pointer);
-    this.dough.setKneadable(tool === null);
+    this.dough.setKneadable(tool === null && !this.dough.isCut);
   }
 
   /** A topping in hand waits as its next piece, except by touch, where the finger covers it and nothing is held. */
   private holdPiece(): void {
-    const tool = this.tool;
+    const tool = this.ingredient;
     this.dough.toppings.hold(tool && tool !== 'sauce' && !this.touch ? tool : null);
   }
 
@@ -334,6 +360,10 @@ export class KitchenScene extends Container {
 
   /** A press on the peel with an ingredient in hand paints until release; presses elsewhere are ignored. */
   private startPainting(e: FederatedPointerEvent): void {
+    if (this.tool === 'cutter') {
+      this.startCut(e);
+      return;
+    }
     if (!this.tool || this.serving || !this.peel.getBounds().containsPoint(e.global.x, e.global.y)) return;
     this.trackPointer(e);
     this.painting = true;
@@ -345,15 +375,84 @@ export class KitchenScene extends Container {
 
   private stopPainting(): void {
     this.painting = false;
+    if (!this.cutting) return;
+    this.cutting = false;
+    this.aimCutter();
+  }
+
+  /** Pick up the cutter once the pizza is baked, or put it back. The press never reaches the pizza. */
+  private pickCutter(e: FederatedPointerEvent): void {
+    e.stopPropagation();
+    if (this.serving) return;
+    this.trackPointer(e);
+    if (this.tool === 'cutter') this.setTool(null);
+    else if (this.canCut()) this.setTool('cutter');
+  }
+
+  /**
+   * Over the pizza, aim along the line through its center toward the pointer, snapping to a cut line close by, and keep
+   * the aim near the center where the pointer's angle is unsteady. While cutting, the line stays and the cutter follows
+   * where the pointer meets it, cutting all it sweeps.
+   */
+  private aimCutter(): void {
+    const { dough } = this;
+    const p = dough.toLocal(this.pointer, this);
+    if (this.cutting) {
+      const at = this.alongCut(p);
+      const half = CUTTER.span / 2;
+      this.cutAlong(Math.min(this.cutAt, at) - half, Math.max(this.cutAt, at) + half);
+      this.cutAt = at;
+      dough.showGuide(this.cutAngle, at);
+      return;
+    }
+    const angle = Math.atan2(p.y, p.x);
+    const distance = Math.hypot(p.x, p.y);
+    if (distance > dough.radiusAt(angle) + CUTTER.reach) {
+      dough.showGuide(null);
+      return;
+    }
+    if (distance > CUTTER.deadZone) {
+      const near = nearestLine(dough.cutLines, angle, CUTTER.snapToCut * DEG_TO_RAD);
+      this.cutAngle = near ? near.angle : lineAngle(angle);
+      this.onCutLine = !!near;
+    }
+    dough.showGuide(this.cutAngle);
+  }
+
+  /** A press over the pizza locks the aim, snapped to the grid unless it's on a cut line, and starts cutting there. */
+  private startCut(e: FederatedPointerEvent): void {
+    if (this.serving) return;
+    this.trackPointer(e);
+    const p = this.dough.toLocal(this.pointer, this);
+    if (Math.hypot(p.x, p.y) > this.dough.radiusAt(Math.atan2(p.y, p.x)) + CUTTER.reach) return;
+    if (!this.onCutLine) this.cutAngle = snapLine(this.cutAngle, CUTTER.gridDegrees * DEG_TO_RAD);
+    this.cutting = true;
+    this.cutAt = this.alongCut(p);
+    this.cutAlong(this.cutAt - CUTTER.span / 2, this.cutAt + CUTTER.span / 2);
+    this.dough.showGuide(this.cutAngle, this.cutAt);
+  }
+
+  /** Where a dough-local point meets the cutter's line, signed design px from the center, kept on the dough. */
+  private alongCut(p: { x: number; y: number }): number {
+    const along = p.x * Math.cos(this.cutAngle) + p.y * Math.sin(this.cutAngle);
+    return Math.min(this.dough.radiusAt(this.cutAngle), Math.max(-this.dough.radiusAt(this.cutAngle + Math.PI), along));
+  }
+
+  /** Cut along the cutter's line; the first cut locks the toppings, baking and kneading. */
+  private cutAlong(from: number, to: number): void {
+    const wasCut = this.dough.isCut;
+    this.dough.cut(this.cutAngle, from, to);
+    if (!wasCut && this.dough.isCut) this.applyAvailability();
   }
 
   /** Sauce paints along the stroke; cheese scatters pieces; whole toppings repeat while held. */
   private applyTool(dt: number): void {
     const from = this.dough.toLocal(this.strokeEnd, this);
     const to = this.dough.toLocal(this.pointer, this);
-    if (this.tool === 'sauce') this.dough.paintSauce(from, to);
-    else if (this.tool === 'cheese') this.dough.toppings.scatter('cheese', CHEESE, from, to, dt);
-    else if (this.tool) this.dough.toppings.repeat(this.tool, PIECES, to, dt);
+    const tool = this.ingredient;
+    if (tool === 'sauce') this.dough.paintSauce(from, to);
+    else if (tool === 'cheese') this.dough.toppings.scatter('cheese', CHEESE, from, to, dt);
+    else if (tool) this.dough.toppings.repeat(tool, PIECES, to, dt);
     this.strokeEnd.copyFrom(this.pointer);
   }
 
@@ -410,9 +509,9 @@ export class KitchenScene extends Container {
   }
 
   private applyAvailability(): void {
-    this.available = new Set<IngredientId>(this.doughReady ? TOPPINGS_READY : []);
+    this.available = new Set<IngredientId>(this.doughReady && !this.dough.isCut ? TOPPINGS_READY : []);
     this.bins.forEach((bin) => bin.setAvailable(this.available));
-    if (this.tool && !this.available.has(this.tool)) this.setTool(null);
+    if (this.ingredient && !this.available.has(this.ingredient)) this.setTool(null);
   }
 
   private buildBins(unlocked: ReadonlySet<IngredientId>): void {
@@ -521,14 +620,14 @@ export class KitchenScene extends Container {
     dragon.eventMode = 'static';
     // It may overlap the peel, which should still take presses beside the dragon
     dragon.hitArea = opaqueHitArea(dragon);
-    // Like the bake button, it only breathes fire once the dough is rolled out
-    this.onFirePress(dragon, () => this.doughReady);
+    // Like the bake button, it only breathes fire once the dough is rolled out, and not once it's cut
+    this.onFirePress(dragon, () => this.canBake());
     this.stations.dragon.addChild(dragon, this.fire);
   }
 
-  /** A second way to bake, disabled until the dough is rolled out. */
+  /** A second way to bake, disabled until the dough is rolled out, and once it's cut. */
   private buildBakeButton(): void {
-    this.onFirePress(this.bakeButton, () => this.doughReady);
+    this.onFirePress(this.bakeButton, () => this.canBake());
     this.stations.bakeButton.addChild(this.bakeButton);
   }
 
@@ -546,7 +645,7 @@ export class KitchenScene extends Container {
     }
   }
 
-  /** Pressable once the pizza is baked enough; releasing it on the button serves the pizza. */
+  /** Pressable once the pizza is cut; releasing it on the button serves the pizza. */
   private buildServeButton(): void {
     const button = this.serveButton;
     button.on('pointerdown', (e) => {
@@ -565,6 +664,20 @@ export class KitchenScene extends Container {
   }
 
   private canServe(): boolean {
-    return this.bakeLevel >= BAKE.minBaked && !this.serving;
+    return this.dough.isCut && !this.serving;
+  }
+
+  private canBake(): boolean {
+    return this.doughReady && !this.dough.isCut;
+  }
+
+  /** The cutter can be picked up once the pizza is baked enough. */
+  private canCut(): boolean {
+    return this.doughPhase === 'onPeel' && this.bakeLevel >= BAKE.minBaked && !this.serving;
+  }
+
+  private buildCutter(): void {
+    this.cutterButton.on('pointerdown', this.pickCutter, this);
+    this.stations.cutter.addChild(this.cutterButton);
   }
 }

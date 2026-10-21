@@ -15,9 +15,9 @@ export type Verdict = { rules: number[]; doneness: number; total: number };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/** Score a pizza cut along cut lines (angles through its center) against an order. */
-export function judge(order: Order, pizza: Pizza, cuts: readonly number[]): Verdict {
-  const slices = slicesOf(cuts);
+/** Score a pizza against an order, sliced along edges (angles of rays from its center). */
+export function judge(order: Order, pizza: Pizza, edges: readonly number[]): Verdict {
+  const slices = slicesOf(edges);
   const rules = order.rules.map((rule) => scoreRule(rule, pizza, slices));
   const doneness = scoreDoneness(order.doneness, pizza.bakeLevel);
   const scores = [...rules, doneness];

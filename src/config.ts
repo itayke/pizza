@@ -72,7 +72,7 @@ export const LABEL_TEXT = {
 // wide: the bins in a column, then the bowl and order tray over the serve button, then the peel spanning the height,
 // then the dragon. Each station keeps its standard-layout look and moves its anchor to <station>X, <station>Y, scaled
 // by <station>Scale. Anchors: a bin's center, the bowl's and tray's centers, the dough on the peel, the dragon's pivot,
-// the gauge hub and each button's center
+// the gauge hub and each button's center (the cutter's too)
 export const WIDESCREEN = {
   fromAspect: 1.777,
   width: 2730,
@@ -103,6 +103,9 @@ export const WIDESCREEN = {
   bakeButtonX: 2275,
   bakeButtonY: 1118,
   bakeButtonScale: 1.297,
+  cutterX: 2200,
+  cutterY: 880,
+  cutterScale: 1.3,
   dragonX: 2830,
   dragonY: 1083,
   dragonScale: 1.411,
@@ -204,19 +207,19 @@ export const ORDERS = {
   tries: 50,
 };
 
-// Slicing as the pizza is served: cuts lines through its center, evenly spaced, the first top to bottom. Each shows as
-// a groove multiplied over the pizza at alpha: color coreWidth design px wide, dropping off fast to clear over fadeWidth
-// to either side. A lip of lipColor (lipCore and lipFade likewise) is screened at lipAlpha lipOffset design px to the side
-// away from the light, coming from lightAngle degrees (0 from the right, clockwise); lipFacing is how much less a cut
-// running toward the light gets. Cuts wander up to wobble design px to either side, swaying about every wobbleWave.
-// The sliced pizza shows for showSeconds before the next order
+// Slicing: orders are drawn for a pizza cut evenly by cuts lines through its center. A cut shows as a groove multiplied
+// over the pizza at alpha: color coreWidth design px wide, dropping off fast to clear over fadeWidth to either side. A
+// lip of lipColor (lipCore and lipFade likewise) is screened at lipAlpha lipOffset design px to the side away from the
+// light, coming from lightAngle degrees (0 from the right, clockwise); lipFacing is how much less a cut running toward
+// the light gets. Cuts wander up to wobble design px to either side, swaying about every wobbleWave, and narrow to a
+// point over taper where they stop short of the edge. The sliced pizza shows for showSeconds before the next order
 export const SLICING = {
   cuts: 3,
-  coreWidth: 0.625,
+  coreWidth: 2.5,
   fadeWidth: 5,
   color: '#3a2216',
-  alpha: 0.6,
-  lipCore: 1.25,
+  alpha: 0.7,
+  lipCore: 2.5,
   lipFade: 1.875,
   lipColor: '#fff4dc',
   lipAlpha: 0.5,
@@ -225,7 +228,30 @@ export const SLICING = {
   lipFacing: 0.5,
   wobble: 1.5,
   wobbleWave: 90,
+  taper: 32.609,
   showSeconds: 1.5,
+};
+
+// The cutter, picked up from its button (center x, y and size design px) once the pizza is baked. Aimed at the pizza
+// (up to reach design px past its edge) it shows the line through the center toward the pointer, held while within
+// deadZone of the center, snapping to a cut line within snapToCut degrees. A press snaps to the nearest gridDegrees
+// unless it snapped to a cut line, then cuts span design px along the line where the pointer meets it, sweeping as it
+// drags. A ray from the center to the edge cut along completeAt of it parts slices. The aim shows as dots guideDot
+// across, guideGap apart, of guideColor at guideAlpha; the cutter on its line as a bar of the same
+export const CUTTER = {
+  x: 1357,
+  y: 384,
+  size: 150,
+  reach: 40,
+  deadZone: 30,
+  snapToCut: 8,
+  gridDegrees: 15,
+  span: 50,
+  completeAt: 0.9,
+  guideDot: 8,
+  guideGap: 22,
+  guideColor: '#000000',
+  guideAlpha: 0.333,
 };
 // Toppings a share may ask for; counts and apart pairs use whole toppings, never scattered cheese
 export const SHARE_TOPPINGS = ['cheese', 'pepperoni', 'basil', 'pineapple', 'olives'] as const;
