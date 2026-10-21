@@ -221,7 +221,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   cutter.addBinding(CUTTER, 'snapToCut', { min: 0, max: 45 });
   cutter.addBinding(CUTTER, 'gridDegrees', { min: 0, max: 90, step: 0.25 });
   cutter.addBinding(CUTTER, 'deadZone', { min: 0, max: 150, step: 1 });
-  cutter.addBinding(CUTTER, 'reach', { min: 0, max: 200, step: 1 });
+  cutter.addBinding(CUTTER, 'reach', { min: 1, max: 3 });
   cutter.addBinding(CUTTER, 'guideDot', { min: 1, max: 20 });
   cutter.addBinding(CUTTER, 'guideGap', { min: 2, max: 60 });
   cutter.addBinding(CUTTER, 'guideColor');

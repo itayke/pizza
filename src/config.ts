@@ -233,7 +233,7 @@ export const SLICING = {
 };
 
 // The cutter, picked up from its button (center x, y and size design px) once the pizza is baked. Aimed at the pizza
-// (up to reach design px past its edge) it shows the line through the center toward the pointer, held while within
+// (out to reach times its edge) it shows the line through the center toward the pointer, held while within
 // deadZone of the center, snapping to a cut line within snapToCut degrees. A press snaps to the nearest gridDegrees
 // unless it snapped to a cut line, then cuts span design px along the line where the pointer meets it, sweeping as it
 // drags. A ray from the center to the edge cut along completeAt of it parts slices. The aim shows as dots guideDot
@@ -242,7 +242,7 @@ export const CUTTER = {
   x: 1357,
   y: 384,
   size: 150,
-  reach: 40,
+  reach: 1.5,
   deadZone: 30,
   snapToCut: 8,
   gridDegrees: 15,

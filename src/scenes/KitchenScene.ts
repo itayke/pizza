@@ -405,13 +405,12 @@ export class KitchenScene extends Container {
       dough.showGuide(this.cutAngle, at);
       return;
     }
-    const angle = Math.atan2(p.y, p.x);
-    const distance = Math.hypot(p.x, p.y);
-    if (distance > dough.radiusAt(angle) + CUTTER.reach) {
+    if (!this.inCutterReach(p)) {
       dough.showGuide(null);
       return;
     }
-    if (distance > CUTTER.deadZone) {
+    const angle = Math.atan2(p.y, p.x);
+    if (Math.hypot(p.x, p.y) > CUTTER.deadZone) {
       const near = nearestLine(dough.cutLines, angle, CUTTER.snapToCut * DEG_TO_RAD);
       this.cutAngle = near ? near.angle : lineAngle(angle);
       this.onCutLine = !!near;
@@ -424,12 +423,17 @@ export class KitchenScene extends Container {
     if (this.serving) return;
     this.trackPointer(e);
     const p = this.dough.toLocal(this.pointer, this);
-    if (Math.hypot(p.x, p.y) > this.dough.radiusAt(Math.atan2(p.y, p.x)) + CUTTER.reach) return;
+    if (!this.inCutterReach(p)) return;
     if (!this.onCutLine) this.cutAngle = snapLine(this.cutAngle, CUTTER.gridDegrees * DEG_TO_RAD);
     this.cutting = true;
     this.cutAt = this.alongCut(p);
     this.cutAlong(this.cutAt - CUTTER.span / 2, this.cutAt + CUTTER.span / 2);
     this.dough.showGuide(this.cutAngle, this.cutAt);
+  }
+
+  /** Whether a dough-local point is close enough to the pizza to aim the cutter: within its edge times the reach. */
+  private inCutterReach(p: { x: number; y: number }): boolean {
+    return Math.hypot(p.x, p.y) <= this.dough.radiusAt(Math.atan2(p.y, p.x)) * CUTTER.reach;
   }
 
   /** Where a dough-local point meets the cutter's line, signed design px from the center, kept on the dough. */
