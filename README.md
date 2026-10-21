@@ -7,6 +7,7 @@ A fantasy pizza making game by Myra Keren-Detar and Itay Keren, with the help of
 - `npm run dev` — dev server, LAN-exposed for tablet testing
 - `npm run build` — typecheck + production build
 - `npm run preview` — serve the build
+- `npm test` — order and slicing tests (Vitest)
 
 Ports are set in `vite.config.ts`.
 
