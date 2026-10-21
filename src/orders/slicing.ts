@@ -75,13 +75,3 @@ export function spanCoverage(spans: readonly Span[], from: number, to: number): 
   const cut = spans.reduce((sum, span) => sum + Math.max(0, Math.min(to, span.to) - Math.max(from, span.from)), 0);
   return cut / (to - from);
 }
-
-/** Slice edges cut lines make: each ray, center to the edge (layer px at an angle), cut along at least completeAt of it. */
-export function sliceEdges(lines: readonly CutLine[], radiusAt: (angle: number) => number, completeAt: number): number[] {
-  return lines.flatMap(({ angle, spans }) => {
-    const edges: number[] = [];
-    if (spanCoverage(spans, 0, radiusAt(angle)) >= completeAt) edges.push(angle);
-    if (spanCoverage(spans, -radiusAt(angle + Math.PI), 0) >= completeAt) edges.push(angle + Math.PI);
-    return edges;
-  });
-}

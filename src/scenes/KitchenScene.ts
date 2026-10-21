@@ -239,7 +239,10 @@ export class KitchenScene extends Container {
     return this.servingFor > 0;
   }
 
-  /** Testing shortcut, a step per press: place the dough, roll it out to the rim, then sauce it, then cheese it once. */
+  /**
+   * Testing shortcut, a step per press: place the dough, roll it out to the rim, then sauce it, then cheese it once, then
+   * bake it just right.
+   */
   skipStep(): void {
     if (this.doughPhase !== 'onPeel') {
       this.doughPhase = 'onPeel';
@@ -252,6 +255,8 @@ export class KitchenScene extends Container {
       if (this.available.has('sauce')) this.dough.fillSauce();
     } else if (this.available.has('cheese') && !this.dough.toppings.has('cheese')) {
       this.dough.fillToppings('cheese', CHEESE);
+    } else if (this.canBake() && this.bakeLevel < BAKE.optimalLevel) {
+      this.bakeLevel = BAKE.optimalLevel;
     }
   }
 
@@ -331,7 +336,7 @@ export class KitchenScene extends Container {
   private setTool(tool: Tool | null): void {
     this.tool = tool;
     this.painting = false;
-    this.cutting = false;
+    this.endCut();
     this.onCutLine = false;
     this.dough.showGuide(null);
     this.held.visible = !!this.ingredient && !this.touch;
@@ -376,7 +381,7 @@ export class KitchenScene extends Container {
   private stopPainting(): void {
     this.painting = false;
     if (!this.cutting) return;
-    this.cutting = false;
+    this.endCut();
     this.aimCutter();
   }
 
@@ -440,6 +445,15 @@ export class KitchenScene extends Container {
   private alongCut(p: { x: number; y: number }): number {
     const along = p.x * Math.cos(this.cutAngle) + p.y * Math.sin(this.cutAngle);
     return Math.min(this.dough.radiusAt(this.cutAngle), Math.max(-this.dough.radiusAt(this.cutAngle + Math.PI), along));
+  }
+
+  /** Lift the cutter: its line is cut whole if cut far enough along, else left uncut, which may lift the lock again. */
+  private endCut(): void {
+    if (!this.cutting) return;
+    this.cutting = false;
+    const wasCut = this.dough.isCut;
+    this.dough.finishCut(this.cutAngle);
+    if (wasCut !== this.dough.isCut) this.applyAvailability();
   }
 
   /** Cut along the cutter's line; the first cut locks the toppings, baking and kneading. */

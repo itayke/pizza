@@ -5,7 +5,7 @@ import { bakeCurve } from '../core/bake';
 import { easeOutCirc, easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
-import { lineAngle, lineGap, sliceEdges, withSpan, type CutLine } from '../orders/slicing';
+import { edgesOf, lineAngle, lineGap, spanCoverage, withSpan, type CutLine } from '../orders/slicing';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
 import { ToppingLayer, type Topping } from './ToppingLayer';
@@ -114,9 +114,9 @@ export class Dough extends Container {
     return this.lines.length > 0;
   }
 
-  /** The slice edges the cuts make so far: rays cut nearly from the center to the edge. */
+  /** The slice edges the cuts make: both rays of every line, each whole once the cutter lifts. */
   sliceEdges(): number[] {
-    return sliceEdges(this.lines, (angle) => this.radiusAt(angle), CUTTER.completeAt);
+    return edgesOf(this.lines.map((line) => line.angle));
   }
 
   /**
@@ -139,6 +139,27 @@ export class Dough extends Container {
     if (same) return;
     drawn.spans = spans;
     this.drawCut(drawn);
+  }
+
+  /**
+   * The cutter lifts off a line through the center (angle): cut along at least completeAt of it edge to edge, it's cut
+   * whole; short of that, it's left uncut.
+   */
+  finishCut(angle: number): void {
+    const line = lineAngle(angle);
+    const index = this.lines.findIndex((other) => lineGap(other.angle, line) < SAME_LINE);
+    if (index < 0) return;
+    const drawn = this.lines[index];
+    const from = -this.radiusAt(line + Math.PI);
+    const to = this.radiusAt(line);
+    if (spanCoverage(drawn.spans, from, to) >= CUTTER.completeAt) {
+      drawn.spans = [{ from, to }];
+      this.drawCut(drawn);
+      return;
+    }
+    this.lines.splice(index, 1);
+    for (const strip of drawn.strips.removeChildren()) destroyStrip(strip);
+    drawn.strips.destroy();
   }
 
   /**

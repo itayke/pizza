@@ -236,7 +236,7 @@ export const SLICING = {
 // (out to reach times its edge) it shows the line through the center toward the pointer, held while within
 // deadZone of the center, snapping to a cut line within snapToCut degrees. A press snaps to the nearest gridDegrees
 // unless it snapped to a cut line, then cuts span design px along the line where the pointer meets it, sweeping as it
-// drags. A ray from the center to the edge cut along completeAt of it parts slices. The aim shows as dots guideDot
+// drags. Lifted, a line cut along completeAt of it edge to edge is cut whole, and left uncut short of that. The aim shows as dots guideDot
 // across, guideGap apart, of guideColor at guideAlpha; the cutter on its line as a bar of the same
 export const CUTTER = {
   x: 1357,
@@ -247,7 +247,7 @@ export const CUTTER = {
   snapToCut: 8,
   gridDegrees: 15,
   span: 50,
-  completeAt: 0.9,
+  completeAt: 0.5,
   guideDot: 8,
   guideGap: 22,
   guideColor: '#000000',

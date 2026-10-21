@@ -217,7 +217,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   cutter.addBinding(CUTTER, 'y', { min: 0, max: 1536, step: 1 }).on('change', () => scene.layout());
   cutter.addBinding(CUTTER, 'size', { min: 40, max: 400, step: 1 }).on('change', () => scene.layout());
   cutter.addBinding(CUTTER, 'span', { min: 5, max: 200, step: 1 });
-  cutter.addBinding(CUTTER, 'completeAt', { min: 0.5, max: 1 });
+  cutter.addBinding(CUTTER, 'completeAt', { min: 0, max: 1 });
   cutter.addBinding(CUTTER, 'snapToCut', { min: 0, max: 45 });
   cutter.addBinding(CUTTER, 'gridDegrees', { min: 0, max: 90, step: 0.25 });
   cutter.addBinding(CUTTER, 'deadZone', { min: 0, max: 150, step: 1 });
