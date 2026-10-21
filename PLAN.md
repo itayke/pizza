@@ -13,7 +13,7 @@ Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bo
 3. **Toppings** — tap to place one, hold to keep dropping.
 4. **Bake** — hold the dragon to breathe fire; once the dough is rolled out, the gauge needle climbs from raw to burnt. Land it in the green zone, past it the pizza chars.
 5. **Slice** — once baked, pick up the cutter. Over the pizza it aims along the line through the center toward the pointer, snapping to an existing cut nearby; a press locks the line (snapped to a coarse angle grid unless on a cut) and dragging cuts along it. Released, a line cut far enough edge to edge is cut whole, and left uncut otherwise. The first cut locks toppings, baking and kneading.
-6. **Serve** — enabled once cut; scored against the order as sliced, then a new order on fresh dough. Peel leaving with the pizza and a reaction to come.
+6. **Serve** — enabled once cut; scored against the order as sliced; after a moment the slices slide out from the center one after another, making room for a new order on fresh dough. A reaction to come.
 
 Meta game: later.
 
@@ -33,7 +33,7 @@ Meta game: later.
 - **Toppings** — sprites with rotation/scale jitter.
 - **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker. Each topping bakes only from when it lands, so one added late stays fresh.
 - **Orders** — a ticket in the tray, a row of icons per rule, no text: a topping covering some share of the slices and no others (whole means all of them), exactly a count of a topping, or two toppings not touching; plus well baked or burnt when past normal. Rules combine into small puzzles. Drawn orders are kept only if their toppings fit the slices: a shared topping takes its share of them, any other topping kept apart takes one, and toppings kept apart never share a slice. Each rule scores 0–1 (shares by how many slices are covered or clear as asked, counts by how far off, apart pairs by touches, doneness by bake range); the scores stay internal. Icons are placeholders until drawn.
-- **Slicing** — the player cuts lines through the center with the cutter; each line is two rays parting slices, and a line is either cut whole or not at all. A piece belongs to the slice its center lies in. Orders are still drawn for even auto slicing, so they only ask for shares it can show.
+- **Slicing** — the player cuts lines through the center with the cutter; each line is two rays parting slices, and a line is either cut whole or not at all. A piece belongs to the slice its center lies in. Served, the pizza is snapshotted and each slice becomes its own mesh over that snapshot, its sides traced down the middle of the cuts and shared with its neighbors, so pieces on a cut split with it. Orders are still drawn for even auto slicing, so they only ask for shares it can show.
 - **Bins** — fixed two-compartment art; each compartment shows its food once unlocked, empty until then.
 - **Input** — tool state machine: none → selected → applying. Tap a bin or drag from it.
 

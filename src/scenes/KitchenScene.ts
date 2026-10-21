@@ -35,6 +35,7 @@ import { IngredientBin } from '../stations/IngredientBin';
 import { OrderTicket } from '../stations/OrderTicket';
 import { keepLabelSizes, Label } from '../stations/Label';
 import { SelectableLabel } from '../stations/SelectableLabel';
+import { ServedSlices } from '../stations/ServedSlices';
 import { WORDS } from '../words';
 
 // Unlocked once the dough is rolled out
@@ -64,6 +65,8 @@ export class KitchenScene extends Container {
   private readonly serveButton = new StateButton('serve_button', SERVE_BUTTON);
   private servePressed = false;
   private readonly cutterButton = new CutterButton();
+  /** The last served pizza's slices, leaving the peel over every station. */
+  private readonly served = new ServedSlices();
   /** The line the cutter aims along, as a line through the dough's center, and whether it's an existing cut's. */
   private cutAngle = Math.PI / 2;
   private onCutLine = false;
@@ -140,7 +143,7 @@ export class KitchenScene extends Container {
     this.held.addChild(this.heldArt, this.heldGlow);
     this.held.eventMode = 'none';
     this.dough.toppings.hand = this.held;
-    this.addChild(this.doughBall, this.held);
+    this.addChild(this.doughBall, this.served, this.held);
 
     // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
@@ -226,13 +229,25 @@ export class KitchenScene extends Container {
     return judge(this.order, { pieces: dough.toppings.placedPieces, bakeLevel: this.bakeLevel, radiusAt: (a) => dough.radiusAt(a) }, dough.sliceEdges());
   }
 
-  /** Hand over the pizza: score it as cut, show it for a moment, then start the next order on fresh dough. */
+  /**
+   * Hand over the pizza: score it as cut and show it for a moment, if at all, then send its slices out and start the
+   * next order on fresh dough.
+   */
   private serve(): void {
     this.lastVerdict = this.scoreOrder();
     this.setTool(null);
     this.setFiring(false);
     this.dough.setKneadable(false);
     this.servingFor = SLICING.showSeconds;
+    if (!this.serving) this.sendSlicesOut();
+  }
+
+  private sendSlicesOut(): void {
+    this.servingFor = 0;
+    this.served.launch(this.dough.slicedSnapshot());
+    this.newOrder();
+    this.resetDough();
+    this.dough.setKneadable(true);
   }
 
   private get serving(): boolean {
@@ -261,13 +276,10 @@ export class KitchenScene extends Container {
   }
 
   update(dt: number): void {
-    if (this.serving && (this.servingFor -= dt) <= 0) {
-      this.newOrder();
-      this.resetDough();
-      this.dough.setKneadable(true);
-    }
+    if (this.serving && (this.servingFor -= dt) <= 0) this.sendSlicesOut();
     if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
+    this.served.update(dt);
     // Rolled out enough for toppings and baking
     const doughReady = this.doughPhase === 'onPeel' && this.dough.coverage >= DOUGH.sauceCoverage;
     if (doughReady !== this.doughReady) {
@@ -603,6 +615,9 @@ export class KitchenScene extends Container {
     this.dough.position.set(face.x + PEEL.x, face.y + PEEL.y);
     this.placeStation('peel', this.dough.x, this.dough.y);
     this.toLocal(ORIGIN, this.dough, this.peelCenter);
+    // Over the dough as it shows, though above every station
+    this.served.position.copyFrom(this.peelCenter);
+    this.served.scale.set(this.stations.peel.scale.x);
   }
 
   /** Place the dragon from config and aim the fire from its mouth at the dough, once the peel is placed. */

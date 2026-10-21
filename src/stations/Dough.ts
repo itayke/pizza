@@ -5,7 +5,7 @@ import { bakeCurve } from '../core/bake';
 import { easeOutCirc, easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
-import { edgesOf, lineAngle, lineGap, spanCoverage, withSpan, type CutLine } from '../orders/slicing';
+import { edgesOf, lineAngle, lineGap, spanCoverage, withSpan, type CutLine, type Wedge } from '../orders/slicing';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
 import { ToppingLayer, type Topping } from './ToppingLayer';
@@ -27,11 +27,21 @@ const TAPER_STEPS = 4;
 const SAME_LINE = 1e-4;
 // A cut end within this of the dough's edge, design px, reaches it
 const EDGE_EPSILON = 0.5;
+// A served slice's outline runs around its outer edge in steps of this, degrees
+const OUTLINE_ARC_STEP = 5;
+// Room around the pizza in its served snapshot, design px beyond the wobble, so slice outlines stay inside it
+const SNAPSHOT_MARGIN = 2;
 const RGBA = 4;
 const OPAQUE = 255;
 
 /** A cut line as drawn: its wobble's phases and its strips. */
 type DrawnCut = CutLine & { phase: number; overtonePhase: number; strips: Container<Mesh> };
+
+/**
+ * The pizza as served: a snapshot of it, dough-local with its center in the middle, half design px to either side, and
+ * each slice's outline, dough-local, from the center out along the middle of one cut, around and back down the next.
+ */
+export type SlicedPizza = { texture: RenderTexture; half: number; slices: { wedge: Wedge; outline: Point[] }[] };
 
 /** Kneadable dough: a ring of radii that grow outward where pressed, capped just past the rim. */
 export class Dough extends Container {
@@ -163,6 +173,44 @@ export class Dough extends Container {
   }
 
   /**
+   * Snapshot the pizza as it stands, without the rim or the cutter's aim, and trace its slices down the middle of the
+   * cuts, out past everything on it. The caller owns the texture.
+   */
+  slicedSnapshot(): SlicedPizza {
+    this.rim.visible = this.guide.visible = false;
+    const bounds = this.getLocalBounds();
+    const reach = Math.max(-bounds.minX, bounds.maxX, -bounds.minY, bounds.maxY);
+    const half = reach + SLICING.wobble + SNAPSHOT_MARGIN;
+    // As sharp as the pizza shows on screen
+    const scale = Math.hypot(this.worldTransform.a, this.worldTransform.b);
+    const texture = RenderTexture.create({ width: 2 * half, height: 2 * half, resolution: this.renderer.resolution * scale });
+    this.renderer.render({ container: this, target: texture, clear: true, clearColor: TRANSPARENT, transform: new Matrix().translate(half, half) });
+    this.rim.visible = this.guide.visible = true;
+    return { texture, half, slices: this.sliceOutlines(reach) };
+  }
+
+  /** Each slice's outline out to reach design px, its sides down the middle of its cuts; the whole pizza if uncut. */
+  private sliceOutlines(reach: number): SlicedPizza['slices'] {
+    const arcStep = OUTLINE_ARC_STEP * DEG_TO_RAD;
+    const arc = (start: number, width: number): Point[] => {
+      const steps = Math.max(1, Math.ceil(width / arcStep));
+      return Array.from({ length: steps - 1 }, (_, i) => start + ((i + 1) / steps) * width).map((a) => new Point(Math.cos(a) * reach, Math.sin(a) * reach));
+    };
+    // Both rays of every line, clockwise from 3 o'clock
+    const rays = this.lines.flatMap((line) => [{ angle: line.angle, line, sign: 1 }, { angle: line.angle + Math.PI, line, sign: -1 }]).sort((a, b) => a.angle - b.angle);
+    if (!rays.length) return [{ wedge: { start: 0, width: TAU }, outline: arc(0, TAU) }];
+    const step = SLICING.wobbleWave > 0 ? SLICING.wobbleWave / WOBBLE_STEPS_PER_WAVE : reach;
+    const steps = Math.max(1, Math.ceil(reach / step));
+    // From the center out; neighbors share these very points, so the slices meet without a seam
+    const paths = rays.map((ray) => Array.from({ length: steps + 1 }, (_, i) => this.cutPoint(ray.line, (ray.sign * i * reach) / steps)));
+    return rays.map((ray, i) => {
+      const next = (i + 1) % rays.length;
+      const width = rays[next].angle + (next ? 0 : TAU) - ray.angle;
+      return { wedge: { start: ray.angle, width }, outline: [...paths[i], ...arc(ray.angle, width), ...[...paths[next]].reverse()] };
+    });
+  }
+
+  /**
    * Show the cutter's aim, dotted along a line through the center (angle) edge to edge, with the cutter on it as a bar
    * at `at` (signed design px from the center) while cutting; or nothing.
    */
@@ -216,25 +264,31 @@ export class Dough extends Container {
    * cut, and how wide the cut is at each, from 0 to 1: narrowing to a point over the taper at the ends that taper.
    */
   private cutPath(line: DrawnCut, from: number, to: number, taperFrom: boolean, taperTo: boolean): { points: Point[]; widths: number[] } {
-    const { wobble, wobbleWave, taper } = SLICING;
+    const { wobbleWave, taper } = SLICING;
     const length = to - from;
     let step = wobbleWave > 0 ? wobbleWave / WOBBLE_STEPS_PER_WAVE : length;
     if (taper > 0 && (taperFrom || taperTo)) step = Math.min(step, taper / TAPER_STEPS);
     const steps = Math.max(1, Math.ceil(length / step));
-    const dx = Math.cos(line.angle);
-    const dy = Math.sin(line.angle);
     const points: Point[] = [];
     const widths: number[] = [];
     for (let i = 0; i <= steps; i++) {
       const along = from + (i / steps) * length;
-      const wave = wobbleWave > 0 ? (TAU * along) / wobbleWave : 0;
-      const sway = Math.sin(wave + line.phase) + WOBBLE_OVERTONE_WEIGHT * Math.sin(wave * WOBBLE_OVERTONE + line.overtonePhase);
-      const off = (wobble * sway) / (1 + WOBBLE_OVERTONE_WEIGHT);
-      points.push(new Point(dx * along - dy * off, dy * along + dx * off));
+      points.push(this.cutPoint(line, along));
       const fromEnd = Math.min(taperFrom ? along - from : Infinity, taperTo ? to - along : Infinity);
       widths.push(taper > 0 ? easeOutCirc(Math.min(1, fromEnd / taper)) : 1);
     }
     return { points, widths };
+  }
+
+  /** Where a cut line runs at `along` (signed design px from the center), wandering by up to the wobble. */
+  private cutPoint(line: DrawnCut, along: number): Point {
+    const { wobble, wobbleWave } = SLICING;
+    const wave = wobbleWave > 0 ? (TAU * along) / wobbleWave : 0;
+    const sway = Math.sin(wave + line.phase) + WOBBLE_OVERTONE_WEIGHT * Math.sin(wave * WOBBLE_OVERTONE + line.overtonePhase);
+    const off = (wobble * sway) / (1 + WOBBLE_OVERTONE_WEIGHT);
+    const dx = Math.cos(line.angle);
+    const dy = Math.sin(line.angle);
+    return new Point(dx * along - dy * off, dy * along + dx * off);
   }
 
   private clearCuts(): void {

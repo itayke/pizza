@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SLICING, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SERVED, SLICING, TOPPINGS, WIDESCREEN } from '../config';
 import type { Order, Rule } from '../orders/Order';
 import type { KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
@@ -212,6 +212,11 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   slicing.addBinding(SLICING, 'wobbleWave', { label: 'cutWobbleWave', min: 10, max: 400 });
   slicing.addBinding(SLICING, 'taper', { label: 'cutTaper', min: 0, max: 40 });
   slicing.addBinding(SLICING, 'showSeconds', { label: 'slicedSeconds', min: 0, max: 5 });
+  slicing.addBinding(SERVED, 'stagger', { label: 'servedStagger', min: 0, max: 0.5 });
+  slicing.addBinding(SERVED, 'seconds', { label: 'servedSeconds', min: 0.1, max: 3 });
+  slicing.addBinding(SERVED, 'distance', { label: 'servedDistance', min: 0, max: 1500, step: 1 });
+  slicing.addBinding(SERVED, 'spin', { label: 'servedSpin', min: 0, max: 90, step: 1 });
+  slicing.addBinding(SERVED, 'fadeFrom', { label: 'servedFadeFrom', min: 0, max: 0.99 });
 
   const cutter = pane.addFolder({ title: 'Cutter', expanded: false });
   cutter.addBinding(CUTTER, 'x', { min: 0, max: 2048, step: 1 }).on('change', () => scene.layout());
@@ -310,7 +315,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

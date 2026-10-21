@@ -241,7 +241,18 @@ export const SLICING = {
   wobble: 1.5,
   wobbleWave: 90,
   taper: 32.609,
-  showSeconds: 1.5,
+  showSeconds: 0,
+};
+
+// Once the sliced pizza has shown, its slices leave one after another, stagger seconds apart in random order, each
+// sliding distance design px straight out from the center over seconds, speeding up, turning up to spin degrees either
+// way and fading out from fadeFrom of the way, making room for the next pizza
+export const SERVED = {
+  stagger: 0.12,
+  seconds: 0.7,
+  distance: 600,
+  spin: 15,
+  fadeFrom: 0.9,
 };
 
 // The cutter, picked up from its button (center x, y and size design px) once the pizza is baked. Aimed at the pizza
