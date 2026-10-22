@@ -12,6 +12,11 @@ const FALLBACK_GRID = 15;
 const ON_GRID = 1e-6;
 // Spots tried per piece; the best one wins
 const CANDIDATES = 24;
+// Slice counts a picture may have, each with its weight in RECIPE; four when the grid allows none
+const SLICE_COUNTS = [4, 6, 8, 10, 12, 14, 16] as const;
+const FALLBACK_SLICES = 4;
+// The first cut runs top to bottom
+const UPRIGHT = Math.PI / 2;
 
 export type WholeTopping = (typeof WHOLE_TOPPINGS)[number];
 
@@ -37,23 +42,38 @@ const onGrid = (angle: number, step: number) => Math.abs(angle / step - Math.rou
 
 /** A new pizza to copy. */
 export function drawRecipe(): Recipe {
-  const step = gridStep();
-  const counts = Array.from({ length: RECIPE.maxCuts - RECIPE.minCuts + 1 }, (_, i) => RECIPE.minCuts + i).filter((n) => n > 0 && onGrid(Math.PI / n, step));
-  const lines = counts.length ? pick(counts) : Math.max(1, RECIPE.minCuts);
-  const apart = Math.PI / lines;
-  const turn = Math.floor(Math.random() * Math.max(1, Math.round(apart / step))) * step;
-  const cuts = Array.from({ length: lines }, (_, i) => lineAngle(turn + i * apart));
-  const slices = slicesOf(edgesOf(cuts)).length;
+  const counts = SLICE_COUNTS.filter((n) => onGrid(TAU / n, gridStep())).map((n) => ({ value: n, weight: RECIPE[`slices${n}Weight`] }));
+  const slices = weighted(counts) ?? FALLBACK_SLICES;
+  const lines = slices / 2;
+  const cuts = Array.from({ length: lines }, (_, i) => lineAngle(UPRIGHT + (i * Math.PI) / lines));
   const count = Math.min(between(RECIPE.minToppings, RECIPE.maxToppings), WHOLE_TOPPINGS.length);
   const toppings = shuffled(WHOLE_TOPPINGS)
     .slice(0, count)
     .map((topping) => ({ topping, slices: sliceRun(slices) }));
-  return { cuts, sauce: Math.random() < RECIPE.sauceChance, cheese: Math.random() < RECIPE.cheeseChance, toppings, bakeLevel: drawBakeLevel() };
+  return { cuts, ...drawBase(), toppings, bakeLevel: drawBakeLevel() };
 }
 
-/** Every slice, or a run of neighbors short of all of them. */
+/** Sauce and cheese, either or neither. */
+function drawBase(): { sauce: boolean; cheese: boolean } {
+  const base = weighted([
+    { value: { sauce: true, cheese: true }, weight: RECIPE.bothWeight },
+    { value: { sauce: true, cheese: false }, weight: RECIPE.sauceOnlyWeight },
+    { value: { sauce: false, cheese: true }, weight: RECIPE.cheeseOnlyWeight },
+    { value: { sauce: false, cheese: false }, weight: RECIPE.plainWeight },
+  ]);
+  return base ?? { sauce: true, cheese: true };
+}
+
+/** Every slice, half of them, or another run of neighbors short of all of them. */
 function sliceRun(slices: number): number[] {
-  const length = slices > 1 && Math.random() >= RECIPE.everywhereChance ? between(1, slices - 1) : slices;
+  const half = slices / 2;
+  const others = Array.from({ length: slices - 1 }, (_, i) => i + 1).filter((n) => n !== half);
+  const kind = weighted([
+    { value: 'all', weight: RECIPE.allWeight },
+    { value: 'half', weight: Number.isInteger(half) ? RECIPE.halfWeight : 0 },
+    { value: 'other', weight: others.length ? RECIPE.otherWeight : 0 },
+  ]);
+  const length = kind === 'half' ? half : kind === 'other' ? pick(others) : slices;
   const start = Math.floor(Math.random() * slices);
   return Array.from({ length }, (_, i) => (start + i) % slices);
 }

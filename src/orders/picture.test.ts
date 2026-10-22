@@ -8,6 +8,8 @@ import { drawRecipe, gridStep, recipeSpots, type Recipe, type Spot } from './Rec
 import { edgesOf, lineAngle, slicesOf } from './slicing';
 
 const DRAWS = 500;
+const MIN_SLICES = 4;
+const MAX_SLICES = 16;
 const TAU = Math.PI * 2;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 // Slack for angles landing on the grid, in grid steps
@@ -58,9 +60,10 @@ describe('picture recipes', () => {
 
   it('keep to their limits', () => {
     for (const recipe of recipes) {
-      expect(recipe.cuts.length).toBeGreaterThanOrEqual(RECIPE.minCuts);
-      expect(recipe.cuts.length).toBeLessThanOrEqual(RECIPE.maxCuts);
-      // Even cuts on the cutter's grid
+      // Even cuts on the cutter's grid, the first upright
+      expect(recipe.cuts[0]).toBeCloseTo(Math.PI / 2);
+      expect(2 * recipe.cuts.length).toBeGreaterThanOrEqual(MIN_SLICES);
+      expect(2 * recipe.cuts.length).toBeLessThanOrEqual(MAX_SLICES);
       const sorted = [...recipe.cuts].sort((a, b) => a - b);
       for (const cut of sorted) expect(onGrid(cut)).toBe(true);
       sorted.forEach((cut, i) => i && expect(cut - sorted[i - 1]).toBeCloseTo(Math.PI / sorted.length));
@@ -110,7 +113,7 @@ describe('copying a picture', () => {
   });
 
   it('costs little for an extra cut', () => {
-    const recipe = recipeWhere((r) => r.cuts.length < RECIPE.maxCuts);
+    const recipe = recipeWhere(() => true);
     const spots = recipeSpots(recipe);
     const extra = lineAngle(recipe.cuts[0] + gridStep());
     const verdict = comparePicture(profileOf(lay(recipe, { spots })), profileOf(lay(recipe, { spots, cuts: [...recipe.cuts, extra] })));

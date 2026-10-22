@@ -201,13 +201,11 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     lastServed.refresh();
   }, ORDER_SCORE_REFRESH_MS);
   orders.addBinding(ORDERS, 'pictures').on('change', () => scene.newOrder());
-  orders.addBinding(RECIPE, 'minCuts', { min: 1, max: 6, step: 1 });
-  orders.addBinding(RECIPE, 'maxCuts', { min: 1, max: 6, step: 1 });
-  orders.addBinding(RECIPE, 'sauceChance', { min: 0, max: 1 });
-  orders.addBinding(RECIPE, 'cheeseChance', { min: 0, max: 1 });
+  for (const n of [4, 6, 8, 10, 12, 14, 16] as const) orders.addBinding(RECIPE, `slices${n}Weight`, { min: 0, max: 5 });
+  for (const key of ['bothWeight', 'sauceOnlyWeight', 'cheeseOnlyWeight', 'plainWeight'] as const) orders.addBinding(RECIPE, key, { min: 0, max: 10 });
   orders.addBinding(RECIPE, 'minToppings', { min: 0, max: 4, step: 1 });
   orders.addBinding(RECIPE, 'maxToppings', { min: 0, max: 4, step: 1 });
-  orders.addBinding(RECIPE, 'everywhereChance', { min: 0, max: 1 });
+  for (const key of ['allWeight', 'halfWeight', 'otherWeight'] as const) orders.addBinding(RECIPE, key, { label: `topping${key[0].toUpperCase()}${key.slice(1)}`, min: 0, max: 5 });
   orders.addBinding(RECIPE, 'density', { min: 0.1, max: 2 });
   orders.addBinding(RECIPE, 'edgeGap', { min: 0, max: 2 });
   for (const key of ['lightWeight', 'rightWeight', 'wellWeight', 'burntWeight'] as const) orders.addBinding(RECIPE, key, { min: 0, max: 5 });

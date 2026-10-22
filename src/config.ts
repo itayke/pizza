@@ -302,26 +302,36 @@ export const ORDER_JUDGE = {
   bakeTolerance: 0.1,
 };
 
-// Picture orders: a pizza to copy. It's cut by minCuts to maxCuts even lines through its center, turned by a random
-// step of the cutter's grid (only counts whose slices line up with the grid). sauceChance and cheeseChance of pizzas
-// have each all over; minToppings to maxToppings whole toppings each go on every slice (everywhereChance) or on a run
-// of neighboring slices, their pieces' discs (as scored) adding up to density of each slice out to the inner rim, kept
-// edgeGap of their half size clear of its cuts. Its bake is drawn by weight: light and well done lightAt and wellAt of
-// the way from baked enough to burnt, just right at the optimal level, or burnt, burntAt of the way into burnt
+// Picture orders: a pizza to copy. It's cut into even slices, the first cut upright, their count drawn by
+// slices<n>Weight (only counts whose slices line up with the cutter's grid). Sauce and cheese cover it all over, both,
+// either or neither drawn by bothWeight, sauceOnlyWeight, cheeseOnlyWeight and plainWeight; minToppings to maxToppings
+// whole toppings each go on every slice, half of them or another run of neighbors, drawn by allWeight, halfWeight and
+// otherWeight, their pieces' discs (as scored) adding up to density of each slice out to the inner rim, kept edgeGap of
+// their half size clear of its cuts. Its bake is drawn by weight: light and well done lightAt and wellAt of the way from
+// baked enough to burnt, just right at the optimal level, or burnt, burntAt of the way into burnt
 export const RECIPE = {
-  minCuts: 1,
-  maxCuts: 4,
-  sauceChance: 0.85,
-  cheeseChance: 0.85,
+  slices4Weight: 1,
+  slices6Weight: 3,
+  slices8Weight: 3,
+  slices10Weight: 1,
+  slices12Weight: 1,
+  slices14Weight: 1,
+  slices16Weight: 1,
+  bothWeight: 6,
+  sauceOnlyWeight: 1,
+  cheeseOnlyWeight: 1,
+  plainWeight: 0.25,
   minToppings: 1,
   maxToppings: 2,
-  everywhereChance: 0.35,
+  allWeight: 3,
+  halfWeight: 3,
+  otherWeight: 1,
   density: 0.9,
   edgeGap: 0.7,
   lightWeight: 1,
   rightWeight: 3,
   wellWeight: 1,
-  burntWeight: 0.25,
+  burntWeight: 0.1,
   lightAt: 0.1,
   wellAt: 0.9,
   burntAt: 0.5,
