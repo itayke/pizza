@@ -5,14 +5,14 @@ import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
 import type { CurrentOrder, KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
+import { addPaneToggle } from './paneToggle';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
 const RESET_KEY = 'r';
 const SKIP_KEY = 's';
 const ORDER_KEY = 'o';
 const COPY_KEY = 'c';
-// Tweakpane's own offset from the window corner, px
-const PANEL_MARGIN = 8;
+const TOGGLE_KEY = 't';
 const BAKE_LEVEL_REFRESH_MS = 100;
 const ORDER_SCORE_REFRESH_MS = 250;
 const SCORE_DECIMALS = 2;
@@ -44,12 +44,14 @@ const describeOrder = (current: CurrentOrder): string => (current.kind === 'pict
 
 /** Dev-only live tuning. Edits config objects in place; values reset on reload. refit re-fits the screen. */
 export function createTuningPanel(scene: KitchenScene, refit: () => void): void {
-  const pane = new Pane({ title: 'Tuning' });
-  // Scroll when taller than the window
+  // No title bar; a corner button shows and hides it
+  const pane = new Pane();
   const container = pane.element.parentElement;
+  let toggle = () => {};
   if (container) {
-    container.style.maxHeight = `calc(100vh - ${2 * PANEL_MARGIN}px)`;
+    // Scroll when taller than the window
     container.style.overflowY = 'auto';
+    toggle = addPaneToggle(container, TOGGLE_KEY);
   }
   const resetDough = () => scene.resetDough();
   const layout = () => scene.layout();
@@ -66,6 +68,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     if (key === SKIP_KEY) scene.skipStep();
     if (key === ORDER_KEY) scene.newOrder();
     if (key === COPY_KEY) scene.copyOrder();
+    if (key === TOGGLE_KEY) toggle();
   });
 
   const dough = pane.addFolder({ title: 'Dough', expanded: false });
