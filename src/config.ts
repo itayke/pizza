@@ -158,8 +158,9 @@ export const BOWL = {
   fillWidth: 0.72,
 };
 
-// Order tray, with its caption below: its center in design px. It scales about its center, its caption keeping its
-// spot and size, with labelX/labelY moving the caption from its drawn spot. Holds nothing yet
+// Order spot, where the tray is drawn (the tray itself isn't shown for now), with its caption below: its center in
+// design px. The order scales about its center, its caption keeping its spot and size, with labelX/labelY moving the
+// caption from its drawn spot
 export const ORDER_TRAY = {
   x: 318,
   y: 1226,
@@ -173,7 +174,7 @@ export const ORDER_TRAY = {
 // its icons itemGap apart by what's drawn of them. Icons are sized by what's drawn, as fractions of a row's height: a
 // share's pie whole, toppings at toppingSize (pieTopping inside a pie, whose radius is pieRadius of its art), counts'
 // digits at digitSize, the × at timesSize, the apart mark at apartSize and the bake flame at flameSize. A picture
-// order fills pictureSize of the ticket, centered the same way
+// order fills pictureSize of the ticket, centered the same way and moved pictureX, pictureY design px
 export const ORDER_TICKET = {
   width: 0.76,
   height: 0.8,
@@ -188,7 +189,9 @@ export const ORDER_TICKET = {
   timesSize: 0.45,
   apartSize: 0.9,
   flameSize: 0.85,
-  pictureSize: 1,
+  pictureSize: 1.5,
+  pictureX: 0,
+  pictureY: 30,
 };
 
 // Each topping's icon on the ticket, as a multiple of its size there, so they read alike
@@ -355,7 +358,7 @@ export const PICTURE_JUDGE = {
 
 // A served pizza's grade, stamped on its order until the next one: A+ from a total score of aPlus, then A, B, C and D
 // from theirs, else F. Set in the hand font with capitals cap tray px tall in color, tilted tilt degrees clockwise and
-// x, y tray px off the ticket's center; it lands from popScale times its size over popSeconds
+// x, y tray px off the pictured pizza's center; it lands from popScale times its size over popSeconds
 export const GRADE = {
   aPlus: 0.95,
   a: 0.88,
@@ -365,8 +368,8 @@ export const GRADE = {
   cap: 110,
   color: '#c0392b',
   tilt: -12,
-  x: -82,
-  y: -128,
+  x: -150,
+  y: -160,
   popScale: 2.5,
   popSeconds: 0.25,
 };

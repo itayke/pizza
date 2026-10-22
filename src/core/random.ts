@@ -1,6 +1,9 @@
 /** One of items, each as likely as the others. */
 export const pick = <T>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
 
+/** Heads or tails. */
+export const coinFlip = (): boolean => Math.random() < 1 / 2;
+
 /** A whole number from min to max, both included. */
 export const between = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 

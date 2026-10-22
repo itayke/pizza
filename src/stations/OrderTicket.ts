@@ -110,9 +110,11 @@ export class OrderTicket extends Container {
     const size = Math.min(width * this.trayWidth, height * this.trayHeight) * pictureSize;
     // The pizza fills it; the texture's clear margins spill past
     this.picture.scale.set(size / (2 * this.picturedRadius));
-    this.picture.position.set(0, offsetY * this.trayHeight);
+    // Its nudge is in design px, whatever the tray is scaled by
+    const nudge = 1 / this.scale.x;
+    this.picture.position.set(ORDER_TICKET.pictureX * nudge, offsetY * this.trayHeight + ORDER_TICKET.pictureY * nudge);
     this.grade.tint = GRADE.color;
-    this.grade.position.set(GRADE.x, GRADE.y + offsetY * this.trayHeight);
+    this.grade.position.set(this.picture.x + GRADE.x, this.picture.y + GRADE.y);
     this.grade.rotation = GRADE.tilt * DEG_TO_RAD;
   }
 

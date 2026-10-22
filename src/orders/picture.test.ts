@@ -4,7 +4,7 @@ import { ART } from '../generated/artLayout';
 import type { PlacedPiece, Topping } from '../stations/ToppingLayer';
 import { gradeOf } from './grade';
 import { comparePicture, profileOf, type CutPizza } from './picture';
-import { drawRecipe, gridStep, recipeSpots, type Recipe, type Spot } from './Recipe';
+import { drawRecipe, gridStep, recipeSpots, uprightEdges, type Recipe, type Spot } from './Recipe';
 import { edgesOf, lineAngle, slicesOf } from './slicing';
 
 const DRAWS = 500;
@@ -77,6 +77,20 @@ describe('picture recipes', () => {
       }
       expect(recipe.bakeLevel).toBeGreaterThanOrEqual(BAKE.minBaked);
       expect(recipe.bakeLevel).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('put the first part-covering topping against the upright cut, and later ones against its sides', () => {
+    for (const recipe of recipes) {
+      const count = 2 * recipe.cuts.length;
+      // A run's two sides, each the index of the slice it starts
+      const sides = (run: number[]) => [run[0], (run[run.length - 1] + 1) % count];
+      const parts = recipe.toppings.map((t) => t.slices).filter((run) => run.length < count);
+      if (!parts.length) continue;
+      const upright = uprightEdges(recipe.cuts);
+      expect(upright).toHaveLength(2);
+      expect(sides(parts[0]).some((side) => upright.includes(side))).toBe(true);
+      for (const run of parts.slice(1)) expect(sides(run).some((side) => sides(parts[0]).includes(side))).toBe(true);
     }
   });
 

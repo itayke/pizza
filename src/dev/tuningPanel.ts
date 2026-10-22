@@ -225,7 +225,9 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orders.addBinding(GRADE, 'y', { label: 'gradeY', min: -500, max: 500, step: 1 });
   orders.addBinding(GRADE, 'popScale', { min: 1, max: 5 });
   orders.addBinding(GRADE, 'popSeconds', { min: 0, max: 1 });
-  orders.addBinding(ORDER_TICKET, 'pictureSize', { min: 0.2, max: 1.5 });
+  orders.addBinding(ORDER_TICKET, 'pictureSize', { min: 0.2, max: 2.5 });
+  orders.addBinding(ORDER_TICKET, 'pictureX', { min: -300, max: 300, step: 1 });
+  orders.addBinding(ORDER_TICKET, 'pictureY', { min: -300, max: 300, step: 1 });
   orders.addBinding(ORDERS, 'minRules', { min: 1, max: 4, step: 1 });
   orders.addBinding(ORDERS, 'maxRules', { min: 1, max: 4, step: 1 });
   for (const key of ['wholeWeight', 'halfWeight', 'thirdWeight', 'quarterWeight'] as const) orders.addBinding(ORDERS, key, { min: 0, max: 2 });

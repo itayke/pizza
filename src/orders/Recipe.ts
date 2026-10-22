@@ -1,5 +1,5 @@
 import { BAKE, CUTTER, DOUGH, ORDER_JUDGE, PLACEMENT, RECIPE, TOPPINGS, WHOLE_TOPPINGS } from '../config';
-import { between, pick, shuffled, weighted } from '../core/random';
+import { between, coinFlip, pick, shuffled, weighted } from '../core/random';
 import { ART } from '../generated/artLayout';
 import type { Topping } from '../stations/ToppingLayer';
 import { edgesOf, lineAngle, slicesOf, type Wedge } from './slicing';
@@ -47,10 +47,27 @@ export function drawRecipe(): Recipe {
   const lines = slices / 2;
   const cuts = Array.from({ length: lines }, (_, i) => lineAngle(UPRIGHT + (i * Math.PI) / lines));
   const count = Math.min(between(RECIPE.minToppings, RECIPE.maxToppings), WHOLE_TOPPINGS.length);
+  // The first topping on part of the pizza meets the upright cut; any later one meets that first part's sides
+  let anchors = uprightEdges(cuts);
+  let anchored = false;
   const toppings = shuffled(WHOLE_TOPPINGS)
     .slice(0, count)
-    .map((topping) => ({ topping, slices: sliceRun(slices) }));
+    .map((topping) => {
+      const run = sliceRun(slices, anchors);
+      if (!anchored && run.length < slices) {
+        anchors = [run[0], (run[run.length - 1] + 1) % slices];
+        anchored = true;
+      }
+      return { topping, slices: run };
+    });
   return { cuts, ...drawBase(), toppings, bakeLevel: drawBakeLevel() };
+}
+
+/** The slice edges (each the index of the slice it starts) along the upright cut, at the bottom and the top. */
+export function uprightEdges(cuts: readonly number[]): number[] {
+  const slices = slicesOf(edgesOf(cuts));
+  const at = (angle: number) => slices.findIndex((slice) => Math.abs(Math.cos(slice.start - angle) - 1) < ON_GRID);
+  return [at(UPRIGHT), at(UPRIGHT + Math.PI)].filter((edge) => edge >= 0);
 }
 
 /** Sauce and cheese, either or neither. */
@@ -64,8 +81,11 @@ function drawBase(): { sauce: boolean; cheese: boolean } {
   return base ?? { sauce: true, cheese: true };
 }
 
-/** Every slice, half of them, or another run of neighbors short of all of them. */
-function sliceRun(slices: number): number[] {
+/**
+ * Every slice, half of them, or another run of neighbors short of all of them, starting or ending at one of the anchor
+ * edges (each the index of the slice it starts).
+ */
+function sliceRun(slices: number, anchors: readonly number[]): number[] {
   const half = slices / 2;
   const others = Array.from({ length: slices - 1 }, (_, i) => i + 1).filter((n) => n !== half);
   const kind = weighted([
@@ -74,7 +94,9 @@ function sliceRun(slices: number): number[] {
     { value: 'other', weight: others.length ? RECIPE.otherWeight : 0 },
   ]);
   const length = kind === 'half' ? half : kind === 'other' ? pick(others) : slices;
-  const start = Math.floor(Math.random() * slices);
+  const anchor = anchors.length ? pick(anchors) : 0;
+  // Clockwise from the anchor, or up to it
+  const start = coinFlip() ? anchor : (anchor - length + slices) % slices;
   return Array.from({ length }, (_, i) => (start + i) % slices);
 }
 

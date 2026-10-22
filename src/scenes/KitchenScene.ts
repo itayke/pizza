@@ -88,9 +88,9 @@ export class KitchenScene extends Container {
   private readonly peel = artSprite('peel');
   private readonly bowl = artSprite('bowl');
   private readonly bowlLabel = new SelectableLabel(WORDS.dough, 'bowl', 'label_dough');
-  private readonly orderTray = new Sprite({ texture: artTexture('order_tray'), anchor: 0.5 });
   private readonly orderLabel = new Label(WORDS.order, 'tray', 'label_order');
-  private readonly ticket = new OrderTicket(this.orderTray.texture.width, this.orderTray.texture.height);
+  /** The order, laid out in the tray art's space, though the tray itself isn't drawn for now. */
+  private readonly ticket = new OrderTicket(artTexture('order_tray').width, artTexture('order_tray').height);
   /** Makes each picture order out of sight. */
   private readonly pictureDough: Dough;
   /** What the pizza on the peel should be. */
@@ -144,7 +144,7 @@ export class KitchenScene extends Container {
     this.addChild(...STATIONS.map((name) => this.stations[name]));
     this.buildBins(unlocked);
     this.buildBowl();
-    this.stations.orderTray.addChild(this.orderTray, this.ticket, this.orderLabel);
+    this.stations.orderTray.addChild(this.ticket, this.orderLabel);
     this.buildPeel();
     this.stations.gauge.addChild(this.gauge);
     this.buildDragon();
@@ -618,11 +618,9 @@ export class KitchenScene extends Container {
     if (this.doughPhase === 'inBowl') this.restBall();
   }
 
-  /** Place the order tray and its caption from config; the caption keeps its drawn spot below the tray. */
+  /** Place the order and its caption from config; the caption keeps its drawn spot below the tray. */
   private layoutOrderTray(): void {
     const { x, y, scale, labelX, labelY } = ORDER_TRAY;
-    this.orderTray.position.set(x, y);
-    this.orderTray.scale.set(scale);
     // The ticket lives in the tray's art space
     this.ticket.position.set(x, y);
     this.ticket.scale.set(scale);
