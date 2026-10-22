@@ -1,6 +1,6 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, GRADE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SLICING, TOPPINGS, WIDESCREEN } from '../config';
-import { gradeOf } from '../orders/grade';
+import { BAKE, BAKE_BUTTON, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, GRADE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SLICING, TOPPINGS, WIDESCREEN } from '../config';
+import { gradeOf, type Score } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
 import type { CurrentOrder, KitchenScene } from '../scenes/KitchenScene';
@@ -16,6 +16,9 @@ const TOGGLE_KEY = 't';
 const BAKE_LEVEL_REFRESH_MS = 100;
 const ORDER_SCORE_REFRESH_MS = 250;
 const SCORE_DECIMALS = 2;
+// Rows the score shows at most: a picture's parts, and every sauce or topping
+const SCORE_PARTS = 3;
+const SCORE_CHANNELS = INGREDIENT_IDS.length;
 
 const describeRule = (rule: Rule): string => {
   switch (rule.kind) {
@@ -191,14 +194,18 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const orders = pane.addFolder({ title: 'Orders', expanded: false });
   const live = { order: '', score: '', served: '' };
   const lines = Math.max(ORDERS.maxRules + 2, RECIPE.maxToppings + 3);
+  // Parts and total, then a line per sauce or topping, slices and bake
+  const scoreRows = SCORE_PARTS + 1 + SCORE_CHANNELS + 2;
   const liveOrder = orders.addBinding(live, 'order', { readonly: true, multiline: true, rows: lines });
-  const liveScore = orders.addBinding(live, 'score', { readonly: true, multiline: true, rows: lines });
-  const lastServed = orders.addBinding(live, 'served', { label: 'last served', readonly: true });
+  const liveScore = orders.addBinding(live, 'score', { readonly: true, multiline: true, rows: scoreRows });
+  // Kept from the moment it was served, to see what led to its grade
+  const lastServed = orders.addBinding(live, 'served', { label: 'last served', readonly: true, multiline: true, rows: scoreRows + 1 });
+  const scoreText = ({ parts, total, details }: Score) =>
+    [...parts, { name: 'total', score: total }].map(({ name, score }) => `${name} ${score.toFixed(SCORE_DECIMALS)}`).concat(details).join('\n');
   setInterval(() => {
-    const { parts, total } = scene.scoreOrder();
     live.order = describeOrder(scene.current);
-    live.score = [...parts, { name: 'total', score: total }].map(({ name, score }) => `${name} ${score.toFixed(SCORE_DECIMALS)}`).join('\n');
-    live.served = scene.lastScore ? `${scene.lastScore.total.toFixed(SCORE_DECIMALS)} ${gradeOf(scene.lastScore.total)}` : '';
+    live.score = scoreText(scene.scoreOrder());
+    live.served = scene.lastScore ? `${gradeOf(scene.lastScore.total)}\n${scoreText(scene.lastScore)}` : '';
     liveOrder.refresh();
     liveScore.refresh();
     lastServed.refresh();
@@ -215,6 +222,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   for (const key of ['lightAt', 'wellAt', 'burntAt'] as const) orders.addBinding(RECIPE, key, { min: 0, max: 1 });
   orders.addBinding(PICTURE_JUDGE, 'extraPenalty', { min: 0, max: 0.5 });
   orders.addBinding(PICTURE_JUDGE, 'missingPenalty', { min: 0, max: 0.5 });
+  orders.addBinding(PICTURE_JUDGE, 'bakeSlack', { label: 'pictureBakeSlack', min: 0, max: 0.5 });
   orders.addBinding(PICTURE_JUDGE, 'bakeTolerance', { label: 'pictureBakeTolerance', min: 0, max: 0.5 });
   for (const key of ['coverWeight', 'slicesWeight', 'bakeWeight'] as const) orders.addBinding(PICTURE_JUDGE, key, { min: 0, max: 10 });
   for (const key of ['aPlus', 'a', 'b', 'c', 'd'] as const) orders.addBinding(GRADE, key, { label: `grade ${key}`, min: 0, max: 1 });

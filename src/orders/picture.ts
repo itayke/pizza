@@ -15,8 +15,14 @@ export type CutPizza = Pizza & { edges: readonly number[]; sauceIn: (slice: Wedg
 /** A pizza as read: how covered each bin is by each channel (0 to 1, as mapped), its slice count and bake level. */
 export type Profile = { bins: Record<Channel, number[]>; slices: number; bakeLevel: number };
 
-/** How well a served pizza copies a picture: each part 0 to 1, and their weighted mean. */
-export type PictureVerdict = { cover: number; slices: number; bake: number; total: number };
+/**
+ * How a sauce or topping compares at the best turn: its score, and how much of each pizza it covers on average (as
+ * mapped, 0 to 1).
+ */
+export type ChannelVerdict = { name: Channel; score: number; picture: number; served: number };
+
+/** How well a served pizza copies a picture: each part 0 to 1, and their weighted mean; and what cover came from. */
+export type PictureVerdict = { cover: number; slices: number; bake: number; total: number; channels: ChannelVerdict[] };
 
 /** Coverage from clearMax (nothing) to coverFull (all), so more than plenty counts as plenty. */
 function mapped(coverage: number): number {
@@ -55,10 +61,11 @@ export function comparePicture(picture: Profile, served: Profile): PictureVerdic
   const count = Math.min(picture.bins.sauce.length, served.bins.sauce.length);
   // Only what's on either pizza counts
   const channels = CHANNELS.filter((c) => picture.bins[c].some((v) => v > 0) || served.bins[c].some((v) => v > 0));
+  const mean = (bins: number[]) => bins.slice(0, count).reduce((sum, v) => sum + v, 0) / count;
   let cover = channels.length ? 0 : 1;
+  let best: ChannelVerdict[] = [];
   for (let turn = 0; turn < count && channels.length; turn++) {
-    let alike = 0;
-    for (const c of channels) {
+    const scored = channels.map((c) => {
       let both = 0;
       let either = 0;
       for (let b = 0; b < count; b++) {
@@ -67,16 +74,19 @@ export function comparePicture(picture: Profile, served: Profile): PictureVerdic
         both += Math.min(p, s);
         either += Math.max(p, s);
       }
-      alike += either > 0 ? both / either : 1;
-    }
-    cover = Math.max(cover, alike / channels.length);
+      return { name: c, score: either > 0 ? both / either : 1, picture: mean(picture.bins[c]), served: mean(served.bins[c]) };
+    });
+    const alike = scored.reduce((sum, c) => sum + c.score, 0) / channels.length;
+    if (alike <= cover && best.length) continue;
+    cover = alike;
+    best = scored;
   }
-  const { extraPenalty, missingPenalty, bakeTolerance, coverWeight, slicesWeight, bakeWeight } = PICTURE_JUDGE;
+  const { extraPenalty, missingPenalty, bakeSlack, bakeTolerance, coverWeight, slicesWeight, bakeWeight } = PICTURE_JUDGE;
   const extra = served.slices - picture.slices;
   const slices = clamp01(1 - (extra > 0 ? extra * extraPenalty : -extra * missingPenalty));
-  const off = Math.abs(served.bakeLevel - picture.bakeLevel);
+  const off = Math.max(0, Math.abs(served.bakeLevel - picture.bakeLevel) - bakeSlack);
   const bake = bakeTolerance > 0 ? clamp01(1 - off / bakeTolerance) : off > 0 ? 0 : 1;
   const weights = coverWeight + slicesWeight + bakeWeight;
   const total = weights > 0 ? (cover * coverWeight + slices * slicesWeight + bake * bakeWeight) / weights : 1;
-  return { cover, slices, bake, total };
+  return { cover, slices, bake, total, channels: best };
 }

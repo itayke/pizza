@@ -151,11 +151,12 @@ describe('copying a picture', () => {
     expect(verdict.cover).toBeCloseTo(1 - 1 / channels);
   });
 
-  it('loses the bake score past its tolerance', () => {
+  it('keeps the bake score within its slack and loses it past its tolerance', () => {
     const recipe = drawRecipe();
     const spots = recipeSpots(recipe);
-    const verdict = comparePicture(profileOf(lay(recipe, { spots })), profileOf(lay(recipe, { spots, bakeLevel: recipe.bakeLevel + PICTURE_JUDGE.bakeTolerance })));
-    expect(verdict.bake).toBeCloseTo(0);
+    const bakedOff = (off: number) => comparePicture(profileOf(lay(recipe, { spots })), profileOf(lay(recipe, { spots, bakeLevel: recipe.bakeLevel + off }))).bake;
+    expect(bakedOff(-PICTURE_JUDGE.bakeSlack)).toBeCloseTo(1);
+    expect(bakedOff(PICTURE_JUDGE.bakeSlack + PICTURE_JUDGE.bakeTolerance)).toBeCloseTo(0);
   });
 
   it('reads cuts on the grid as whole bins', () => {

@@ -57,6 +57,8 @@ type Station = (typeof STATIONS)[number];
 const ORIGIN = { x: 0, y: 0 };
 // Order pictures are drawn at design size, about as large as the ticket shows them
 const PICTURE_SCALE = 1;
+// Scores in the details on what led to them
+const SCORE_DECIMALS = 2;
 
 /** What the pizza on the peel should be: a picture to copy, read for scoring, or rules to meet. */
 export type CurrentOrder = { kind: 'picture'; recipe: Recipe; profile: Profile } | { kind: 'rules'; order: Order };
@@ -248,12 +250,21 @@ export class KitchenScene extends Container {
     const pizza = this.dough.pizza();
     const { current } = this;
     if (current.kind === 'picture') {
-      const { cover, slices, bake, total } = comparePicture(current.profile, profileOf(pizza));
-      return { parts: [{ name: 'cover', score: cover }, { name: 'slices', score: slices }, { name: 'bake', score: bake }], total };
+      const served = profileOf(pizza);
+      const { cover, slices, bake, total, channels } = comparePicture(current.profile, served);
+      // Short enough for a narrow panel: no leading zeros
+      const fixed = (v: number) => v.toFixed(SCORE_DECIMALS).replace(/^0\./, '.');
+      const details = [
+        // Each sauce or topping: its score, then how much of the pizza it covers, pictured / served
+        ...channels.map((c) => `${c.name} ${fixed(c.score)}: ${fixed(c.picture)}/${fixed(c.served)}`),
+        `slices ${current.profile.slices}/${served.slices}`,
+        `bake ${fixed(current.profile.bakeLevel)}/${fixed(served.bakeLevel)}`,
+      ];
+      return { parts: [{ name: 'cover', score: cover }, { name: 'slices', score: slices }, { name: 'bake', score: bake }], total, details };
     }
     const verdict = judge(current.order, pizza, pizza.edges);
     const rules = verdict.rules.map((score, i) => ({ name: current.order.rules[i].kind, score }));
-    return { parts: [...rules, { name: 'bake', score: verdict.doneness }], total: verdict.total };
+    return { parts: [...rules, { name: 'bake', score: verdict.doneness }], total: verdict.total, details: [] };
   }
 
   /**

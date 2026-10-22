@@ -1,7 +1,7 @@
 import { GRADE } from '../config';
 
-/** How well a pizza meets its order: each named part from 0 to 1, and their total. */
-export type Score = { parts: { name: string; score: number }[]; total: number };
+/** How well a pizza meets its order: each named part from 0 to 1, their total, and lines on what led to them. */
+export type Score = { parts: { name: string; score: number }[]; total: number; details: string[] };
 
 /** A total score (0 to 1) as a school grade, A+ down to F. */
 export function gradeOf(total: number): string {

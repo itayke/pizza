@@ -344,12 +344,14 @@ export const RECIPE = {
 // topping (as for rule orders, but mapped from clearMax to coverFull onto 0 to 1, so a slice plainly topped counts as
 // full) is spread evenly over bins a cutter grid step wide. cover is how alike the bins are, each sauce or topping on either pizza by its overlap over its union, at
 // the served pizza's best turn. slices loses extraPenalty per slice more than pictured and missingPenalty per slice
-// fewer; bake loses its score over bakeTolerance off the pictured bake level. The total weighs them by their weights
+// fewer; bake keeps its full score within bakeSlack of the pictured bake level, since nearby bakes look alike, then
+// loses it over bakeTolerance further off. The total weighs them by their weights
 export const PICTURE_JUDGE = {
   clearMax: 0.05,
   coverFull: 0.4,
   extraPenalty: 0.05,
   missingPenalty: 0.2,
+  bakeSlack: 0.1,
   bakeTolerance: 0.2,
   coverWeight: 4,
   slicesWeight: 1,
