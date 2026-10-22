@@ -1,6 +1,7 @@
 import { Container, RenderTexture, Sprite, type Renderer } from 'pixi.js';
 import { SAUCE } from '../config';
 import { artTexture } from '../core/art';
+import { inWedge, type Wedge } from '../orders/slicing';
 
 const TAU = Math.PI * 2;
 const TRANSPARENT = [0, 0, 0, 0];
@@ -109,6 +110,21 @@ export class SauceLayer {
       }
     }
     this.coverage = this.covered / this.discCells;
+  }
+
+  /** How much of a slice of the dough, out to reach (a fraction of its edge), is sauced, by the coverage grid. */
+  coverageIn(slice: Wedge, reach: number): number {
+    const n = SAUCE.coverageGrid;
+    let cells = 0;
+    let sauced = 0;
+    for (let i = 0; i < this.grid.length; i++) {
+      const x = cellCenter(i % n, n);
+      const y = cellCenter(Math.floor(i / n), n);
+      if (Math.hypot(x, y) > reach || !inWedge(Math.atan2(y, x), slice)) continue;
+      cells++;
+      sauced += this.grid[i];
+    }
+    return cells ? sauced / cells : 0;
   }
 
   private inDisc(i: number): boolean {

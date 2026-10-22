@@ -172,7 +172,8 @@ export const ORDER_TRAY = {
 // centered offsetY below its center (same units). Rows are up to rowHeight tray px tall, rowGap apart, each centered,
 // its icons itemGap apart by what's drawn of them. Icons are sized by what's drawn, as fractions of a row's height: a
 // share's pie whole, toppings at toppingSize (pieTopping inside a pie, whose radius is pieRadius of its art), counts'
-// digits at digitSize, the × at timesSize, the apart mark at apartSize and the bake flame at flameSize
+// digits at digitSize, the × at timesSize, the apart mark at apartSize and the bake flame at flameSize. A picture
+// order fills pictureSize of the ticket, centered the same way
 export const ORDER_TICKET = {
   width: 0.76,
   height: 0.8,
@@ -187,6 +188,7 @@ export const ORDER_TICKET = {
   timesSize: 0.45,
   apartSize: 0.9,
   flameSize: 0.85,
+  pictureSize: 1,
 };
 
 // Each topping's icon on the ticket, as a multiple of its size there, so they read alike
@@ -198,13 +200,14 @@ export const ORDER_ICON_SCALE = {
   olives: 1,
 };
 
-// Orders: rules a pizza should meet, each a topping covering some share of its slices and no others (a whole share is
+// Orders are pictures of a pizza to copy (see RECIPE), or with pictures off, rule puzzles. Rules: each a topping covering some share of its slices and no others (a whole share is
 // all of them), exactly a count of a topping, or two toppings kept from touching; plus how baked. An order has
 // minRules to maxRules rules, each drawn by its weight: a share of the whole, half, third or quarter (only those the
 // slicing can show), a count (up to maxCount) or an apart pair. wellChance and burntChance of orders ask for past
 // normally baked. An order is kept only if its toppings fit the slices (see Order.ts); up to tries orders are drawn,
 // then it falls back to a single whole share
 export const ORDERS = {
+  pictures: true,
   minRules: 1,
   maxRules: 3,
   wholeWeight: 1,
@@ -224,7 +227,8 @@ export const ORDERS = {
 // lip of lipColor (lipCore and lipFade likewise) is screened at lipAlpha lipOffset design px to the side away from the
 // light, coming from lightAngle degrees (0 from the right, clockwise); lipFacing is how much less a cut running toward
 // the light gets. Cuts wander up to wobble design px to either side, swaying about every wobbleWave, and narrow to a
-// point over taper where they stop short of the edge. The sliced pizza shows for showSeconds before the next order
+// point over taper where they stop short of the edge. Once served, the sliced pizza shows for showSeconds with its
+// grade before its slices leave and the next order comes
 export const SLICING = {
   cuts: 3,
   coreWidth: 2.5,
@@ -241,7 +245,7 @@ export const SLICING = {
   wobble: 1.5,
   wobbleWave: 90,
   taper: 32.609,
-  showSeconds: 0,
+  showSeconds: 2,
 };
 
 // Once the sliced pizza has shown, its slices leave one after another, stagger seconds apart in random order, each
@@ -296,6 +300,65 @@ export const ORDER_JUDGE = {
   touchFactor: 0.8,
   touchPenalty: 0.25,
   bakeTolerance: 0.1,
+};
+
+// Picture orders: a pizza to copy. It's cut by minCuts to maxCuts even lines through its center, turned by a random
+// step of the cutter's grid (only counts whose slices line up with the grid). sauceChance and cheeseChance of pizzas
+// have each all over; minToppings to maxToppings whole toppings each go on every slice (everywhereChance) or on a run
+// of neighboring slices, their pieces' discs (as scored) adding up to density of each slice out to the inner rim, kept
+// edgeGap of their half size clear of its cuts. Its bake is drawn by weight: light and well done lightAt and wellAt of
+// the way from baked enough to burnt, just right at the optimal level, or burnt, burntAt of the way into burnt
+export const RECIPE = {
+  minCuts: 1,
+  maxCuts: 4,
+  sauceChance: 0.85,
+  cheeseChance: 0.85,
+  minToppings: 1,
+  maxToppings: 2,
+  everywhereChance: 0.35,
+  density: 0.9,
+  edgeGap: 0.7,
+  lightWeight: 1,
+  rightWeight: 3,
+  wellWeight: 1,
+  burntWeight: 0.25,
+  lightAt: 0.1,
+  wellAt: 0.9,
+  burntAt: 0.5,
+};
+
+// Scoring a copied picture, each part 0 to 1. Both pizzas are read a slice at a time: its coverage by sauce and by each
+// topping (as for rule orders, but mapped from clearMax to coverFull onto 0 to 1, so a slice plainly topped counts as
+// full) is spread evenly over bins a cutter grid step wide. cover is how alike the bins are, each sauce or topping on either pizza by its overlap over its union, at
+// the served pizza's best turn. slices loses extraPenalty per slice more than pictured and missingPenalty per slice
+// fewer; bake loses its score over bakeTolerance off the pictured bake level. The total weighs them by their weights
+export const PICTURE_JUDGE = {
+  clearMax: 0.05,
+  coverFull: 0.4,
+  extraPenalty: 0.05,
+  missingPenalty: 0.2,
+  bakeTolerance: 0.2,
+  coverWeight: 4,
+  slicesWeight: 1,
+  bakeWeight: 1,
+};
+
+// A served pizza's grade, stamped on its order until the next one: A+ from a total score of aPlus, then A, B, C and D
+// from theirs, else F. Set in the hand font with capitals cap tray px tall in color, tilted tilt degrees clockwise and
+// x, y tray px off the ticket's center; it lands from popScale times its size over popSeconds
+export const GRADE = {
+  aPlus: 0.95,
+  a: 0.88,
+  b: 0.75,
+  c: 0.6,
+  d: 0.45,
+  cap: 110,
+  color: '#c0392b',
+  tilt: -12,
+  x: -82,
+  y: -128,
+  popScale: 2.5,
+  popSeconds: 0.25,
 };
 
 // Peel: nudge from its drawn spot in design px (the dough moves with it), and its face center as fractions of the art

@@ -1,11 +1,14 @@
-import { Container, Sprite } from 'pixi.js';
-import { ORDER_ICON_SCALE, ORDER_TICKET } from '../config';
+import { Container, Sprite, Texture } from 'pixi.js';
+import { GRADE, ORDER_ICON_SCALE, ORDER_TICKET } from '../config';
 import { artTexture, drawnRect, type TextureName } from '../core/art';
+import { BentText } from '../core/BentText';
+import { easeOutCubic } from '../core/easing';
 import type { Order, Rule } from '../orders/Order';
 import type { Topping } from './ToppingLayer';
 
 // Shares' wedges are drawn from 12 o'clock, clockwise
 const PIE_START = -Math.PI / 2;
+const DEG_TO_RAD = Math.PI / 180;
 
 /** An icon whose drawn part's larger side is size of the row height; any icons inside it sit off its art's center by
  * x, y, as fractions of the art's larger side. */
@@ -35,32 +38,94 @@ function ruleItems(rule: Rule): Item[] {
   }
 }
 
-/** The order in the tray, a row of icons per rule and one for how baked when past normal; in the tray's art space,
- * centered on it. */
+/**
+ * The order in the tray: a picture of the pizza to copy, or a row of icons per rule and one for how baked when past
+ * normal; in the tray's art space, centered on it. A served pizza's grade is stamped over it until the next order.
+ */
 export class OrderTicket extends Container {
   private rows: Item[][] = [];
+  private readonly content = new Container();
+  /** The picture order, if it's one, and its texture, which the ticket owns. */
+  private readonly picture = new Sprite({ anchor: 0.5 });
+  private pictured: Texture | null = null;
+  /** How far the pictured pizza reaches from the texture's center, texture px. */
+  private picturedRadius = 1;
+  private readonly grade = new BentText();
+  /** Seconds since the grade was stamped. */
+  private gradeAge = Infinity;
 
   constructor(private readonly trayWidth: number, private readonly trayHeight: number) {
     super();
     this.eventMode = 'none';
+    this.picture.visible = this.grade.visible = false;
+    this.addChild(this.content, this.picture, this.grade);
   }
 
-  show(order: Order): void {
+  /** Show a rule order. */
+  showRules(order: Order): void {
     this.rows = order.rules.map(ruleItems);
     if (order.doneness !== 'normal') this.rows.push([{ texture: `order_${order.doneness}`, size: ORDER_TICKET.flameSize }]);
+    this.setPicture(null);
+    this.showGrade(null);
     this.layout();
   }
 
-  /** Stack the rows, centered in the tray, each as tall as fits, centered and no wider than it. */
+  /** Show a picture order, its pizza radius texture px from the texture's center, taking over its texture. */
+  showPicture(texture: Texture, radius: number): void {
+    this.rows = [];
+    this.setPicture(texture);
+    this.picturedRadius = Math.max(1, radius);
+    this.showGrade(null);
+    this.layout();
+  }
+
+  /** Stamp a grade over the order, or take it off. */
+  showGrade(grade: string | null): void {
+    this.grade.visible = grade !== null;
+    this.gradeAge = 0;
+    if (grade !== null) this.grade.set(grade, GRADE.cap, 0);
+    this.update(0);
+  }
+
+  /** The grade lands from large. */
+  update(dt: number): void {
+    if (!this.grade.visible) return;
+    this.gradeAge += dt;
+    const t = GRADE.popSeconds > 0 ? Math.min(1, this.gradeAge / GRADE.popSeconds) : 1;
+    this.grade.scale.set(GRADE.popScale + (1 - GRADE.popScale) * easeOutCubic(t));
+    this.grade.alpha = t;
+  }
+
+  private setPicture(texture: Texture | null): void {
+    if (this.pictured !== texture) this.pictured?.destroy(true);
+    this.pictured = texture;
+    this.picture.texture = texture ?? Texture.EMPTY;
+    this.picture.visible = texture !== null;
+  }
+
+  /** Lay out the order and the grade's spot. */
   layout(): void {
-    for (const child of this.removeChildren()) child.destroy({ children: true });
+    this.layoutRows();
+    const { width, height, offsetY, pictureSize } = ORDER_TICKET;
+    const size = Math.min(width * this.trayWidth, height * this.trayHeight) * pictureSize;
+    // The pizza fills it; the texture's clear margins spill past
+    this.picture.scale.set(size / (2 * this.picturedRadius));
+    this.picture.position.set(0, offsetY * this.trayHeight);
+    this.grade.tint = GRADE.color;
+    this.grade.position.set(GRADE.x, GRADE.y + offsetY * this.trayHeight);
+    this.grade.rotation = GRADE.tilt * DEG_TO_RAD;
+  }
+
+  /** Stack the rows, centered in the tray, each as tall as fits, centered and no wider than it. */
+  private layoutRows(): void {
+    for (const child of this.content.removeChildren()) child.destroy({ children: true });
     const { width, height, offsetY, rowHeight, rowGap, itemGap } = ORDER_TICKET;
     const maxWidth = width * this.trayWidth;
     const count = this.rows.length;
     const rowH = Math.min(rowHeight, (height * this.trayHeight - rowGap * (count - 1)) / count);
     let y = offsetY * this.trayHeight - ((rowH + rowGap) * count - rowGap) / 2 + rowH / 2;
     for (const items of this.rows) {
-      const row = this.addChild(new Container());
+      const row = this.content.addChild(new Container());
       let x = 0;
       for (const item of items) {
         const icon = this.icon(item, rowH);

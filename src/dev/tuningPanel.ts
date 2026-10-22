@@ -1,13 +1,16 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, SELECTED_LABEL, SERVE_BUTTON, SERVED, SLICING, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, GRADE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SLICING, TOPPINGS, WIDESCREEN } from '../config';
+import { gradeOf } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
-import type { KitchenScene } from '../scenes/KitchenScene';
+import type { Recipe } from '../orders/Recipe';
+import type { CurrentOrder, KitchenScene } from '../scenes/KitchenScene';
 import { addPaneFilter } from './paneFilter';
 import { TUNING_SAVE_ENDPOINT } from './tuningEndpoint';
 
 const RESET_KEY = 'r';
 const SKIP_KEY = 's';
 const ORDER_KEY = 'o';
+const COPY_KEY = 'c';
 // Tweakpane's own offset from the window corner, px
 const PANEL_MARGIN = 8;
 const BAKE_LEVEL_REFRESH_MS = 100;
@@ -25,8 +28,19 @@ const describeRule = (rule: Rule): string => {
   }
 };
 
-/** An order spelled out, a line per rule, then how baked. */
-const describeOrder = (order: Order): string => [...order.rules.map(describeRule), `${order.doneness} bake`].join('\n');
+/** A rule order spelled out, a line per rule, then how baked. */
+const describeRules = (order: Order): string => [...order.rules.map(describeRule), `${order.doneness} bake`].join('\n');
+
+/** A picture order spelled out: its cuts, sauce and cheese, a line per topping with its slices, then how baked. */
+const describeRecipe = (recipe: Recipe): string =>
+  [
+    `${recipe.cuts.length} cuts`,
+    [recipe.sauce ? 'sauce' : 'no sauce', recipe.cheese ? 'cheese' : 'no cheese'].join(', '),
+    ...recipe.toppings.map(({ topping, slices }) => `${topping} on ${slices.join(' ')}`),
+    `bake ${recipe.bakeLevel.toFixed(SCORE_DECIMALS)}`,
+  ].join('\n');
+
+const describeOrder = (current: CurrentOrder): string => (current.kind === 'picture' ? describeRecipe(current.recipe) : describeRules(current.order));
 
 /** Dev-only live tuning. Edits config objects in place; values reset on reload. refit re-fits the screen. */
 export function createTuningPanel(scene: KitchenScene, refit: () => void): void {
@@ -43,6 +57,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   pane.addButton({ title: `Reset dough (${RESET_KEY.toUpperCase()})` }).on('click', resetDough);
   pane.addButton({ title: `Skip step (${SKIP_KEY.toUpperCase()})` }).on('click', () => scene.skipStep());
   pane.addButton({ title: `New order (${ORDER_KEY.toUpperCase()})` }).on('click', () => scene.newOrder());
+  pane.addButton({ title: `Copy order (${COPY_KEY.toUpperCase()})` }).on('click', () => scene.copyOrder());
   window.addEventListener('keydown', (e) => {
     // Typing in a field (the filter, a number box) isn't a shortcut
     if (e.target instanceof HTMLInputElement) return;
@@ -50,6 +65,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     if (key === RESET_KEY) resetDough();
     if (key === SKIP_KEY) scene.skipStep();
     if (key === ORDER_KEY) scene.newOrder();
+    if (key === COPY_KEY) scene.copyOrder();
   });
 
   const dough = pane.addFolder({ title: 'Dough', expanded: false });
@@ -168,23 +184,47 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orderTray.addBinding(ORDER_TRAY, 'labelY', { min: -200, max: 200, step: 1 });
   orderTray.on('change', layout);
 
-  // Live scores of the pizza on the peel against the order, a line per rule then doneness and the mean
+  // Live scores of the pizza on the peel against the order, a line per part then the total
   const orders = pane.addFolder({ title: 'Orders', expanded: false });
   const live = { order: '', score: '', served: '' };
-  const lines = ORDERS.maxRules + 2;
-  const scoreLines = (scores: number[]) => scores.map((s) => s.toFixed(SCORE_DECIMALS)).join('\n');
+  const lines = Math.max(ORDERS.maxRules + 2, RECIPE.maxToppings + 3);
   const liveOrder = orders.addBinding(live, 'order', { readonly: true, multiline: true, rows: lines });
   const liveScore = orders.addBinding(live, 'score', { readonly: true, multiline: true, rows: lines });
   const lastServed = orders.addBinding(live, 'served', { label: 'last served', readonly: true });
   setInterval(() => {
-    const verdict = scene.scoreOrder();
-    live.order = describeOrder(scene.order);
-    live.score = scoreLines([...verdict.rules, verdict.doneness, verdict.total]);
-    live.served = scene.lastVerdict ? scene.lastVerdict.total.toFixed(SCORE_DECIMALS) : '';
+    const { parts, total } = scene.scoreOrder();
+    live.order = describeOrder(scene.current);
+    live.score = [...parts, { name: 'total', score: total }].map(({ name, score }) => `${name} ${score.toFixed(SCORE_DECIMALS)}`).join('\n');
+    live.served = scene.lastScore ? `${scene.lastScore.total.toFixed(SCORE_DECIMALS)} ${gradeOf(scene.lastScore.total)}` : '';
     liveOrder.refresh();
     liveScore.refresh();
     lastServed.refresh();
   }, ORDER_SCORE_REFRESH_MS);
+  orders.addBinding(ORDERS, 'pictures').on('change', () => scene.newOrder());
+  orders.addBinding(RECIPE, 'minCuts', { min: 1, max: 6, step: 1 });
+  orders.addBinding(RECIPE, 'maxCuts', { min: 1, max: 6, step: 1 });
+  orders.addBinding(RECIPE, 'sauceChance', { min: 0, max: 1 });
+  orders.addBinding(RECIPE, 'cheeseChance', { min: 0, max: 1 });
+  orders.addBinding(RECIPE, 'minToppings', { min: 0, max: 4, step: 1 });
+  orders.addBinding(RECIPE, 'maxToppings', { min: 0, max: 4, step: 1 });
+  orders.addBinding(RECIPE, 'everywhereChance', { min: 0, max: 1 });
+  orders.addBinding(RECIPE, 'density', { min: 0.1, max: 2 });
+  orders.addBinding(RECIPE, 'edgeGap', { min: 0, max: 2 });
+  for (const key of ['lightWeight', 'rightWeight', 'wellWeight', 'burntWeight'] as const) orders.addBinding(RECIPE, key, { min: 0, max: 5 });
+  for (const key of ['lightAt', 'wellAt', 'burntAt'] as const) orders.addBinding(RECIPE, key, { min: 0, max: 1 });
+  orders.addBinding(PICTURE_JUDGE, 'extraPenalty', { min: 0, max: 0.5 });
+  orders.addBinding(PICTURE_JUDGE, 'missingPenalty', { min: 0, max: 0.5 });
+  orders.addBinding(PICTURE_JUDGE, 'bakeTolerance', { label: 'pictureBakeTolerance', min: 0, max: 0.5 });
+  for (const key of ['coverWeight', 'slicesWeight', 'bakeWeight'] as const) orders.addBinding(PICTURE_JUDGE, key, { min: 0, max: 10 });
+  for (const key of ['aPlus', 'a', 'b', 'c', 'd'] as const) orders.addBinding(GRADE, key, { label: `grade ${key}`, min: 0, max: 1 });
+  orders.addBinding(GRADE, 'cap', { label: 'gradeCap', min: 20, max: 600, step: 1 });
+  orders.addBinding(GRADE, 'color', { label: 'gradeColor' });
+  orders.addBinding(GRADE, 'tilt', { label: 'gradeTilt', min: -45, max: 45, step: 0.5 });
+  orders.addBinding(GRADE, 'x', { label: 'gradeX', min: -300, max: 300, step: 1 });
+  orders.addBinding(GRADE, 'y', { label: 'gradeY', min: -500, max: 500, step: 1 });
+  orders.addBinding(GRADE, 'popScale', { min: 1, max: 5 });
+  orders.addBinding(GRADE, 'popSeconds', { min: 0, max: 1 });
+  orders.addBinding(ORDER_TICKET, 'pictureSize', { min: 0.2, max: 1.5 });
   orders.addBinding(ORDERS, 'minRules', { min: 1, max: 4, step: 1 });
   orders.addBinding(ORDERS, 'maxRules', { min: 1, max: 4, step: 1 });
   for (const key of ['wholeWeight', 'halfWeight', 'thirdWeight', 'quarterWeight'] as const) orders.addBinding(ORDERS, key, { min: 0, max: 2 });
@@ -315,7 +355,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

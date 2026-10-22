@@ -13,7 +13,7 @@ Layout per `art/pizza_layout.jpeg`: split ingredient containers on top, dough bo
 3. **Toppings** — tap to place one, hold to keep dropping.
 4. **Bake** — hold the dragon to breathe fire; once the dough is rolled out, the gauge needle climbs from raw to burnt. Land it in the green zone, past it the pizza chars.
 5. **Slice** — once baked, pick up the cutter. Over the pizza it aims along the line through the center toward the pointer, snapping to an existing cut nearby; a press locks the line (snapped to a coarse angle grid unless on a cut) and dragging cuts along it. Released, a line cut far enough edge to edge is cut whole, and left uncut otherwise. The first cut locks toppings, baking and kneading.
-6. **Serve** — enabled once cut; scored against the order as sliced; after a moment the slices slide out from the center one after another, making room for a new order on fresh dough. A reaction to come.
+6. **Serve** — enabled once cut; scored against the order as sliced and graded A+ to F on the order; after a moment the slices slide out from the center one after another, making room for a new order on fresh dough. A reaction to come.
 
 Meta game: later.
 
@@ -32,7 +32,9 @@ Meta game: later.
 - **Scattered toppings** — pieces drop along the drag (and steadily while resting), stored as angle + fraction of the dough edge so they follow it; each piece stacks its raw, baked and burnt sprites for a later bake cross-fade.
 - **Toppings** — sprites with rotation/scale jitter.
 - **Baking** — one doneness value drives a raw → golden → charred filter with noise; fire is the drawn flame with a flicker. Each topping bakes only from when it lands, so one added late stays fresh.
-- **Orders** — a ticket in the tray, a row of icons per rule, no text: a topping covering some share of the slices and no others (whole means all of them), exactly a count of a topping, or two toppings not touching; plus well baked or burnt when past normal. Rules combine into small puzzles. Drawn orders are kept only if their toppings fit the slices: a shared topping takes its share of them, any other topping kept apart takes one, and toppings kept apart never share a slice. Each rule scores 0–1 (shares by how many slices are covered or clear as asked, counts by how far off, apart pairs by touches, doneness by bake range); the scores stay internal. Icons are placeholders until drawn.
+- **Orders** — a picture in the tray of a finished pizza to copy. Each is drawn as a recipe: even cuts on the cutter's grid, sauce and cheese or not, each whole topping on all slices or a run of neighbors, and a bake (light, just right, well done or burnt). A hidden dough makes it with the game's own art and is snapshotted for the ticket.
+  - Scoring a copy: both pizzas are read slice by slice (coverage per sauce and topping, a plainly topped slice counting as full), each slice spread evenly over bins a grid step wide, so extra cuts through a slice change nothing. Cover compares the bins at the served pizza's best turn, each sauce or topping by overlap over union; slices loses a little per extra slice and more per missing one; bake by distance from the pictured level. Toppings baked at their own levels (added after baking) aren't scored yet.
+- **Rule orders** (off for now, behind a config switch; too hard to read) — a ticket in the tray, a row of icons per rule, no text: a topping covering some share of the slices and no others (whole means all of them), exactly a count of a topping, or two toppings not touching; plus well baked or burnt when past normal. Rules combine into small puzzles. Drawn orders are kept only if their toppings fit the slices: a shared topping takes its share of them, any other topping kept apart takes one, and toppings kept apart never share a slice. Each rule scores 0–1 (shares by how many slices are covered or clear as asked, counts by how far off, apart pairs by touches, doneness by bake range); the scores stay internal. Icons are placeholders until drawn.
 - **Slicing** — the player cuts lines through the center with the cutter; each line is two rays parting slices, and a line is either cut whole or not at all. A piece belongs to the slice its center lies in. Served, the pizza is snapshotted and each slice becomes its own mesh over that snapshot, its sides traced down the middle of the cuts and shared with its neighbors, so pieces on a cut split with it. Orders are still drawn for even auto slicing, so they only ask for shares it can show.
 - **Bins** — fixed two-compartment art; each compartment shows its food once unlocked, empty until then.
 - **Input** — tool state machine: none → selected → applying. Tap a bin or drag from it.
@@ -52,7 +54,7 @@ Meta game: later.
 
 ## Dev
 
-Dev builds show a tuning panel (`src/dev/`) that edits config live, with a filter box that narrows it by name; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`). Keys: R resets the dough, S skips ahead (place the dough, roll it to the rim, then cover the inner rim in sauce, then cheese, then bake it just right), O draws a new order. The Orders folder shows the order and its live scores.
+Dev builds show a tuning panel (`src/dev/`) that edits config live, with a filter box that narrows it by name; Save writes values back into `src/config.ts` via a dev-server endpoint (`tools/`). Keys: R resets the dough, S skips ahead (place the dough, roll it to the rim, then cover the inner rim in sauce, then cheese, then bake it just right), O draws a new order, C makes the pictured pizza on the peel. The Orders folder switches between picture and rule orders and shows the order and its live scores.
 
 ## Art
 
@@ -68,6 +70,6 @@ Words are text in the hand font, bent on an arc to match the drawn lettering, so
 - [ ] 3. Sauce & cheese + coverage — sauce painting and cheese scatter done (raw only); cheese coverage and bake cross-fade next
 - [ ] 4. Toppings
 - [ ] 5. Dragon, fire, bake filter, gauge — fire and gauge done, pizza effects next
-- [ ] 6. Serve loop & feedback (sound, reactions) — orders, player slicing and scoring done (placeholder icons and cutter), reactions next
+- [ ] 6. Serve loop & feedback (sound, reactions) — picture orders, player slicing, scoring and grades done (placeholder cutter), reactions next
 - [ ] 7. Art pass — kid drawings as cut-out sprites (layout done), brush textures, animation
 - [ ] 8. Later — meta game, PWA

@@ -13,7 +13,7 @@ export type Pizza = { pieces: readonly PlacedPiece[]; bakeLevel: number; radiusA
 /** How well a pizza meets an order: each rule's score and its doneness's, each 0 to 1, and their mean. */
 export type Verdict = { rules: number[]; doneness: number; total: number };
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+export const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /** Score a pizza against an order, sliced along edges (angles of rays from its center). */
 export function judge(order: Order, pizza: Pizza, edges: readonly number[]): Verdict {

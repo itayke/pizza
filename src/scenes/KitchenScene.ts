@@ -13,6 +13,7 @@ import {
   HELD,
   INGREDIENT_IDS,
   ORDER_TRAY,
+  ORDERS,
   PEEL,
   PIECES,
   PULSE,
@@ -24,8 +25,11 @@ import {
 } from '../config';
 import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
 import { easeInQuad } from '../core/easing';
-import { judge, type Verdict } from '../orders/judge';
+import { gradeOf, type Score } from '../orders/grade';
+import { judge } from '../orders/judge';
 import { drawOrder, type Order } from '../orders/Order';
+import { comparePicture, profileOf, type Profile } from '../orders/picture';
+import { drawRecipe, type Recipe } from '../orders/Recipe';
 import { lineAngle, nearestLine, snapLine } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { CutterButton } from '../stations/CutterButton';
@@ -51,6 +55,11 @@ const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'gauge', 
 type Station = (typeof STATIONS)[number];
 
 const ORIGIN = { x: 0, y: 0 };
+// Order pictures are drawn at design size, about as large as the ticket shows them
+const PICTURE_SCALE = 1;
+
+/** What the pizza on the peel should be: a picture to copy, read for scoring, or rules to meet. */
+export type CurrentOrder = { kind: 'picture'; recipe: Recipe; profile: Profile } | { kind: 'rules'; order: Order };
 
 /**
  * The main play screen, laid out from the art. Once baked, the pizza is cut with the cutter, which locks the toppings,
@@ -82,10 +91,12 @@ export class KitchenScene extends Container {
   private readonly orderTray = new Sprite({ texture: artTexture('order_tray'), anchor: 0.5 });
   private readonly orderLabel = new Label(WORDS.order, 'tray', 'label_order');
   private readonly ticket = new OrderTicket(this.orderTray.texture.width, this.orderTray.texture.height);
+  /** Makes each picture order out of sight. */
+  private readonly pictureDough: Dough;
   /** What the pizza on the peel should be. */
-  order: Order = drawOrder();
+  current!: CurrentOrder;
   /** How the last served pizza met its order; none served yet. */
-  lastVerdict: Verdict | null = null;
+  lastScore: Score | null = null;
   /** The dough ball: waits in the bowl, is carried by hand, then drops onto the peel where the dough takes over. */
   private readonly doughBall = makeDoughBallSprite();
   /** Where and how large the ball sits in the bowl. */
@@ -123,6 +134,8 @@ export class KitchenScene extends Container {
   constructor(unlocked: ReadonlySet<IngredientId>, renderer: Renderer) {
     super();
     this.dough = new Dough(renderer);
+    this.pictureDough = new Dough(renderer);
+    this.pictureDough.setKneadable(false);
 
     this.background.anchor.set(0.5);
     // Interactive so a press anywhere reaches the scene (painting)
@@ -156,7 +169,7 @@ export class KitchenScene extends Container {
     this.setTool(null);
     this.resetDough();
     this.applyAvailability();
-    this.ticket.show(this.order);
+    this.newOrder();
   }
 
   /** Cover the whole screen area with paper, margins included. */
@@ -217,24 +230,39 @@ export class KitchenScene extends Container {
     this.dough.setPlaced(false);
   }
 
-  /** Replace the order with a new one. */
+  /** Replace the order with a new one: a picture of a pizza made out of sight, or rules. */
   newOrder(): void {
-    this.order = drawOrder();
-    this.ticket.show(this.order);
+    if (!ORDERS.pictures) {
+      this.current = { kind: 'rules', order: drawOrder() };
+      this.ticket.showRules(this.current.order);
+      return;
+    }
+    const recipe = drawRecipe();
+    this.pictureDough.make(recipe);
+    this.current = { kind: 'picture', recipe, profile: profileOf(this.pictureDough.pizza()) };
+    this.ticket.showPicture(this.pictureDough.snapshot(PICTURE_SCALE).texture, DOUGH.rimRadius);
   }
 
   /** How the pizza on the peel meets the order so far, sliced as cut so far. */
-  scoreOrder(): Verdict {
-    const { dough } = this;
-    return judge(this.order, { pieces: dough.toppings.placedPieces, bakeLevel: this.bakeLevel, radiusAt: (a) => dough.radiusAt(a) }, dough.sliceEdges());
+  scoreOrder(): Score {
+    const pizza = this.dough.pizza();
+    const { current } = this;
+    if (current.kind === 'picture') {
+      const { cover, slices, bake, total } = comparePicture(current.profile, profileOf(pizza));
+      return { parts: [{ name: 'cover', score: cover }, { name: 'slices', score: slices }, { name: 'bake', score: bake }], total };
+    }
+    const verdict = judge(current.order, pizza, pizza.edges);
+    const rules = verdict.rules.map((score, i) => ({ name: current.order.rules[i].kind, score }));
+    return { parts: [...rules, { name: 'bake', score: verdict.doneness }], total: verdict.total };
   }
 
   /**
-   * Hand over the pizza: score it as cut and show it for a moment, if at all, then send its slices out and start the
-   * next order on fresh dough.
+   * Hand over the pizza: score it as cut and show it with its grade for a moment, if at all, then send its slices out
+   * and start the next order on fresh dough.
    */
   private serve(): void {
-    this.lastVerdict = this.scoreOrder();
+    this.lastScore = this.scoreOrder();
+    this.ticket.showGrade(gradeOf(this.lastScore.total));
     this.setTool(null);
     this.setFiring(false);
     this.dough.setKneadable(false);
@@ -275,8 +303,21 @@ export class KitchenScene extends Container {
     }
   }
 
+  /** Testing shortcut: make the pictured pizza on the peel at once, ready to serve. */
+  copyOrder(): void {
+    if (this.current.kind !== 'picture' || this.serving) return;
+    this.setFiring(false);
+    this.doughPhase = 'onPeel';
+    this.doughBall.visible = false;
+    this.dough.make(this.current.recipe);
+    this.bakeLevel = this.current.recipe.bakeLevel;
+    this.setTool(null);
+    this.applyAvailability();
+  }
+
   update(dt: number): void {
     if (this.serving && (this.servingFor -= dt) <= 0) this.sendSlicesOut();
+    this.ticket.update(dt);
     if (this.doughPhase === 'dropping') this.updateDrop(dt);
     this.dough.update(dt);
     this.served.update(dt);

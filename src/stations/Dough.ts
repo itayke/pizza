@@ -1,10 +1,12 @@
 import { Circle, Container, Graphics, Matrix, Mesh, Point, RenderTexture, RopeGeometry, Sprite, Texture, UniformGroup, type BLEND_MODES, type ColorSource, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
-import { COLORS, CUTTER, DOUGH, PLACEMENT, SAUCE, SLICING, type ScatterConfig } from '../config';
+import { CHEESE, COLORS, CUTTER, DOUGH, PLACEMENT, SAUCE, SLICING, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { bakeCurve } from '../core/bake';
 import { easeOutCirc, easeOutCubic } from '../core/easing';
 import { placedDistance } from '../core/placement';
 import { DOUGH_SHAPES } from '../generated/doughShapes';
+import type { CutPizza } from '../orders/picture';
+import { recipeSpots, type Recipe } from '../orders/Recipe';
 import { edgesOf, lineAngle, lineGap, spanCoverage, withSpan, type CutLine, type Wedge } from '../orders/slicing';
 import { DoughMesh } from './DoughMesh';
 import { SauceLayer } from './SauceLayer';
@@ -172,21 +174,59 @@ export class Dough extends Container {
     drawn.strips.destroy();
   }
 
+  /** The pizza as scored: its pieces, bake level, edge, slice edges and sauce. */
+  pizza(): CutPizza {
+    return {
+      pieces: this.toppings.placedPieces,
+      bakeLevel: this.bakeLevel,
+      radiusAt: (angle) => this.radiusAt(angle),
+      edges: this.sliceEdges(),
+      sauceIn: (slice) => this.sauce.coverageIn(slice, PLACEMENT.innerRim),
+    };
+  }
+
   /**
    * Snapshot the pizza as it stands, without the rim or the cutter's aim, and trace its slices down the middle of the
    * cuts, out past everything on it. The caller owns the texture.
    */
   slicedSnapshot(): SlicedPizza {
+    // As sharp as the pizza shows on screen
+    const { texture, half, reach } = this.snapshot(Math.hypot(this.worldTransform.a, this.worldTransform.b));
+    return { texture, half, slices: this.sliceOutlines(reach) };
+  }
+
+  /**
+   * Snapshot the pizza as it stands, without the rim or the cutter's aim, at scale times design size: dough-local with
+   * its center in the middle, half design px to either side, out past everything on it (reach) and its cuts' wobble.
+   * The caller owns the texture.
+   */
+  snapshot(scale: number): { texture: RenderTexture; half: number; reach: number } {
     this.rim.visible = this.guide.visible = false;
     const bounds = this.getLocalBounds();
     const reach = Math.max(-bounds.minX, bounds.maxX, -bounds.minY, bounds.maxY);
     const half = reach + SLICING.wobble + SNAPSHOT_MARGIN;
-    // As sharp as the pizza shows on screen
-    const scale = Math.hypot(this.worldTransform.a, this.worldTransform.b);
     const texture = RenderTexture.create({ width: 2 * half, height: 2 * half, resolution: this.renderer.resolution * scale });
     this.renderer.render({ container: this, target: texture, clear: true, clearColor: TRANSPARENT, transform: new Matrix().translate(half, half) });
     this.rim.visible = this.guide.visible = true;
-    return { texture, half, slices: this.sliceOutlines(reach) };
+    return { texture, half, reach };
+  }
+
+  /**
+   * Make a recipe's pizza at once on fresh dough rolled to the rim: sauce and cheese all over if it has them, its
+   * toppings landed where it lays them, cut whole along its lines and baked to its level.
+   */
+  make(recipe: Recipe): void {
+    this.reset();
+    this.setPlaced(true);
+    this.setBake(0);
+    this.flattenToRim();
+    if (recipe.sauce) this.fillSauce();
+    if (recipe.cheese) this.fillToppings('cheese', CHEESE);
+    for (const { topping, angle, fraction } of recipeSpots(recipe)) this.toppings.lay(topping, angle, fraction);
+    this.toppings.settle();
+    for (const angle of recipe.cuts) this.cut(angle, -Infinity, Infinity);
+    this.setBake(recipe.bakeLevel);
+    this.drawPlain();
   }
 
   /** Each slice's outline out to reach design px, its sides down the middle of its cuts; the whole pizza if uncut. */

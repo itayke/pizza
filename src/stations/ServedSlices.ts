@@ -1,6 +1,7 @@
 import { Container, Mesh, MeshGeometry, Point, type Texture } from 'pixi.js';
 import { SERVED } from '../config';
 import { easeInCubic } from '../core/easing';
+import { shuffled } from '../core/random';
 import type { SlicedPizza } from './Dough';
 
 const DEG_TO_RAD = Math.PI / 180;
@@ -65,16 +66,6 @@ export class ServedSlices extends Container<Mesh> {
     this.texture?.destroy(true);
     this.texture = null;
   }
-}
-
-/** A copy of items in random order. */
-function shuffled<T>(items: readonly T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
 }
 
 /** How far out a wedge's middle lies, as a fraction of its radius. */

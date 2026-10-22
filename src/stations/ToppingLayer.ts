@@ -249,6 +249,22 @@ export class ToppingLayer extends Container {
     }
   }
 
+  /** Lay a piece at a polar spot (its distance a fraction of the edge), as if dropped there without a hand. */
+  lay(topping: Topping, angle: number, fraction: number): void {
+    this.add(new Piece(topping, LANDING[`${topping}Scale`]), angle, fraction);
+  }
+
+  /** Land every piece still landing at once. */
+  settle(): void {
+    for (const piece of this.landing) {
+      piece.land(Infinity);
+      this.place(piece);
+      this.bury(piece);
+    }
+    this.landing.clear();
+    this.changes++;
+  }
+
   /** Lay a sauce pass over every piece so far. */
   addSaucePass(pass: Mesh<Geometry, Shader>): void {
     this.passes.push(this.addChild(pass));

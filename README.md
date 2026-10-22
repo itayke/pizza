@@ -26,7 +26,7 @@ Label words are set in code in the hand font (Playpen Sans, OFL, in `public/asse
 - `src/scenes/` — screens
 - `src/stations/` — interactive props (bins, dough, sauce, toppings, order ticket)
 - `src/words.ts` — what each label says
-- `src/orders/` — orders: drawing them and scoring a pizza against one
+- `src/orders/` — orders: drawing them (pictures to copy, or rule puzzles) and scoring a pizza against one
 - `src/dev/` — dev-only tools (tuning panel)
 - `tools/` — build/dev-server tooling (tuning save endpoint, art extraction)
 - `art/` — source drawings (not shipped)

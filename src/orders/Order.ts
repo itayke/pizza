@@ -1,4 +1,5 @@
 import { ORDERS, SHARE_TOPPINGS, WHOLE_TOPPINGS } from '../config';
+import { between, pick, weighted } from '../core/random';
 import type { Topping } from '../stations/ToppingLayer';
 import { autoSliceCount } from './slicing';
 
@@ -24,25 +25,14 @@ const KIND_ORDER: Rule['kind'][] = ['share', 'count', 'apart'];
 type Draw = { kind: 'share'; parts: Parts } | { kind: 'count' } | { kind: 'apart' };
 
 /** Every rule that can be drawn, with its weight; read live so tuning applies to the next order. */
-const draws = (): { draw: Draw; weight: number }[] => [
-  { draw: { kind: 'share', parts: 1 }, weight: ORDERS.wholeWeight },
-  { draw: { kind: 'share', parts: 2 }, weight: ORDERS.halfWeight },
-  { draw: { kind: 'share', parts: 3 }, weight: ORDERS.thirdWeight },
-  { draw: { kind: 'share', parts: 4 }, weight: ORDERS.quarterWeight },
-  { draw: { kind: 'count' }, weight: ORDERS.countWeight },
-  { draw: { kind: 'apart' }, weight: ORDERS.apartWeight },
+const draws = (): { value: Draw; weight: number }[] => [
+  { value: { kind: 'share', parts: 1 }, weight: ORDERS.wholeWeight },
+  { value: { kind: 'share', parts: 2 }, weight: ORDERS.halfWeight },
+  { value: { kind: 'share', parts: 3 }, weight: ORDERS.thirdWeight },
+  { value: { kind: 'share', parts: 4 }, weight: ORDERS.quarterWeight },
+  { value: { kind: 'count' }, weight: ORDERS.countWeight },
+  { value: { kind: 'apart' }, weight: ORDERS.apartWeight },
 ];
-
-/** One of items, each as likely as its weight; null if none has any. */
-function weighted<T>(items: { draw: T; weight: number }[]): T | null {
-  const total = items.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
-  if (total <= 0) return null;
-  let r = Math.random() * total;
-  return (items.find((item) => (r -= Math.max(0, item.weight)) < 0) ?? items[items.length - 1]).draw;
-}
-
-const pick = <T>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
-const between = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1));
 
 /** A new order a pizza cut into slices can meet, its rules grouped by kind. */
 export function drawOrder(slices = autoSliceCount()): Order {
@@ -62,7 +52,7 @@ function drawDoneness(): Doneness {
 /** Rules drawn by weight, shares only in parts the slices split evenly into; null if they can't be met or ran out of
  * toppings. */
 function drawRules(slices: number): Rule[] | null {
-  const pool = draws().filter(({ draw }) => draw.kind !== 'share' || slices % draw.parts === 0);
+  const pool = draws().filter(({ value }) => value.kind !== 'share' || slices % value.parts === 0);
   const rules: Rule[] = [];
   // Toppings already given a share or a count, which each topping gets at most one of
   const placed = new Set<Topping>();
