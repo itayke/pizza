@@ -71,15 +71,15 @@ export const LABEL_TEXT = {
 // Each bin's center on the stage, its scale, and whether it shows. Keys are `${art}X`, `${art}Y`, `${art}Scale`,
 // `${art}Enabled`
 export const BIN_LAYOUT = {
-  bin1X: 221,
+  bin1X: 190,
   bin1Y: 203,
   bin1Scale: 1,
   bin1Enabled: true,
-  bin2X: 757,
+  bin2X: 705,
   bin2Y: 207,
   bin2Scale: 1,
   bin2Enabled: true,
-  bin3X: 234,
+  bin3X: 198,
   bin3Y: 610,
   bin3Scale: 1,
   bin3Enabled: true,
@@ -112,7 +112,7 @@ export const LABEL_NUDGE = {
 // ball sits in the empty bowl at fillWidth (a fraction of the bowl's width) until picked up, and returns with the next
 // pizza
 export const BOWL = {
-  x: 722,
+  x: 680,
   y: 700,
   scale: 1.05,
   bowlScale: 0.906,
@@ -125,7 +125,7 @@ export const BOWL = {
 // stage and the scale of both. ticketScale scales the order alone about its center, and labelX/labelY move the caption
 // from its drawn spot; the caption keeps its size
 export const ORDER_TRAY = {
-  x: 255,
+  x: 280,
   y: 1112,
   scale: 1.36,
   ticketScale: 1.25,
@@ -342,7 +342,7 @@ export const GRADE = {
 
 // Peel: its face center, where the dough sits, as fractions of the art; that spot goes to x, y on the stage, at scale
 export const PEEL = {
-  x: 1530,
+  x: 1477,
   y: 618,
   scale: 1.42,
   faceX: 0.5,
@@ -526,9 +526,9 @@ export const BAKE = {
 // Dial between the peel and the dragon's feet: hub position on the stage and drawn width; hub and needle pivot are
 // fractions of their art
 export const BAKE_GAUGE = {
-  x: 1962,
+  x: 1968,
   y: 1421,
-  width: 498.39,
+  width: 550.39,
   // Moves the caption down from its drawn spot, in design px
   labelY: 13.47,
   hubX: 0.505,
@@ -541,16 +541,16 @@ export const BAKE_GAUGE = {
 
 // Bake button above the gauge: center on the stage and drawn width. Pressing it breathes fire, same as pressing the dragon
 export const BAKE_BUTTON = {
-  x: 2275,
-  y: 1118,
-  width: 274.964,
+  x: 2641,
+  y: 209,
+  width: 287.964,
 };
 
 // Dragon and its fire: its pivot (fractions of the art) goes to x, y on the stage, which may be past the stage edge,
 // and both scale by scale. artScale scales the dragon alone from its drawn size, and it turns about the pivot by angle
 // degrees
 export const DRAGON = {
-  x: 2830,
+  x: 2679,
   y: 1083,
   scale: 1.411,
   pivotX: 0.749,
@@ -663,7 +663,7 @@ export const HAPTICS = {
 
 // Serve button: center on the stage and drawn width. Enabled once the pizza is baked enough (BAKE.minBaked); does nothing yet
 export const SERVE_BUTTON = {
-  x: 1130,
-  y: 1363,
-  width: 351.6,
+  x: 885,
+  y: 1337,
+  width: 421.6,
 };
