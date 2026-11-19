@@ -25,10 +25,11 @@ export class BakeGauge extends Container {
     this.setLevel(0);
   }
 
-  /** Set the caption at its drawn spot, its arc centered on the hub. */
+  /** Set the caption at its drawn spot, moved by its config nudge, its arc centered on the hub. */
   layout(): void {
     const { x, y } = artPoint('gauge_label', 0.5, 0.5);
-    this.caption.layout(x, y, this.pivot.x);
+    // The nudge is in design px, the caption in the gauge's own art space
+    this.caption.layout(x, y + BAKE_GAUGE.labelY / this.scale.y, this.pivot.x);
   }
 
   /** 0 is raw, 1 is burnt. */

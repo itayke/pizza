@@ -396,6 +396,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const bake = pane.addFolder({ title: 'Bake', expanded: false });
   bake.addBinding(BAKE_GAUGE, 'x', { min: 0, max: 2048, step: 1 });
   bake.addBinding(BAKE_GAUGE, 'y', { min: 0, max: 1536, step: 1 });
+  bake.addBinding(BAKE_GAUGE, 'labelY', { min: -100, max: 100, step: 1 });
   bake.addBinding(BAKE_BUTTON, 'x', { label: 'buttonX', min: 0, max: 2048, step: 1 });
   bake.addBinding(BAKE_BUTTON, 'y', { label: 'buttonY', min: 0, max: 1536, step: 1 });
   bake.addBinding(BAKE_BUTTON, 'width', { label: 'buttonWidth', min: 40, max: 400, step: 1 });
