@@ -20,7 +20,7 @@ Meta game: later.
 ## Tech
 
 - PixiJS: mechanics are pixel-level (painting, deformation, particles, cooking shader). DOM overlay for menus later if needed.
-- Landscape only. A fixed stage matching the art, always shown whole and centered; the paper background fills the margins. Widescreens (16:9 and wider) lay the stations out side by side on a wider stage, each moved and scaled as a whole: the bins in a column, then the bowl over the serve button, then a full-height peel, then the dragon. Tunables in `src/config.ts`.
+- Landscape only, with a rotate hint on touch screens held upright. One wide stage, always shown whole, scaled to fit and centered; the paper background fills the margins. Stations sit side by side on it, each a piece of the art moved and scaled as a whole: the bins and bowl, the order over the serve button, a full-height peel, then the dragon. Tunables in `src/config.ts`.
 - Pointer events for mouse and touch.
 
 ## Mechanic designs
@@ -64,7 +64,7 @@ Words are text in the hand font, bent on an arc to match the drawn lettering, so
 
 ## Milestones
 
-- [x] 0. Scaffold — scaling, rotate hint, standard and widescreen layouts
+- [x] 0. Scaffold — scaling, rotate hint, stage layout
 - [ ] 1. Input & tools — bin selection, cursor icon, tap vs hold
 - [x] 2. Dough kneading — prototype; playtest and tune
 - [ ] 3. Sauce & cheese + coverage — sauce painting and cheese scatter done (raw only); cheese coverage and bake cross-fade next

@@ -32,10 +32,9 @@ export class IngredientBin extends Container {
     }
   }
 
-  /** Apply the nudge and enabled flag from BIN_LAYOUT, if it has entries for this bin, and each label's nudge. */
+  /** Apply the enabled flag from BIN_LAYOUT, if it has one for this bin, and each label's nudge. */
   layout(): void {
-    const values = BIN_LAYOUT as Record<string, number | boolean | undefined>;
-    this.position.set(Number(values[`${this.art}X`] ?? 0), Number(values[`${this.art}Y`] ?? 0));
+    const values = BIN_LAYOUT as Record<string, boolean | undefined>;
     // Hidden bins aren't hit-tested either
     this.visible = values[`${this.art}Enabled`] !== false;
     // Words sit where their drawn labels were, on an arc centered on the bin

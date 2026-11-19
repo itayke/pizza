@@ -19,7 +19,6 @@ export class BakeGauge extends Container {
     this.addChild(artSprite('gauge'), this.caption, this.needle);
 
     this.pivot.set(hub.x, hub.y);
-    this.position.set(BAKE_GAUGE.x, BAKE_GAUGE.y);
     this.scale.set(BAKE_GAUGE.width / ART.gauge.width);
     this.eventMode = 'none';
     this.setLevel(0);
@@ -34,8 +33,6 @@ export class BakeGauge extends Container {
 
   /** 0 is raw, 1 is burnt. */
   setLevel(level: number): void {
-    // Follows config live for the tuning panel
-    this.position.set(BAKE_GAUGE.x, BAKE_GAUGE.y);
     this.needle.rotation = (level * 2 - 1) * BAKE_GAUGE.sweep;
   }
 }

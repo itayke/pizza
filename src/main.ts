@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { COLORS, DESIGN_WIDTH, MAX_RESOLUTION, STARTING_UNLOCKED, WIDESCREEN } from './config';
+import { COLORS, MAX_RESOLUTION, STARTING_UNLOCKED } from './config';
 import { loadArt } from './core/art';
 import { loadFonts } from './core/fonts';
 import { Viewport } from './core/Viewport';
@@ -30,10 +30,7 @@ async function start(): Promise<void> {
   app.ticker.add((ticker) => scene.update(ticker.deltaMS / MS_PER_SECOND));
 
   const fit = () => {
-    const { width, height } = app.screen;
-    const widescreen = width / height >= WIDESCREEN.fromAspect;
-    viewport.fit(width, height, widescreen ? WIDESCREEN.width : DESIGN_WIDTH);
-    scene.setWidescreen(widescreen);
+    viewport.fit(app.screen.width, app.screen.height);
     scene.fitBackground(viewport.screenArea);
   };
   fit();

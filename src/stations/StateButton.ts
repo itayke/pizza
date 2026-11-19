@@ -3,8 +3,8 @@ import { artTexture } from '../core/art';
 
 /** Buttons drawn in every state, as <art>_<state> art on one shared canvas. */
 type ButtonArt = 'bake_button' | 'serve_button';
-/** Center and drawn width, design px; read live so the tuning panel can move it. */
-type ButtonPlace = { x: number; y: number; width: number };
+/** Drawn width, design px; read live so the tuning panel can size it. */
+type ButtonPlace = { width: number };
 
 /** A drawn button that shows whether it's enabled and pressed; the owner decides both. */
 export class StateButton extends Sprite {
@@ -25,7 +25,6 @@ export class StateButton extends Sprite {
   }
 
   layout(): void {
-    this.position.set(this.place.x, this.place.y);
     this.scale.set(this.place.width / this.texture.width);
   }
 }

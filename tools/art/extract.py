@@ -17,8 +17,8 @@ OUT = ROOT / 'public' / 'assets'
 LAYOUT_TS = ROOT / 'src' / 'generated' / 'artLayout.ts'
 DOUGH_TS = ROOT / 'src' / 'generated' / 'doughShapes.ts'
 
-# Must match DESIGN_WIDTH in src/config.ts
-DESIGN_WIDTH = 2048
+# Art plates are scaled to this width; an art px is a design px on the stage
+ART_WIDTH = 2048
 LUMA = np.array([0.299, 0.587, 0.114], np.float32)
 
 INK_LUM = 110  # darker than this blocks the paper flood fill
@@ -570,7 +570,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     LAYOUT_TS.parent.mkdir(parents=True, exist_ok=True)
     plate = load('pizza_bg.jpeg')
-    f = DESIGN_WIDTH / plate.shape[1]
+    f = ART_WIDTH / plate.shape[1]
     rects = {}
 
     def record(name, file, x=0, y=0):
@@ -584,7 +584,7 @@ def main():
         record(name, f'{name}.png', (ox + l * src_to_layout) * f, (oy + t * src_to_layout) * f)
 
     # Background: the clean paper
-    bg = Image.fromarray(plate.astype(np.uint8)).resize((DESIGN_WIDTH, round(plate.shape[0] * f)), Image.LANCZOS)
+    bg = Image.fromarray(plate.astype(np.uint8)).resize((ART_WIDTH, round(plate.shape[0] * f)), Image.LANCZOS)
     bg.save(OUT / 'bg.jpg', quality=BG_QUALITY)
     record('bg', 'bg.jpg')
 

@@ -2,7 +2,6 @@ import { Container, Point, Sprite, Texture, type FederatedPointerEvent, type Rec
 import {
   BAKE,
   BAKE_BUTTON,
-  BAKE_GAUGE,
   BINS,
   BOWL,
   CHEESE,
@@ -14,6 +13,7 @@ import {
   SHAKE,
   HELD,
   INGREDIENT_IDS,
+  LAYOUT,
   ORDER_TRAY,
   ORDERS,
   PEEL,
@@ -22,7 +22,6 @@ import {
   SERVE_BUTTON,
   SKIP,
   SLICING,
-  WIDESCREEN,
   type IngredientId,
 } from '../config';
 import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
@@ -129,7 +128,6 @@ export class KitchenScene extends Container {
   private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
   private readonly stations = Object.fromEntries(STATIONS.map((name) => [name, new Container()])) as Record<Station, Container>;
-  private widescreen = false;
   private readonly pointer = new Point();
   /** Where the dough sits, in scene space; the ball lands there. */
   private readonly peelCenter = new Point();
@@ -206,46 +204,34 @@ export class KitchenScene extends Container {
     this.dim.setSize(background.width, background.height);
   }
 
-  /** Arrange the stations side by side for a widescreen, or as drawn. */
-  setWidescreen(widescreen: boolean): void {
-    this.widescreen = widescreen;
-    this.layout();
-  }
-
-  /** Place everything from config, in the current arrangement; stations go first, since the rest reads where they are. */
+  /** Place everything from config; stations go first, since the rest reads where they are. */
   layout(): void {
     for (const bin of this.bins) {
       bin.layout();
       const center = artPoint(bin.art, 0.5, 0.5);
-      this.placeStation(bin.art, center.x + bin.x, center.y + bin.y);
+      this.placeStation(bin.art, center.x, center.y);
     }
     this.layoutBowl();
     this.layoutOrderTray();
     this.layoutPeel();
     this.gauge.layout();
-    this.placeStation('gauge', BAKE_GAUGE.x, BAKE_GAUGE.y);
-    this.placeStation('bakeButton', BAKE_BUTTON.x, BAKE_BUTTON.y);
+    this.placeStation('gauge', 0, 0);
+    this.placeStation('bakeButton', 0, 0);
     this.cutterButton.layout();
-    this.placeStation('cutter', CUTTER.x, CUTTER.y);
-    this.placeStation('serveButton', SERVE_BUTTON.x, SERVE_BUTTON.y);
+    this.placeStation('cutter', 0, 0);
+    this.placeStation('serveButton', 0, 0);
     this.layoutDragon();
     this.scaleHeld();
     // Last, once every station has its scale
     keepLabelSizes(this);
   }
 
-  /** In the standard layout a station stays as drawn; on a widescreen its anchor (a point in the standard layout) moves to
-   * its spot and scale. */
+  /** Move a station's anchor (a point in its own space) to its spot on the stage, at its scale. */
   private placeStation(name: Station, anchorX: number, anchorY: number): void {
     const station = this.stations[name];
     station.pivot.set(anchorX, anchorY);
-    if (this.widescreen) {
-      station.position.set(WIDESCREEN[`${name}X`], WIDESCREEN[`${name}Y`]);
-      station.scale.set(WIDESCREEN[`${name}Scale`]);
-    } else {
-      station.position.set(anchorX, anchorY);
-      station.scale.set(1);
-    }
+    station.position.set(LAYOUT[`${name}X`], LAYOUT[`${name}Y`]);
+    station.scale.set(LAYOUT[`${name}Scale`]);
   }
 
   /** Back to an empty peel with the dough in its bowl. */
@@ -668,11 +654,11 @@ export class KitchenScene extends Container {
   /** Place the bowl, its dough and its label from config. */
   private layoutBowl(): void {
     const center = artPoint('bowl', 0.5, 0.5);
-    this.bowl.position.set(center.x + BOWL.x, center.y + BOWL.y);
+    this.bowl.position.copyFrom(center);
     this.bowl.scale.set(BOWL.scale);
     // The label sits by its center, which it grows about
     const label = artPoint('label_dough', 0.5, 0.5);
-    this.bowlLabel.layout(label.x + BOWL.x + BOWL.labelX, label.y + BOWL.y + BOWL.labelY, this.bowl.x);
+    this.bowlLabel.layout(label.x + BOWL.labelX, label.y + BOWL.labelY, this.bowl.x);
     this.placeStation('bowl', this.bowl.x, this.bowl.y);
     // The ball lives on the scene itself, free to travel to the peel
     this.toLocal(this.bowl.position, this.stations.bowl, this.ballRest);
@@ -682,15 +668,15 @@ export class KitchenScene extends Container {
 
   /** Place the order and its caption from config; the caption keeps its drawn spot below the tray. */
   private layoutOrderTray(): void {
-    const { x, y, scale, labelX, labelY } = ORDER_TRAY;
-    // The ticket lives in the tray's art space
-    this.ticket.position.set(x, y);
+    const { scale, labelX, labelY } = ORDER_TRAY;
+    // The ticket sits at the station's anchor, its caption where drawn relative to the tray
+    this.ticket.position.set(0, 0);
     this.ticket.scale.set(scale);
     const tray = artPoint('order_tray', 0.5, 0.5);
     const label = artPoint('label_order', 0.5, 0.5);
-    this.orderLabel.layout(x + label.x - tray.x + labelX, y + label.y - tray.y + labelY, x);
+    this.orderLabel.layout(label.x - tray.x + labelX, label.y - tray.y + labelY, 0);
     this.ticket.layout();
-    this.placeStation('orderTray', x, y);
+    this.placeStation('orderTray', 0, 0);
   }
 
   /** Put the ball back in the bowl. */
@@ -708,12 +694,10 @@ export class KitchenScene extends Container {
     this.stations.peel.addChild(peel, this.dough);
   }
 
-  /** Place the peel from config, with the dough on its face. */
+  /** Place the peel as drawn, with the dough on its face. */
   private layoutPeel(): void {
-    const drawn = artPoint('peel', 0, 0);
-    this.peel.position.set(drawn.x + PEEL.x, drawn.y + PEEL.y);
-    const face = artPoint('peel', PEEL.faceX, PEEL.faceY);
-    this.dough.position.set(face.x + PEEL.x, face.y + PEEL.y);
+    this.peel.position.copyFrom(artPoint('peel', 0, 0));
+    this.dough.position.copyFrom(artPoint('peel', PEEL.faceX, PEEL.faceY));
     this.placeStation('peel', this.dough.x, this.dough.y);
     this.toLocal(ORIGIN, this.dough, this.peelCenter);
     // Over the dough as it shows, though above every station
@@ -726,16 +710,16 @@ export class KitchenScene extends Container {
     const { dragon } = this;
     dragon.anchor.set(DRAGON.pivotX, DRAGON.pivotY);
     dragon.scale.set(DRAGON.scale);
-    dragon.position.set(DRAGON.x, DRAGON.y);
+    dragon.position.set(0, 0);
     dragon.angle = DRAGON.angle;
     // Mouth relative to the pivot, scaled and rotated with the dragon
     const offsetX = (FIRE.mouthX - DRAGON.pivotX) * dragon.texture.width * DRAGON.scale;
     const offsetY = (FIRE.mouthY - DRAGON.pivotY) * dragon.texture.height * DRAGON.scale;
     const cos = Math.cos(dragon.rotation);
     const sin = Math.sin(dragon.rotation);
-    const mouthX = DRAGON.x + offsetX * cos - offsetY * sin;
-    const mouthY = DRAGON.y + offsetX * sin + offsetY * cos;
-    this.placeStation('dragon', DRAGON.x, DRAGON.y);
+    const mouthX = offsetX * cos - offsetY * sin;
+    const mouthY = offsetX * sin + offsetY * cos;
+    this.placeStation('dragon', 0, 0);
     const station = this.stations.dragon;
     // The fire draws in its own layer, over the dimmed room, but moves with the dragon
     this.breath.pivot.copyFrom(station.pivot);

@@ -39,7 +39,6 @@ export class CutterButton extends Container {
   }
 
   layout(): void {
-    this.position.set(CUTTER.x, CUTTER.y);
     this.scale.set((CUTTER.size / DRAWN_SIZE) * (this.selected ? SELECTED_SCALE : 1));
   }
 }
