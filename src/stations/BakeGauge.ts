@@ -19,13 +19,13 @@ export class BakeGauge extends Container {
     this.addChild(artSprite('gauge'), this.caption, this.needle);
 
     this.pivot.set(hub.x, hub.y);
-    this.scale.set(BAKE_GAUGE.width / ART.gauge.width);
     this.eventMode = 'none';
     this.setLevel(0);
   }
 
-  /** Set the caption at its drawn spot, moved by its config nudge, its arc centered on the hub. */
+  /** Size the dial from config and set the caption at its drawn spot, moved by its nudge, its arc centered on the hub. */
   layout(): void {
+    this.scale.set(BAKE_GAUGE.width / ART.gauge.width);
     const { x, y } = artPoint('gauge_label', 0.5, 0.5);
     // The nudge is in design px, the caption in the gauge's own art space
     this.caption.layout(x, y + BAKE_GAUGE.labelY / this.scale.y, this.pivot.x);

@@ -2,6 +2,8 @@ import { Container, Point, Sprite, Texture, type FederatedPointerEvent, type Rec
 import {
   BAKE,
   BAKE_BUTTON,
+  BAKE_GAUGE,
+  BIN_LAYOUT,
   BINS,
   BOWL,
   CHEESE,
@@ -13,7 +15,6 @@ import {
   SHAKE,
   HELD,
   INGREDIENT_IDS,
-  LAYOUT,
   ORDER_TRAY,
   ORDERS,
   PEEL,
@@ -57,6 +58,8 @@ const DEG_TO_RAD = Math.PI / 180;
 // Stations in drawing order; each holds its art in the wide design space and is placed for the current layout
 const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'dragon', 'gauge', 'bakeButton', 'cutter', 'serveButton'] as const;
 type Station = (typeof STATIONS)[number];
+/** Where a station's anchor goes on the stage, design px, and its scale (1 if none). */
+type StationPlace = { readonly x: number; readonly y: number; readonly scale?: number };
 
 const ORIGIN = { x: 0, y: 0 };
 // Order pictures are drawn at design size, about as large as the ticket shows them
@@ -209,29 +212,31 @@ export class KitchenScene extends Container {
     for (const bin of this.bins) {
       bin.layout();
       const center = artPoint(bin.art, 0.5, 0.5);
-      this.placeStation(bin.art, center.x, center.y);
+      const { art } = bin;
+      const place = { x: BIN_LAYOUT[`${art}X`], y: BIN_LAYOUT[`${art}Y`], scale: BIN_LAYOUT[`${art}Scale`] };
+      this.placeStation(art, place, center.x, center.y);
     }
     this.layoutBowl();
     this.layoutOrderTray();
     this.layoutPeel();
     this.gauge.layout();
-    this.placeStation('gauge', 0, 0);
-    this.placeStation('bakeButton', 0, 0);
+    this.placeStation('gauge', BAKE_GAUGE);
+    this.placeStation('bakeButton', BAKE_BUTTON);
     this.cutterButton.layout();
-    this.placeStation('cutter', 0, 0);
-    this.placeStation('serveButton', 0, 0);
+    this.placeStation('cutter', CUTTER);
+    this.placeStation('serveButton', SERVE_BUTTON);
     this.layoutDragon();
     this.scaleHeld();
     // Last, once every station has its scale
     keepLabelSizes(this);
   }
 
-  /** Move a station's anchor (a point in its own space) to its spot on the stage, at its scale. */
-  private placeStation(name: Station, anchorX: number, anchorY: number): void {
+  /** Move a station's anchor (a point in its own space) to its place on the stage, at the place's scale if it has one. */
+  private placeStation(name: Station, place: StationPlace, anchorX = 0, anchorY = 0): void {
     const station = this.stations[name];
     station.pivot.set(anchorX, anchorY);
-    station.position.set(LAYOUT[`${name}X`], LAYOUT[`${name}Y`]);
-    station.scale.set(LAYOUT[`${name}Scale`]);
+    station.position.set(place.x, place.y);
+    station.scale.set(place.scale ?? 1);
   }
 
   /** Back to an empty peel with the dough in its bowl. */
@@ -655,11 +660,11 @@ export class KitchenScene extends Container {
   private layoutBowl(): void {
     const center = artPoint('bowl', 0.5, 0.5);
     this.bowl.position.copyFrom(center);
-    this.bowl.scale.set(BOWL.scale);
+    this.bowl.scale.set(BOWL.bowlScale);
     // The label sits by its center, which it grows about
     const label = artPoint('label_dough', 0.5, 0.5);
     this.bowlLabel.layout(label.x + BOWL.labelX, label.y + BOWL.labelY, this.bowl.x);
-    this.placeStation('bowl', this.bowl.x, this.bowl.y);
+    this.placeStation('bowl', BOWL, this.bowl.x, this.bowl.y);
     // The ball lives on the scene itself, free to travel to the peel
     this.toLocal(this.bowl.position, this.stations.bowl, this.ballRest);
     this.ballRestScale = (BOWL.fillWidth * this.bowl.width * this.stations.bowl.scale.x) / this.doughBall.texture.width;
@@ -668,15 +673,15 @@ export class KitchenScene extends Container {
 
   /** Place the order and its caption from config; the caption keeps its drawn spot below the tray. */
   private layoutOrderTray(): void {
-    const { scale, labelX, labelY } = ORDER_TRAY;
+    const { ticketScale, labelX, labelY } = ORDER_TRAY;
     // The ticket sits at the station's anchor, its caption where drawn relative to the tray
     this.ticket.position.set(0, 0);
-    this.ticket.scale.set(scale);
+    this.ticket.scale.set(ticketScale);
     const tray = artPoint('order_tray', 0.5, 0.5);
     const label = artPoint('label_order', 0.5, 0.5);
     this.orderLabel.layout(label.x - tray.x + labelX, label.y - tray.y + labelY, 0);
     this.ticket.layout();
-    this.placeStation('orderTray', 0, 0);
+    this.placeStation('orderTray', ORDER_TRAY);
   }
 
   /** Put the ball back in the bowl. */
@@ -698,7 +703,7 @@ export class KitchenScene extends Container {
   private layoutPeel(): void {
     this.peel.position.copyFrom(artPoint('peel', 0, 0));
     this.dough.position.copyFrom(artPoint('peel', PEEL.faceX, PEEL.faceY));
-    this.placeStation('peel', this.dough.x, this.dough.y);
+    this.placeStation('peel', PEEL, this.dough.x, this.dough.y);
     this.toLocal(ORIGIN, this.dough, this.peelCenter);
     // Over the dough as it shows, though above every station
     this.served.position.copyFrom(this.peelCenter);
@@ -709,17 +714,17 @@ export class KitchenScene extends Container {
   private layoutDragon(): void {
     const { dragon } = this;
     dragon.anchor.set(DRAGON.pivotX, DRAGON.pivotY);
-    dragon.scale.set(DRAGON.scale);
+    dragon.scale.set(DRAGON.artScale);
     dragon.position.set(0, 0);
     dragon.angle = DRAGON.angle;
     // Mouth relative to the pivot, scaled and rotated with the dragon
-    const offsetX = (FIRE.mouthX - DRAGON.pivotX) * dragon.texture.width * DRAGON.scale;
-    const offsetY = (FIRE.mouthY - DRAGON.pivotY) * dragon.texture.height * DRAGON.scale;
+    const offsetX = (FIRE.mouthX - DRAGON.pivotX) * dragon.texture.width * DRAGON.artScale;
+    const offsetY = (FIRE.mouthY - DRAGON.pivotY) * dragon.texture.height * DRAGON.artScale;
     const cos = Math.cos(dragon.rotation);
     const sin = Math.sin(dragon.rotation);
     const mouthX = offsetX * cos - offsetY * sin;
     const mouthY = offsetX * sin + offsetY * cos;
-    this.placeStation('dragon', 0, 0);
+    this.placeStation('dragon', DRAGON);
     const station = this.stations.dragon;
     // The fire draws in its own layer, over the dimmed room, but moves with the dragon
     this.breath.pivot.copyFrom(station.pivot);

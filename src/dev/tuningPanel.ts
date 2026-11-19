@@ -1,5 +1,6 @@
-import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SHAKE, SLICING, TOPPINGS, LAYOUT } from '../config';
+import type { BindingApi } from '@tweakpane/core';
+import { Pane, type FolderApi } from 'tweakpane';
+import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SHAKE, SLICING, TOPPINGS } from '../config';
 import { gradeOf, type Score } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
@@ -20,6 +21,21 @@ const SCORE_DECIMALS = 2;
 // Rows the score shows at most: a picture's parts, and every sauce or topping
 const SCORE_PARTS = 3;
 const SCORE_CHANNELS = INGREDIENT_IDS.length;
+// Slider ranges for a station's place: anywhere on the stage with room past its edges, and its scale
+const STAGE_MARGIN = 400;
+const X_RANGE = { min: -STAGE_MARGIN, max: DESIGN_WIDTH + STAGE_MARGIN, step: 1 };
+const Y_RANGE = { min: -STAGE_MARGIN, max: DESIGN_HEIGHT + STAGE_MARGIN, step: 1 };
+const SCALE_RANGE = { min: 0.2, max: 2.5 };
+
+/** Bind a station's place on the stage (x, y and scale if it has one), labeled after prefix if given. */
+function addPlace(folder: FolderApi, place: { x: number; y: number; scale?: number }, prefix = ''): BindingApi[] {
+  const keys: ('x' | 'y' | 'scale')[] = ['x', 'y'];
+  if ('scale' in place) keys.push('scale');
+  const ranges = { x: X_RANGE, y: Y_RANGE, scale: SCALE_RANGE };
+  return keys.map((key) =>
+    folder.addBinding(place, key, { label: prefix ? `${prefix}${key[0].toUpperCase()}${key.slice(1)}` : key, ...ranges[key] }),
+  );
+}
 
 const describeRule = (rule: Rule): string => {
   switch (rule.kind) {
@@ -150,8 +166,8 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
 
   const bins = pane.addFolder({ title: 'Bins', expanded: false });
   for (const key of Object.keys(BIN_LAYOUT) as (keyof typeof BIN_LAYOUT)[]) {
-    const isFlag = typeof BIN_LAYOUT[key] === 'boolean';
-    bins.addBinding(BIN_LAYOUT, key, isFlag ? {} : { min: -400, max: 400, step: 1 });
+    const range = key.endsWith('Enabled') ? {} : key.endsWith('Scale') ? SCALE_RANGE : key.endsWith('X') ? X_RANGE : Y_RANGE;
+    bins.addBinding(BIN_LAYOUT, key, range);
   }
   for (const key of Object.keys(LABEL_NUDGE) as (keyof typeof LABEL_NUDGE)[]) {
     const range = key.endsWith('Tilt') ? { min: -20, max: 20, step: 0.5 } : { min: -100, max: 100, step: 1 };
@@ -177,14 +193,16 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   labels.on('change', layout);
 
   const bowl = pane.addFolder({ title: 'Bowl', expanded: false });
-  bowl.addBinding(BOWL, 'scale', { min: 0.5, max: 2 });
+  addPlace(bowl, BOWL);
+  bowl.addBinding(BOWL, 'bowlScale', { min: 0.5, max: 2 });
   bowl.addBinding(BOWL, 'labelX', { min: -200, max: 200, step: 1 });
   bowl.addBinding(BOWL, 'labelY', { min: -200, max: 200, step: 1 });
   bowl.addBinding(BOWL, 'fillWidth', { min: 0.2, max: 1 });
   bowl.on('change', layout);
 
   const orderTray = pane.addFolder({ title: 'Order tray', expanded: false });
-  orderTray.addBinding(ORDER_TRAY, 'scale', { min: 0.5, max: 2 });
+  addPlace(orderTray, ORDER_TRAY);
+  orderTray.addBinding(ORDER_TRAY, 'ticketScale', { min: 0.5, max: 2 });
   orderTray.addBinding(ORDER_TRAY, 'labelX', { min: -200, max: 200, step: 1 });
   orderTray.addBinding(ORDER_TRAY, 'labelY', { min: -200, max: 200, step: 1 });
   orderTray.on('change', layout);
@@ -269,7 +287,8 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   slicing.addBinding(SERVED, 'fadeFrom', { label: 'servedFadeFrom', min: 0, max: 0.99 });
 
   const cutter = pane.addFolder({ title: 'Cutter', expanded: false });
-  cutter.addBinding(CUTTER, 'size', { min: 40, max: 400, step: 1 }).on('change', () => scene.layout());
+  addPlace(cutter, CUTTER).forEach((binding) => binding.on('change', layout));
+  cutter.addBinding(CUTTER, 'size', { min: 40, max: 400, step: 1 }).on('change', layout);
   cutter.addBinding(CUTTER, 'span', { min: 5, max: 200, step: 1 });
   cutter.addBinding(CUTTER, 'completeAt', { min: 0, max: 1 });
   cutter.addBinding(CUTTER, 'snapToCut', { min: 0, max: 45 });
@@ -304,14 +323,16 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orders.on('change', layout);
 
   const peel = pane.addFolder({ title: 'Peel', expanded: false });
+  addPlace(peel, PEEL);
   peel.addBinding(PEEL, 'faceX', { min: 0, max: 1 });
   peel.addBinding(PEEL, 'faceY', { min: 0, max: 1 });
   peel.on('change', layout);
 
   const dragon = pane.addFolder({ title: 'Dragon', expanded: false });
+  addPlace(dragon, DRAGON);
   dragon.addBinding(DRAGON, 'pivotX', { min: 0, max: 1 });
   dragon.addBinding(DRAGON, 'pivotY', { min: 0, max: 1 });
-  dragon.addBinding(DRAGON, 'scale', { min: 0.5, max: 2.5 });
+  dragon.addBinding(DRAGON, 'artScale', { min: 0.5, max: 2.5 });
   dragon.addBinding(DRAGON, 'angle', { min: -45, max: 45, step: 0.5 });
   dragon.addBinding(FIRE, 'mouthX', { min: 0, max: 1 });
   dragon.addBinding(FIRE, 'mouthY', { min: 0, max: 1 });
@@ -384,7 +405,10 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   haptics.addBinding(HAPTICS, 'everyMs', { min: 10, max: 300, step: 1 });
 
   const bake = pane.addFolder({ title: 'Bake', expanded: false });
+  addPlace(bake, BAKE_GAUGE, 'gauge');
+  bake.addBinding(BAKE_GAUGE, 'width', { label: 'gaugeWidth', min: 100, max: 800, step: 1 });
   bake.addBinding(BAKE_GAUGE, 'labelY', { min: -100, max: 100, step: 1 });
+  addPlace(bake, BAKE_BUTTON, 'button');
   bake.addBinding(BAKE_BUTTON, 'width', { label: 'buttonWidth', min: 40, max: 400, step: 1 });
   // Draggable to preview the bake cross-fade; fire keeps raising it from wherever it's left, so it re-reads
   const bakeLevel = bake.addBinding(scene, 'bakeLevel', { min: 0, max: 1 });
@@ -399,16 +423,10 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   bake.on('change', layout);
 
   const serve = pane.addFolder({ title: 'Serve', expanded: false });
+  addPlace(serve, SERVE_BUTTON);
   serve.addBinding(SERVE_BUTTON, 'width', { min: 40, max: 600, step: 1 });
   serve.on('change', layout);
 
-  // Each station's spot and scale on the stage
-  const stage = pane.addFolder({ title: 'Layout', expanded: false });
-  for (const key of Object.keys(LAYOUT) as (keyof typeof LAYOUT)[]) {
-    const range = key.endsWith('Scale') ? { min: 0.2, max: 2.5 } : { min: -200, max: 4000, step: 1 };
-    stage.addBinding(LAYOUT, key, range);
-  }
-  stage.on('change', layout);
 
   // After every folder is in, so it can sit above the first
   addPaneFilter(pane);
@@ -416,7 +434,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, LAYOUT }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

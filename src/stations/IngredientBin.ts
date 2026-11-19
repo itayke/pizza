@@ -32,11 +32,10 @@ export class IngredientBin extends Container {
     }
   }
 
-  /** Apply the enabled flag from BIN_LAYOUT, if it has one for this bin, and each label's nudge. */
+  /** Apply the enabled flag from BIN_LAYOUT and each label's nudge; the scene places the bin itself. */
   layout(): void {
-    const values = BIN_LAYOUT as Record<string, boolean | undefined>;
     // Hidden bins aren't hit-tested either
-    this.visible = values[`${this.art}Enabled`] !== false;
+    this.visible = BIN_LAYOUT[`${this.art}Enabled`];
     // Words sit where their drawn labels were, on an arc centered on the bin
     const middle = artPoint(this.art, 0.5, 0.5).x;
     for (const [id, label] of this.labels) {
