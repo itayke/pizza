@@ -659,6 +659,16 @@ export const EMBERS = {
   saturation: 0.9,
 };
 
+// While the dragon breathes the room dims to color (multiplied over it) by up to strength, so the additive fire glows;
+// the fire, gauge and buttons stay lit. It follows the breath's heat once the first fireballs land, rising over
+// riseSeconds and falling over fallSeconds
+export const ROOM_LIGHT = {
+  color: '#b0703c',
+  strength: 0.3,
+  riseSeconds: 0.2,
+  fallSeconds: 0.4,
+};
+
 // Screen shake: trauma (0 to 1) jumps by kick as the dragon starts breathing and stays at least rumble times the
 // heat while it breathes, falling by decay a second. The scene moves up to offset design px and turns up to angle
 // degrees, scaled by trauma to the power power, wandering frequency times faster than real time. 0 offset and angle

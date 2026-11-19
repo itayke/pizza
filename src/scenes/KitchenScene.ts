@@ -1,4 +1,4 @@
-import { Container, Point, Sprite, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
+import { Container, Point, Sprite, Texture, type FederatedPointerEvent, type Rectangle, type Renderer } from 'pixi.js';
 import {
   BAKE,
   BAKE_BUTTON,
@@ -10,6 +10,7 @@ import {
   DOUGH,
   DRAGON,
   FIRE,
+  ROOM_LIGHT,
   SHAKE,
   HELD,
   INGREDIENT_IDS,
@@ -55,7 +56,7 @@ type Tool = IngredientId | 'cutter';
 const DEG_TO_RAD = Math.PI / 180;
 
 // Stations in drawing order; each holds its art in the wide design space and is placed for the current layout
-const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'gauge', 'dragon', 'bakeButton', 'cutter', 'serveButton'] as const;
+const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'dragon', 'gauge', 'bakeButton', 'cutter', 'serveButton'] as const;
 type Station = (typeof STATIONS)[number];
 
 const ORIGIN = { x: 0, y: 0 };
@@ -117,6 +118,10 @@ export class KitchenScene extends Container {
   /** Additive copy of the held sauce art that brightens it while pressed. */
   private readonly heldGlow = new Sprite({ anchor: 0.5, blendMode: 'add', alpha: 0 });
   private readonly breath = new FireBreath();
+  /** Darkens the room under it while the dragon breathes; the fire, gauge and buttons draw above it. */
+  private readonly dim = new Sprite({ texture: Texture.WHITE, anchor: 0.5, blendMode: 'multiply', eventMode: 'none' });
+  /** How dark the room is, 0 lit to 1 at full strength; trails the breath's heat. */
+  private roomDark = 0;
   private readonly shake = new Shake();
   private readonly rumble = new Rumble();
   /** Where the scene turns about as it shakes: the screen's middle, design px. */
@@ -150,6 +155,9 @@ export class KitchenScene extends Container {
     this.background.eventMode = 'static';
     this.addChild(this.background);
     this.addChild(...STATIONS.map((name) => this.stations[name]));
+    // The room dims below the gauge and the fire glows over it, still under the buttons
+    this.addChildAt(this.dim, this.getChildIndex(this.stations.gauge));
+    this.addChildAt(this.breath, this.getChildIndex(this.stations.bakeButton));
     this.buildBins(unlocked);
     this.buildBowl();
     this.stations.orderTray.addChild(this.ticket, this.orderLabel);
@@ -194,6 +202,8 @@ export class KitchenScene extends Container {
       (halfHeight + halfWidth * turn + SHAKE.offset) / halfHeight,
     );
     background.scale.set(room * Math.max(screenArea.width / background.texture.width, screenArea.height / background.texture.height));
+    this.dim.position.copyFrom(background.position);
+    this.dim.setSize(background.width, background.height);
   }
 
   /** Arrange the stations side by side for a widescreen, or as drawn. */
@@ -359,6 +369,7 @@ export class KitchenScene extends Container {
     this.breath.update(dt);
     if (this.breath.firing && this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
     this.updateShake(dt);
+    this.updateRoomLight(dt);
     this.updateGlow(dt);
     this.bins.forEach((bin) => bin.update(this.ingredient, dt));
     this.bowlLabel.update(this.doughPhase === 'held', dt);
@@ -377,6 +388,21 @@ export class KitchenScene extends Container {
   }
 
   /** The held ingredient's glow fades up while pressed and back out once released. */
+  /** Dim and warm the room as the breath heats up, starting as the first fireballs reach the pizza. */
+  private updateRoomLight(dt: number): void {
+    const { breath } = this;
+    // Until then it holds, so a quick second breath doesn't flash the room lighter
+    if (breath.firing && breath.firingSeconds < breath.flightSeconds) return;
+    const target = breath.heat;
+    const seconds = target > this.roomDark ? ROOM_LIGHT.riseSeconds : ROOM_LIGHT.fallSeconds;
+    const change = seconds > 0 ? dt / seconds : Infinity;
+    this.roomDark = target > this.roomDark ? Math.min(target, this.roomDark + change) : Math.max(target, this.roomDark - change);
+    const { dim } = this;
+    dim.tint = ROOM_LIGHT.color;
+    dim.alpha = ROOM_LIGHT.strength * this.roomDark;
+    dim.visible = dim.alpha > 0;
+  }
+
   private updateGlow(dt: number): void {
     const target = this.painting ? PULSE.strength : 0;
     const step = PULSE.seconds > 0 ? (PULSE.strength * dt) / PULSE.seconds : Infinity;
@@ -711,6 +737,10 @@ export class KitchenScene extends Container {
     const mouthY = DRAGON.y + offsetX * sin + offsetY * cos;
     this.placeStation('dragon', DRAGON.x, DRAGON.y);
     const station = this.stations.dragon;
+    // The fire draws in its own layer, over the dimmed room, but moves with the dragon
+    this.breath.pivot.copyFrom(station.pivot);
+    this.breath.position.copyFrom(station.position);
+    this.breath.scale.copyFrom(station.scale);
     const target = station.toLocal(ORIGIN, this.dough);
     const rim = station.toLocal({ x: DOUGH.rimRadius, y: 0 }, this.dough);
     this.breath.aim({ x: mouthX, y: mouthY }, target, Math.hypot(rim.x - target.x, rim.y - target.y));
@@ -725,7 +755,7 @@ export class KitchenScene extends Container {
     dragon.hitArea = opaqueHitArea(dragon);
     // Like the bake button, it only breathes fire once the dough is rolled out, and not once it's cut
     this.onFirePress(dragon, () => this.canBake());
-    this.stations.dragon.addChild(dragon, this.breath);
+    this.stations.dragon.addChild(dragon);
   }
 
   /** A second way to bake, disabled until the dough is rolled out, and once it's cut. */

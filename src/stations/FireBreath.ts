@@ -95,6 +95,8 @@ export class FireBreath extends Container {
   firing = false;
   /** 0 out to 1 full blast; rises once breathing starts and falls once it stops. */
   heat = 0;
+  /** How long it has been breathing this time, 0 when not. */
+  firingSeconds = 0;
   private readonly flame = artSprite('fire');
   private readonly balls = new Swarm(artTexture('fireball'));
   private readonly embers = new Swarm(artTexture('ember'));
@@ -128,8 +130,14 @@ export class FireBreath extends Container {
     this.flameScale = (Math.hypot(dx, dy) * FIRE.reach) / this.flame.texture.width;
   }
 
+  /** How long a fireball takes from the mouth to the pizza's center. */
+  get flightSeconds(): number {
+    return Math.hypot(this.target.x - this.mouth.x, this.target.y - this.mouth.y) / FIREBALLS.speed;
+  }
+
   update(dt: number): void {
     this.time += dt;
+    this.firingSeconds = this.firing ? this.firingSeconds + dt : 0;
     const seconds = this.firing ? FIRE.riseSeconds : FIRE.fallSeconds;
     const change = seconds > 0 ? dt / seconds : Infinity;
     this.heat = this.firing ? Math.min(1, this.heat + change) : Math.max(0, this.heat - change);
