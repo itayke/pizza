@@ -10,6 +10,7 @@ import {
   DOUGH,
   DRAGON,
   FIRE,
+  SHAKE,
   HELD,
   INGREDIENT_IDS,
   ORDER_TRAY,
@@ -25,6 +26,8 @@ import {
 } from '../config';
 import { artPoint, artSprite, artTexture, opaqueHitArea } from '../core/art';
 import { easeInQuad } from '../core/easing';
+import { Rumble } from '../core/Rumble';
+import { Shake } from '../core/Shake';
 import { gradeOf, type Score } from '../orders/grade';
 import { judge } from '../orders/judge';
 import { drawOrder, type Order } from '../orders/Order';
@@ -33,6 +36,7 @@ import { drawRecipe, type Recipe } from '../orders/Recipe';
 import { lineAngle, nearestLine, snapLine } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { CutterButton } from '../stations/CutterButton';
+import { FireBreath } from '../stations/FireBreath';
 import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
@@ -112,7 +116,11 @@ export class KitchenScene extends Container {
   private readonly heldArt = new Sprite({ anchor: 0.5 });
   /** Additive copy of the held sauce art that brightens it while pressed. */
   private readonly heldGlow = new Sprite({ anchor: 0.5, blendMode: 'add', alpha: 0 });
-  private readonly fire = artSprite('fire');
+  private readonly breath = new FireBreath();
+  private readonly shake = new Shake();
+  private readonly rumble = new Rumble();
+  /** Where the scene turns about as it shakes: the screen's middle, design px. */
+  private readonly shakeCenter = new Point();
   private readonly dragon = artSprite('dragon');
   private readonly bins: IngredientBin[] = [];
   private readonly stations = Object.fromEntries(STATIONS.map((name) => [name, new Container()])) as Record<Station, Container>;
@@ -130,8 +138,6 @@ export class KitchenScene extends Container {
   /** The last pointer was a finger; a finger covers the cursor, so the held ingredient hides. */
   private touch = false;
   private painting = false;
-  private fireTime = 0;
-  private fireScale = 1;
 
   constructor(unlocked: ReadonlySet<IngredientId>, renderer: Renderer) {
     super();
@@ -174,11 +180,20 @@ export class KitchenScene extends Container {
     this.newOrder();
   }
 
-  /** Cover the whole screen area with paper, margins included. */
+  /** Cover the whole screen area with paper, margins included, with room to spare for the shake at its strongest. */
   fitBackground(screenArea: Rectangle): void {
     const { background } = this;
-    background.position.set(screenArea.x + screenArea.width / 2, screenArea.y + screenArea.height / 2);
-    background.scale.set(Math.max(screenArea.width / background.texture.width, screenArea.height / background.texture.height));
+    const halfWidth = screenArea.width / 2;
+    const halfHeight = screenArea.height / 2;
+    this.shakeCenter.set(screenArea.x + halfWidth, screenArea.y + halfHeight);
+    background.position.copyFrom(this.shakeCenter);
+    // Turned a little, each side reaches over by the other's half times the angle
+    const turn = Math.abs(SHAKE.angle) * DEG_TO_RAD;
+    const room = Math.max(
+      (halfWidth + halfHeight * turn + SHAKE.offset) / halfWidth,
+      (halfHeight + halfWidth * turn + SHAKE.offset) / halfHeight,
+    );
+    background.scale.set(room * Math.max(screenArea.width / background.texture.width, screenArea.height / background.texture.height));
   }
 
   /** Arrange the stations side by side for a widescreen, or as drawn. */
@@ -341,10 +356,9 @@ export class KitchenScene extends Container {
 
     if (this.painting) this.applyTool(dt);
 
-    if (this.fire.visible) {
-      this.updateFire(dt);
-      if (this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
-    }
+    this.breath.update(dt);
+    if (this.breath.firing && this.doughReady) this.bakeLevel = Math.min(1, this.bakeLevel + dt / BAKE.secondsToBurnt);
+    this.updateShake(dt);
     this.updateGlow(dt);
     this.bins.forEach((bin) => bin.update(this.ingredient, dt));
     this.bowlLabel.update(this.doughPhase === 'held', dt);
@@ -353,7 +367,7 @@ export class KitchenScene extends Container {
     this.dragon.cursor = this.canBake() && !this.serving ? 'pointer' : 'default';
     this.gauge.setLevel(this.bakeLevel);
     this.bakeButton.layout();
-    this.bakeButton.setState(this.canBake(), this.fire.visible);
+    this.bakeButton.setState(this.canBake(), this.breath.firing);
     this.cutterButton.setState(this.canCut(), this.tool === 'cutter');
     this.serveButton.layout();
     this.serveButton.setState(this.canServe(), this.servePressed);
@@ -580,14 +594,25 @@ export class KitchenScene extends Container {
   }
 
   private setFiring(firing: boolean): void {
-    this.fire.visible = firing;
-    this.fireTime = 0;
+    if (firing && !this.breath.firing) this.shake.kick(SHAKE.kick);
+    this.breath.firing = firing;
+    this.rumble.set(firing);
   }
 
-  private updateFire(dt: number): void {
-    this.fireTime += dt;
-    const flicker = 1 + FIRE.flickerAmount * Math.sin(this.fireTime * FIRE.flickerSpeed);
-    this.fire.scale.set(this.fireScale, this.fireScale * flicker);
+  /** Start or stop breathing fire, a dev shortcut for tuning the breath; only once the dough can bake. */
+  toggleFire(): void {
+    this.setFiring(!this.breath.firing && this.canBake() && !this.serving);
+  }
+
+  /** The scene shakes and the device rumbles while the dragon breathes, the shake wearing off after. */
+  private updateShake(dt: number): void {
+    const { shake } = this;
+    shake.hold(SHAKE.rumble * this.breath.heat);
+    shake.update(dt);
+    this.rumble.update(dt);
+    this.pivot.copyFrom(this.shakeCenter);
+    this.position.set(this.shakeCenter.x + shake.x, this.shakeCenter.y + shake.y);
+    this.rotation = shake.rotation;
   }
 
   private applyAvailability(): void {
@@ -672,7 +697,7 @@ export class KitchenScene extends Container {
 
   /** Place the dragon from config and aim the fire from its mouth at the dough, once the peel is placed. */
   private layoutDragon(): void {
-    const { dragon, fire } = this;
+    const { dragon } = this;
     dragon.anchor.set(DRAGON.pivotX, DRAGON.pivotY);
     dragon.scale.set(DRAGON.scale);
     dragon.position.set(DRAGON.x, DRAGON.y);
@@ -685,18 +710,13 @@ export class KitchenScene extends Container {
     const mouthX = DRAGON.x + offsetX * cos - offsetY * sin;
     const mouthY = DRAGON.y + offsetX * sin + offsetY * cos;
     this.placeStation('dragon', DRAGON.x, DRAGON.y);
-    // Flame art has its round head on the left; the head sits in the mouth, tips reaching for the dough
-    const target = this.stations.dragon.toLocal(ORIGIN, this.dough);
-    const dx = target.x - mouthX;
-    const dy = target.y - mouthY;
-    fire.position.set(mouthX, mouthY);
-    fire.rotation = Math.atan2(dy, dx);
-    this.fireScale = (Math.hypot(dx, dy) * FIRE.reach) / fire.texture.width;
+    const station = this.stations.dragon;
+    const target = station.toLocal(ORIGIN, this.dough);
+    const rim = station.toLocal({ x: DOUGH.rimRadius, y: 0 }, this.dough);
+    this.breath.aim({ x: mouthX, y: mouthY }, target, Math.hypot(rim.x - target.x, rim.y - target.y));
   }
 
   private buildDragon(): void {
-    this.fire.anchor.set(0, 0.5);
-    this.fire.eventMode = 'none';
     this.setFiring(false);
 
     const { dragon } = this;
@@ -705,7 +725,7 @@ export class KitchenScene extends Container {
     dragon.hitArea = opaqueHitArea(dragon);
     // Like the bake button, it only breathes fire once the dough is rolled out, and not once it's cut
     this.onFirePress(dragon, () => this.canBake());
-    this.stations.dragon.addChild(dragon, this.fire);
+    this.stations.dragon.addChild(dragon, this.breath);
   }
 
   /** A second way to bake, disabled until the dough is rolled out, and once it's cut. */

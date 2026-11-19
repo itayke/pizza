@@ -18,6 +18,18 @@ BRUSH_WOBBLE = 0.06
 BRUSH_LOBES = 5
 BRUSH_SOFTNESS = 0.12
 
+# Fire particles, white so they take any tint; shape in alpha. A fireball is a wobbly blob streaked like crayon, an
+# ember a small soft dot
+FIREBALL_SIZE = 128
+FIREBALL_RADIUS = 0.42
+FIREBALL_WOBBLE = 0.12
+FIREBALL_LOBES = 6
+FIREBALL_SOFTNESS = 0.25
+# Streaks run this many times longer than they are wide, and take away up to STREAK_DEPTH of the alpha
+STREAK_STRETCH = 8
+STREAK_DEPTH = 0.45
+EMBER_SIZE = 32
+
 # Order ticket icons: square, drawn at ICON_SIZE px in pencil-like ink. Pies are pizzas of radius PIE_RADIUS (of the
 # icon) cut into equal wedges: the one asked for in dough, starting at 12 o'clock and going clockwise, the rest empty
 ICON_SIZE = 160
@@ -56,6 +68,29 @@ def brush(rng):
     img[..., :3] = 255
     img[..., 3] = (alpha * 255).astype(np.uint8)
     return Image.fromarray(img, 'RGBA')
+
+
+def white(alpha):
+    img = np.zeros(alpha.shape + (4,), np.uint8)
+    img[..., :3] = 255
+    img[..., 3] = (np.clip(alpha, 0, 1) * 255).astype(np.uint8)
+    return Image.fromarray(img, 'RGBA')
+
+
+def fireball(rng):
+    shape = wobble(rng, FIREBALL_LOBES)
+    y, x = (np.mgrid[:FIREBALL_SIZE, :FIREBALL_SIZE] + 0.5) / FIREBALL_SIZE - 0.5
+    edge = FIREBALL_RADIUS * (1 + FIREBALL_WOBBLE * shape(np.arctan2(y, x)))
+    t = np.clip((edge - np.hypot(x, y)) / FIREBALL_SOFTNESS, 0, 1)
+    # Noise stretched sideways reads as crayon strokes
+    rows = Image.fromarray((rng.random((FIREBALL_SIZE, FIREBALL_SIZE // STREAK_STRETCH)) * 255).astype(np.uint8))
+    streaks = np.asarray(rows.resize((FIREBALL_SIZE, FIREBALL_SIZE), Image.BILINEAR)) / 255
+    return white(t * t * (3 - 2 * t) * (1 - STREAK_DEPTH * streaks))
+
+
+def ember():
+    y, x = (np.mgrid[:EMBER_SIZE, :EMBER_SIZE] + 0.5) / EMBER_SIZE - 0.5
+    return white((1 - np.clip(2 * np.hypot(x, y), 0, 1)) ** 2)
 
 
 def canvas():
@@ -123,12 +158,14 @@ def flame(fill):
 def main():
     rng = np.random.default_rng(SEED)
     brush(rng).save(OUT / 'sauce_brush.png')
+    fireball(rng).save(OUT / 'fireball.png')
+    ember().save(OUT / 'ember.png')
     icons = {f'order_share_{n}': pie(n) for n in PIE_PARTS}
     icons |= {f'order_digit_{n}': text(str(n)) for n in range(1, MAX_DIGIT + 1)}
     icons |= {'order_times': times(), 'order_apart': apart(), 'order_well': flame(WELL_FILL), 'order_burnt': flame(BURNT_FILL)}
     for name, img in icons.items():
         img.save(OUT / f'{name}.png')
-    print('wrote sauce_brush,', ', '.join(icons))
+    print('wrote sauce_brush, fireball, ember,', ', '.join(icons))
 
 
 if __name__ == '__main__':

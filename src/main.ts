@@ -19,6 +19,8 @@ async function start(): Promise<void> {
     resolution: Math.min(window.devicePixelRatio, MAX_RESOLUTION),
   });
   document.body.appendChild(app.canvas);
+  // A long press (holding the dragon) would open the context menu, with a buzz on Android
+  window.addEventListener('contextmenu', (e) => e.preventDefault());
   await Promise.all([loadArt(), loadFonts()]);
 
   const viewport = new Viewport();

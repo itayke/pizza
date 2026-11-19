@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, FIRE, GRADE, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SLICING, TOPPINGS, WIDESCREEN } from '../config';
+import { BAKE, BAKE_BUTTON, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SHAKE, SLICING, TOPPINGS, WIDESCREEN } from '../config';
 import { gradeOf, type Score } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
@@ -12,6 +12,7 @@ const RESET_KEY = 'r';
 const SKIP_KEY = 's';
 const ORDER_KEY = 'o';
 const COPY_KEY = 'c';
+const FIRE_KEY = 'f';
 const TOGGLE_KEY = 't';
 const BAKE_LEVEL_REFRESH_MS = 100;
 const ORDER_SCORE_REFRESH_MS = 250;
@@ -63,6 +64,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   pane.addButton({ title: `Skip step (${SKIP_KEY.toUpperCase()})` }).on('click', () => scene.skipStep());
   pane.addButton({ title: `New order (${ORDER_KEY.toUpperCase()})` }).on('click', () => scene.newOrder());
   pane.addButton({ title: `Copy order (${COPY_KEY.toUpperCase()})` }).on('click', () => scene.copyOrder());
+  pane.addButton({ title: `Breathe fire on/off (${FIRE_KEY.toUpperCase()})` }).on('click', () => scene.toggleFire());
   window.addEventListener('keydown', (e) => {
     // Typing in a field (the filter, a number box) isn't a shortcut
     if (e.target instanceof HTMLInputElement) return;
@@ -71,6 +73,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     if (key === SKIP_KEY) scene.skipStep();
     if (key === ORDER_KEY) scene.newOrder();
     if (key === COPY_KEY) scene.copyOrder();
+    if (key === FIRE_KEY) scene.toggleFire();
     if (key === TOGGLE_KEY) toggle();
   });
 
@@ -325,6 +328,66 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   dragon.addBinding(FIRE, 'reach', { min: 0.2, max: 1.5 });
   dragon.on('change', layout);
 
+  const fire = pane.addFolder({ title: 'Fire', expanded: false });
+  fire.addBinding(FIRE, 'riseSeconds', { min: 0, max: 1 });
+  fire.addBinding(FIRE, 'fallSeconds', { min: 0, max: 2 });
+  fire.addBinding(FIRE, 'overshoot', { min: 0, max: 5 });
+  fire.addBinding(FIRE, 'flickerLength', { min: 0, max: 0.5 });
+  fire.addBinding(FIRE, 'flickerWidth', { min: 0, max: 0.5 });
+  fire.addBinding(FIRE, 'flickerSpeed', { min: 0, max: 80 });
+  const balls = fire.addFolder({ title: 'Fireballs', expanded: false });
+  balls.addBinding(FIREBALLS, 'additive');
+  balls.addBinding(FIREBALLS, 'max', { min: 0, max: 400, step: 1 });
+  balls.addBinding(FIREBALLS, 'perSecond', { min: 0, max: 150 });
+  balls.addBinding(FIREBALLS, 'spread', { min: 0, max: 150, step: 1 });
+  balls.addBinding(FIREBALLS, 'aim', { min: 0, max: 1.5 });
+  balls.addBinding(FIREBALLS, 'speed', { min: 100, max: 4000, step: 10 });
+  balls.addBinding(FIREBALLS, 'speedJitter', { min: 0, max: 1 });
+  balls.addBinding(FIREBALLS, 'startSize', { min: 0, max: 400, step: 1 });
+  balls.addBinding(FIREBALLS, 'endSize', { min: 0, max: 400, step: 1 });
+  balls.addBinding(FIREBALLS, 'spin', { min: 0, max: 5 });
+  balls.addBinding(FIREBALLS, 'alpha', { min: 0, max: 1 });
+  balls.addBinding(FIREBALLS, 'saturation', { min: 0, max: 1 });
+  balls.addBinding(FIREBALLS, 'startHue', { min: 0, max: 1 });
+  balls.addBinding(FIREBALLS, 'hueAlong', { min: -2, max: 2 });
+  balls.addBinding(FIREBALLS, 'hueSpread', { min: 0, max: 0.5 });
+  balls.addBinding(FIREBALLS, 'whiteSeconds', { min: 0, max: 1 });
+  balls.addBinding(FIREBALLS, 'splashPuffs', { min: 0, max: 10, step: 1 });
+  balls.addBinding(FIREBALLS, 'splashAngle', { min: 0, max: 180, step: 1 });
+  balls.addBinding(FIREBALLS, 'splashSpeed', { min: 0, max: 2000, step: 10 });
+  balls.addBinding(FIREBALLS, 'splashDrag', { min: 0, max: 20 });
+  balls.addBinding(FIREBALLS, 'splashSize', { min: 0, max: 500, step: 1 });
+  balls.addBinding(FIREBALLS, 'splashSeconds', { min: 0.05, max: 2 });
+  balls.addBinding(FIREBALLS, 'splashAlpha', { min: 0, max: 1 });
+  balls.addBinding(FIREBALLS, 'splashHueSpread', { min: 0, max: 0.5 });
+  const embers = fire.addFolder({ title: 'Embers', expanded: false });
+  embers.addBinding(EMBERS, 'additive');
+  embers.addBinding(EMBERS, 'max', { min: 0, max: 400, step: 1 });
+  embers.addBinding(EMBERS, 'perSecond', { min: 0, max: 150 });
+  embers.addBinding(EMBERS, 'spread', { min: 0, max: 200, step: 1 });
+  embers.addBinding(EMBERS, 'splashEmbers', { min: 0, max: 10, step: 1 });
+  embers.addBinding(EMBERS, 'speed', { min: 0, max: 2000, step: 10 });
+  embers.addBinding(EMBERS, 'rise', { min: -2000, max: 3000, step: 10 });
+  embers.addBinding(EMBERS, 'drag', { min: 0, max: 10 });
+  embers.addBinding(EMBERS, 'size', { min: 1, max: 80, step: 1 });
+  embers.addBinding(EMBERS, 'seconds', { min: 0.05, max: 3 });
+  embers.addBinding(EMBERS, 'lifeJitter', { min: 0, max: 1 });
+  embers.addBinding(EMBERS, 'saturation', { min: 0, max: 1 });
+  const shake = fire.addFolder({ title: 'Shake', expanded: false });
+  shake.addBinding(SHAKE, 'kick', { min: 0, max: 1 });
+  shake.addBinding(SHAKE, 'rumble', { min: 0, max: 1 });
+  shake.addBinding(SHAKE, 'decay', { min: 0, max: 5 });
+  shake.addBinding(SHAKE, 'power', { min: 1, max: 4 });
+  shake.addBinding(SHAKE, 'offset', { min: 0, max: 80, step: 1 });
+  shake.addBinding(SHAKE, 'angle', { min: 0, max: 5 });
+  shake.addBinding(SHAKE, 'frequency', { min: 0, max: 60 });
+  // The paper grows to cover the shake at its strongest
+  shake.on('change', refit);
+  const haptics = fire.addFolder({ title: 'Haptics', expanded: false });
+  haptics.addBinding(HAPTICS, 'kickMs', { min: 0, max: 500, step: 1 });
+  haptics.addBinding(HAPTICS, 'pulseMs', { min: 0, max: 200, step: 1 });
+  haptics.addBinding(HAPTICS, 'everyMs', { min: 10, max: 300, step: 1 });
+
   const bake = pane.addFolder({ title: 'Bake', expanded: false });
   bake.addBinding(BAKE_GAUGE, 'x', { min: 0, max: 2048, step: 1 });
   bake.addBinding(BAKE_GAUGE, 'y', { min: 0, max: 1536, step: 1 });
@@ -366,7 +429,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE, WIDESCREEN }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

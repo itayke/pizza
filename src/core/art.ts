@@ -14,6 +14,8 @@ const RGBA = 4;
 const EXTRA_TEXTURES = {
   sauce_brush: {},
   sauce_pattern: { addressMode: 'repeat' },
+  fireball: {},
+  ember: {},
 } as const;
 
 // Order ticket icons, placeholders until drawn; drop a name here once the extractor cuts its art

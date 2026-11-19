@@ -589,14 +589,96 @@ export const DRAGON = {
   angle: -12,
 };
 
-// Fire streams from the mouth (fractions of the dragon art) toward the dough while the dragon is held
+// Fire streams from the mouth (fractions of the dragon art) toward the dough while the dragon is held. Its heat rises
+// over riseSeconds once pressed and falls over fallSeconds once let go, and the whole breath follows it: the flame
+// grows out of the mouth past full size by overshoot (an ease-out-back strength) and flickers in length and width
+// by those fractions, wandering flickerSpeed times faster than real time
 export const FIRE = {
   mouthX: 0.2,
   mouthY: 0.194,
   // Flame length as a fraction of the mouth-to-dough distance
   reach: 1.145,
-  flickerAmount: 0.06,
+  riseSeconds: 0.15,
+  fallSeconds: 0.3,
+  overshoot: 2,
+  flickerLength: 0.06,
+  flickerWidth: 0.12,
   flickerSpeed: 30,
+};
+
+// Rainbow fireballs fly from the mouth (spread around it, design px) to spots on the pizza within aim of its rim,
+// perSecond at full heat, and no more than max at once. Each flies at speed design px a second, give or take
+// speedJitter of it, growing from startSize to endSize design px and spinning up to spin turns a second. Like the
+// drawn flame, its hue walks the rainbow from startHue (turns) by hueAlong turns over its flight, give or take
+// hueSpread, starting white and taking its color over whiteSeconds. Landing, it splashes into splashPuffs puffs thrown within splashAngle degrees
+// of its path at splashSpeed, slowing by splashDrag a second, growing to splashSize and fading from splashAlpha over
+// splashSeconds, each turned off its hue by up to splashHueSpread
+export const FIREBALLS = {
+  additive: true,
+  max: 160,
+  perSecond: 89.674,
+  spread: 25,
+  aim: 0.685,
+  speed: 2430,
+  speedJitter: 0.348,
+  startSize: 52,
+  endSize: 65,
+  spin: 1,
+  alpha: 0.489,
+  saturation: 0.9,
+  startHue: 0.826,
+  hueAlong: -0.261,
+  hueSpread: 0.5,
+  whiteSeconds: 0.228,
+  splashPuffs: 3,
+  splashAngle: 51,
+  splashSpeed: 890,
+  splashDrag: 7.391,
+  splashSize: 418,
+  splashSeconds: 0.326,
+  splashAlpha: 0.457,
+  splashHueSpread: 0.5,
+};
+
+// Embers spark off the flame (spread across it, design px) perSecond at full heat, and splashEmbers fly off each
+// landing fireball, no more than max at once. Each starts at up to speed design px a second, rising by rise
+// design px a second each second and slowing by drag a second, shrinking from size design px over seconds, give or
+// take lifeJitter of it, in a rainbow hue
+export const EMBERS = {
+  additive: true,
+  max: 140,
+  perSecond: 35,
+  spread: 60,
+  splashEmbers: 2,
+  speed: 450,
+  rise: 700,
+  drag: 2,
+  size: 16,
+  seconds: 0.8,
+  lifeJitter: 0.4,
+  saturation: 0.9,
+};
+
+// Screen shake: trauma (0 to 1) jumps by kick as the dragon starts breathing and stays at least rumble times the
+// heat while it breathes, falling by decay a second. The scene moves up to offset design px and turns up to angle
+// degrees, scaled by trauma to the power power, wandering frequency times faster than real time. 0 offset and angle
+// turn it off
+export const SHAKE = {
+  kick: 0.543,
+  rumble: 0.554,
+  decay: 2.5,
+  power: 2.174,
+  offset: 20,
+  angle: 0.163,
+  frequency: 40,
+};
+
+// The device buzzes where it can (not on iPads or iPhones): kickMs as the dragon starts breathing, then a pulseMs
+// buzz every everyMs while it breathes; pulses longer than the gap run together. 0 pulseMs turns it off
+export const HAPTICS = {
+  kickMs: 150,
+  pulseMs: 50,
+  everyMs: 70,
 };
 
 // Serve button: center and drawn width. Enabled once the pizza is baked enough (BAKE.minBaked); does nothing yet
