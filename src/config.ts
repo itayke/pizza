@@ -80,7 +80,7 @@ export const BIN_LAYOUT = {
   bin2Scale: 1,
   bin2Enabled: true,
   bin3X: 234,
-  bin3Y: 622,
+  bin3Y: 610,
   bin3Scale: 1,
   bin3Enabled: true,
 };
@@ -112,8 +112,8 @@ export const LABEL_NUDGE = {
 // ball sits in the empty bowl at fillWidth (a fraction of the bowl's width) until picked up, and returns with the next
 // pizza
 export const BOWL = {
-  x: 734,
-  y: 668,
+  x: 722,
+  y: 700,
   scale: 1.05,
   bowlScale: 0.906,
   labelX: 0,
@@ -125,12 +125,12 @@ export const BOWL = {
 // stage and the scale of both. ticketScale scales the order alone about its center, and labelX/labelY move the caption
 // from its drawn spot; the caption keeps its size
 export const ORDER_TRAY = {
-  x: 372,
-  y: 1105,
-  scale: 1.4,
+  x: 255,
+  y: 1112,
+  scale: 1.36,
   ticketScale: 1.25,
   labelX: 0,
-  labelY: 57,
+  labelY: 36,
 };
 
 // Order ticket in the tray, a row of icons per rule: within width × height of the tray (fractions of its art),
@@ -663,7 +663,7 @@ export const HAPTICS = {
 
 // Serve button: center on the stage and drawn width. Enabled once the pizza is baked enough (BAKE.minBaked); does nothing yet
 export const SERVE_BUTTON = {
-  x: 1140,
+  x: 1130,
   y: 1363,
   width: 351.6,
 };
