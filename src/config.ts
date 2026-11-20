@@ -572,13 +572,13 @@ export const BAKE_GAUGE = {
   sweep: 1.45,
 };
 
-// Once per pizza, when it can first be cut and the dragon stops breathing, SLICE! shows by it in the hand font with
-// capitals cap peel px tall in color, outlined outline peel px in outlineColor, tilted tilt degrees clockwise, x, y
-// peel px off the pizza's center, the spot every cue word shares. It lands from popScale times its size over
-// popSeconds, then pulses by pulse of its size pulseSpeed times a second. With it, guides dots a picture order's cuts
-// across the pizza: dots guideDot across, guideGap apart, of guideColor at guideAlpha, rimmed guideOutline px in
-// guideOutlineColor at guideOutlineAlpha. Both stay showSeconds after it appears, then fade out over fadeSeconds; the
-// first cut takes them off
+// Once the pizza can be cut and isn't, with no fire and nothing pressed for idleSeconds, SLICE! shows by it in the hand
+// font with capitals cap peel px tall in color, outlined outline peel px in outlineColor, tilted tilt degrees
+// clockwise, x, y peel px off the pizza's center, the spot every cue word shares. It lands from popScale times its size
+// over popSeconds, then pulses by pulse of its size pulseSpeed times a second. With it, guides dots a picture order's
+// cuts across the pizza: dots guideDot across, guideGap apart, of guideColor at guideAlpha, rimmed guideOutline px in
+// guideOutlineColor at guideOutlineAlpha. Both fade in and out over fadeSeconds, as every cue does; a press, fire or
+// the cut takes them off, and they come back after the next wait while the pizza is still uncut
 export const SLICE_CUE = {
   cap: 85,
   color: '#c0392b',
@@ -591,7 +591,7 @@ export const SLICE_CUE = {
   popSeconds: 0.25,
   pulse: 0.06,
   pulseSpeed: 1.5,
-  showSeconds: 3,
+  idleSeconds: 2,
   fadeSeconds: 0.5,
   guides: true,
   guideDot: 12,
@@ -607,7 +607,7 @@ export const SLICE_CUE = {
 // over: it fades in open at the ball over fadeInSeconds, pinches grabSeconds later and holds holdSeconds, slides to the
 // peel's center over moveSeconds (easing in and out), fades out over fadeOutSeconds, then rests restSeconds. It's
 // handWidth design px wide, its pinch at pivotX, pivotY (fractions of its art). With it, DRAG shows where SLICE! does,
-// styled the same. Any press takes both off, fading out over SLICE_CUE's fadeSeconds
+// styled the same. Both fade in, and on any press out, over SLICE_CUE's fadeSeconds
 export const DRAG_CUE = {
   idleSeconds: 3,
   handWidth: 380,

@@ -3,6 +3,7 @@ import { DRAG_CUE, SLICE_CUE } from '../config';
 import { WORDS } from '../words';
 import { CueWord } from './CueWord';
 import { HandPass } from './HandPass';
+import { IdleCue } from './IdleCue';
 
 /**
  * Idle tutorial for placing the dough: once it has waited untouched a while, a hand grabs at the ball and slides to the
@@ -12,12 +13,7 @@ import { HandPass } from './HandPass';
 export class DragCue extends Container {
   private readonly hand = new HandPass('hand_open', 'hand_pinch', DRAG_CUE);
   readonly word = new CueWord(WORDS.drag);
-  /** Seconds waiting without a press. */
-  private idle = 0;
-  /** Seconds since it last came up, for the word's landing and pulse and the hand's passes. */
-  private age = 0;
-  /** How much it shows, fading out once it stops. */
-  private strength = 0;
+  private readonly timing = new IdleCue();
 
   constructor() {
     super();
@@ -34,18 +30,14 @@ export class DragCue extends Container {
 
   /** A press: it comes off, and the wait starts over. */
   nudge(): void {
-    this.idle = 0;
+    this.timing.nudge();
   }
 
   /** waiting: the dough is in its bowl, ready to be dragged. */
   update(dt: number, waiting: boolean): void {
-    this.idle = waiting ? this.idle + dt : 0;
-    const active = waiting && this.idle >= DRAG_CUE.idleSeconds;
-    if (active && this.strength === 0) this.age = 0;
-    const fade = SLICE_CUE.fadeSeconds;
-    this.strength = active ? 1 : fade > 0 ? Math.max(0, this.strength - dt / fade) : 0;
-    if (this.strength > 0) this.age += dt;
-    this.word.pose(this.age, this.strength);
-    this.hand.pose(this.age, this.strength);
+    const { timing } = this;
+    timing.update(dt, waiting, DRAG_CUE.idleSeconds, SLICE_CUE.fadeSeconds);
+    this.word.pose(timing.age, timing.strength);
+    this.hand.pose(timing.age, timing.strength);
   }
 }

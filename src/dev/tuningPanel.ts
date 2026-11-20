@@ -345,7 +345,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   cue.addBinding(SLICE_CUE, 'popSeconds', { min: 0, max: 2 });
   cue.addBinding(SLICE_CUE, 'pulse', { min: 0, max: 0.5 });
   cue.addBinding(SLICE_CUE, 'pulseSpeed', { min: 0, max: 5 });
-  cue.addBinding(SLICE_CUE, 'showSeconds', { min: 0, max: 10 });
+  cue.addBinding(SLICE_CUE, 'idleSeconds', { min: 0, max: 10 });
   cue.addBinding(SLICE_CUE, 'fadeSeconds', { min: 0, max: 3 });
   cue.addBinding(SLICE_CUE, 'guides');
   cue.addBinding(SLICE_CUE, 'guideDot', { min: 1, max: 30 });

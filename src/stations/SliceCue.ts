@@ -1,57 +1,48 @@
-import { SLICE_CUE } from '../config';
+import { Container } from 'pixi.js';
+import { SLICE_CUE, SLICE_HAND } from '../config';
 import { WORDS } from '../words';
 import { CueWord } from './CueWord';
+import { HandPass } from './HandPass';
+import { IdleCue } from './IdleCue';
 
-/** The call to cut the pizza, once per pizza: the word lands and pulses for a while, then fades out. */
-export class SliceCue extends CueWord {
-  private shown = false;
-  /** Whether it has played for this pizza, so it doesn't play again. */
-  private played = false;
-  /** Seconds since it was shown. */
-  private shownFor = 0;
+/**
+ * The call to cut the pizza: once it has waited baked and uncut a while, untouched and with no fire, the word lands and
+ * a hand draws its claw down the upright cut, pass after pass, until a press or the cut takes them off. The pizza's
+ * cut guides fade along with it, by its strength.
+ */
+export class SliceCue extends Container {
+  private readonly word = new CueWord(WORDS.slice);
+  /** Its stroke runs from hand.from to hand.to, set by whoever holds it. */
+  readonly hand = new HandPass('hand_point', 'hand_point', SLICE_HAND);
+  private readonly timing = new IdleCue();
 
   constructor() {
-    super(WORDS.slice);
+    super();
+    this.eventMode = 'none';
+    this.addChild(this.hand, this.word);
   }
 
-  /** Show it, unless it already played for this pizza. */
-  play(): void {
-    if (this.played) return;
-    this.played = true;
-    this.shown = true;
-    this.shownFor = 0;
-    this.update(0);
+  /** Set it from config, the word centered at x, y. */
+  layout(x: number, y: number): void {
+    this.word.layout(x, y);
+    this.hand.layout();
   }
 
-  /** Take it off; it stays played. */
-  hide(): void {
-    if (!this.shown) return;
-    this.shown = false;
-    this.update(0);
+  /** A press: it comes off, and the wait starts over. */
+  nudge(): void {
+    this.timing.nudge();
   }
 
-  /** Off, and ready to play again for a new pizza. */
-  rearm(): void {
-    this.hide();
-    this.played = false;
-  }
-
-  /** How much it shows, 1 while it's up to 0 once faded out or hidden, for what shows along with it. */
+  /** How much it shows, 0 (off) to 1, for what shows along with it. */
   get strength(): number {
-    if (!this.shown) return 0;
-    const { showSeconds, fadeSeconds } = SLICE_CUE;
-    const past = this.shownFor - showSeconds;
-    if (past <= 0) return 1;
-    return fadeSeconds > 0 ? Math.max(0, 1 - past / fadeSeconds) : 0;
+    return this.timing.strength;
   }
 
-  /** Seconds since it was shown, for what plays along with it. */
-  get age(): number {
-    return this.shownFor;
-  }
-
-  update(dt: number): void {
-    this.shownFor += dt;
-    this.pose(this.shownFor, this.strength);
+  /** waiting: the pizza can be cut and isn't yet, with no fire. */
+  update(dt: number, waiting: boolean): void {
+    const { timing } = this;
+    timing.update(dt, waiting, SLICE_CUE.idleSeconds, SLICE_CUE.fadeSeconds);
+    this.word.pose(timing.age, timing.strength);
+    this.hand.pose(timing.age, timing.strength);
   }
 }
