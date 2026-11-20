@@ -17,6 +17,18 @@ canvas {
   display: block;
 }
 
+/* Build label, so feedback can be matched to a deploy */
+#version {
+  position: fixed;
+  left: calc(env(safe-area-inset-left) + 6px);
+  bottom: calc(env(safe-area-inset-bottom) + 4px);
+  color: #3b2418;
+  opacity: 0.45;
+  font: 11px system-ui, sans-serif;
+  pointer-events: none;
+  z-index: 5;
+}
+
 #rotate-hint {
   display: none;
   position: fixed;

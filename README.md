@@ -7,9 +7,14 @@ A fantasy pizza making game by Myra Keren-Detar and Itay Keren, with the help of
 - `npm run dev` — dev server, LAN-exposed for tablet testing
 - `npm run build` — typecheck + production build
 - `npm run preview` — serve the build
+- `npm run deploy` — build and publish to Cloudflare (see Deploy)
 - `npm test` — order and slicing tests (Vitest)
 
 Ports are set in `vite.config.ts`.
+
+## Deploy
+
+A static Cloudflare Worker serves the build on its custom domain, both set in `wrangler.jsonc`. Deploys are manual: run `npx wrangler login` once, then `npm run deploy`. The corner build label shows the version and commit, starred when built from uncommitted changes. While in alpha, `public/_headers` and `public/robots.txt` keep crawlers out.
 
 ## Art
 
@@ -28,6 +33,7 @@ Label words are set in code in the hand font (Playpen Sans, OFL, in `public/asse
 - `src/words.ts` — what each label says
 - `src/orders/` — orders: drawing them (pictures to copy, or rule puzzles) and scoring a pizza against one
 - `src/dev/` — dev-only tools (tuning panel)
+- `public/` — shipped as-is (art, fonts, response headers)
 - `tools/` — build/dev-server tooling (tuning save endpoint, art extraction)
 - `art/` — source drawings (not shipped)
 - `ref/` — reference art (not shipped)
