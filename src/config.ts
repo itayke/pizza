@@ -574,10 +574,11 @@ export const BAKE_GAUGE = {
 
 // Once per pizza, when it can first be cut and the dragon stops breathing, SLICE! shows by it in the hand font with
 // capitals cap peel px tall in color, outlined outline peel px in outlineColor, tilted tilt degrees clockwise, x, y
-// peel px off the pizza's center. It lands from popScale times its size over popSeconds, then pulses by pulse of its
-// size pulseSpeed times a second. With it, guides dots a picture order's cuts across the pizza: dots guideDot across,
-// guideGap apart, of guideColor at guideAlpha, rimmed guideOutline px in guideOutlineColor at guideOutlineAlpha. Both
-// stay showSeconds after it appears, then fade out over fadeSeconds; the first cut takes them off
+// peel px off the pizza's center, the spot every cue word shares. It lands from popScale times its size over
+// popSeconds, then pulses by pulse of its size pulseSpeed times a second. With it, guides dots a picture order's cuts
+// across the pizza: dots guideDot across, guideGap apart, of guideColor at guideAlpha, rimmed guideOutline px in
+// guideOutlineColor at guideOutlineAlpha. Both stay showSeconds after it appears, then fade out over fadeSeconds; the
+// first cut takes them off
 export const SLICE_CUE = {
   cap: 85,
   color: '#c0392b',
@@ -600,6 +601,24 @@ export const SLICE_CUE = {
   guideOutline: 3,
   guideOutlineColor: '#ffffff',
   guideOutlineAlpha: 0.4,
+};
+
+// While the dough waits in its bowl with nothing pressed for idleSeconds, a hand shows dragging it to the peel, over and
+// over: it fades in open at the ball over fadeInSeconds, holds openSeconds, pinches and holds pinchSeconds, slides to
+// the peel's center over slideSeconds (easing in and out), fades out over fadeOutSeconds, then rests restSeconds. It's
+// handWidth design px wide, its pinch at pivotX, pivotY (fractions of its art). With it, DRAG shows where SLICE! does,
+// styled the same. Any press takes both off, fading out over SLICE_CUE's fadeSeconds
+export const DRAG_CUE = {
+  idleSeconds: 3,
+  handWidth: 380,
+  pivotX: 0.86,
+  pivotY: 0.42,
+  fadeInSeconds: 0.3,
+  openSeconds: 0.4,
+  pinchSeconds: 0.2,
+  slideSeconds: 1.2,
+  fadeOutSeconds: 0.4,
+  restSeconds: 0.8,
 };
 
 // Bake button above the gauge: center on the stage and drawn width. Pressing it breathes fire, same as pressing the dragon

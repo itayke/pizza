@@ -37,6 +37,7 @@ import { drawRecipe, type Recipe } from '../orders/Recipe';
 import { Run } from '../orders/Run';
 import { lineAngle, nearestLine, snapLine } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
+import { DragCue } from '../stations/DragCue';
 import { FireBreath } from '../stations/FireBreath';
 import { SliceCue } from '../stations/SliceCue';
 import { StateButton } from '../stations/StateButton';
@@ -82,6 +83,8 @@ export class KitchenScene extends Container {
   private readonly serveButton = new StateButton('serve_button', () => ORDER_TRAY.serveButtonWidth);
   private servePressed = false;
   private readonly sliceCue = new SliceCue();
+  /** Shows how to drag the dough to the peel while it waits untouched. */
+  private readonly dragCue = new DragCue();
   /** The last served pizza's slices, leaving the peel over every station. */
   private readonly served = new ServedSlices();
   /** The line the cutter aims along, as a line through the dough's center, and whether it's an existing cut's. */
@@ -174,12 +177,13 @@ export class KitchenScene extends Container {
     this.held.addChild(this.heldArt, this.heldGlow);
     this.held.eventMode = 'none';
     this.dough.toppings.hand = this.held;
-    this.addChild(this.doughBall, this.served, this.held);
+    this.addChild(this.doughBall, this.dragCue, this.served, this.held);
 
     // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
     this.on('globalpointermove', this.trackPointer, this);
     this.on('pointerdown', this.startPainting, this);
+    this.on('pointerdown', () => this.dragCue.nudge());
     this.on('pointerup', this.stopPainting, this);
     this.on('pointerupoutside', this.stopPainting, this);
 
@@ -226,6 +230,7 @@ export class KitchenScene extends Container {
     this.placeStation('serveButton', { x: ORDER_TRAY.serveButtonX, y: ORDER_TRAY.serveButtonY });
     this.layoutDragon();
     this.scaleHeld();
+    this.dragCue.layout(this.ballRest, this.peelCenter);
     // Last, once every station has its scale
     keepLabelSizes(this);
   }
@@ -375,6 +380,7 @@ export class KitchenScene extends Container {
     // Kneading ends once baking starts; cutting waits for the bake
     this.dough.setKneadable(this.tool === null && this.bakeLevel === 0 && !this.serving);
     this.updateSliceCue(dt);
+    this.dragCue.update(dt, inBowl && !this.serving);
     // Last, once the pizza is done changing this frame
     this.dough.drawPlain();
   }
@@ -700,14 +706,16 @@ export class KitchenScene extends Container {
     peel.eventMode = 'static';
     peel.on('pointerdown', this.dropDough, this);
     peel.on('pointerup', this.releaseOverPeel, this);
-    this.stations.peel.addChild(peel, this.dough, this.sliceCue);
+    this.stations.peel.addChild(peel, this.dough, this.sliceCue, this.dragCue.word);
   }
 
   /** Place the peel as drawn, with the dough on its face. */
   private layoutPeel(): void {
     this.peel.position.copyFrom(artPoint('peel', 0, 0));
     this.dough.position.copyFrom(artPoint('peel', PEEL.faceX, PEEL.faceY));
+    // Cue words share one spot above the pizza
     this.sliceCue.layout(this.dough.x + SLICE_CUE.x, this.dough.y + SLICE_CUE.y);
+    this.dragCue.word.layout(this.dough.x + SLICE_CUE.x, this.dough.y + SLICE_CUE.y);
     this.placeStation('peel', PEEL, this.dough.x, this.dough.y);
     this.toLocal(ORIGIN, this.dough, this.peelCenter);
     // Over the dough as it shows, though above every station

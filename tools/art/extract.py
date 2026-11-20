@@ -115,6 +115,14 @@ TOPPING_FIT_ANGLES = np.arange(-15, 15.5, 1)  # degrees
 TOPPING_FIT_SCALES = np.arange(0.84, 1.161, 0.02)
 TOPPING_FIT_ROTATE_GAIN = 0.01  # overlap ratio a rotation must add to be used
 
+# Tutorial hand frames, drawn on white: cut onto one shared canvas (so they swap in place) of this width, sized in code.
+# The body is solid; outside it, ink is unmixed from the paper so its dust trail stays soft
+HAND_FRAMES = {'hand_open': 'pizza_hand_open.png', 'hand_pinch': 'pizza_hand_pinch.png'}
+HAND_WIDTH = 512
+HAND_INK_LUM = 235  # its light green would let the flood in, so anything short of paper blocks it
+HAND_SEAL = 2  # closes the gaps where the body breaks into dust, px
+HAND_DUST_MIN = 0.04  # fainter dust than this is dropped, as alpha
+
 
 def load(name):
     return np.asarray(Image.open(ART / name).convert('RGB')).astype(np.float32)
@@ -566,6 +574,23 @@ def orient_fire(pixels):
     return np.ascontiguousarray(out)
 
 
+def hand_frames():
+    """Cut the tutorial hand frames onto one canvas; returns their asset names."""
+    cut = {}
+    for name, source in HAND_FRAMES.items():
+        img = load(source)
+        paper = estimate_paper(img)
+        body = ndimage.binary_fill_holes(largest(foreground(img, paper, use_chroma=True, ink_lum=HAND_INK_LUM, seal=HAND_SEAL)))
+        dust = inkness(img, paper)
+        cut[name] = rgba(img, paper, np.where(body, 1.0, np.where(dust >= HAND_DUST_MIN, dust, 0.0)).astype(np.float32))
+    l, t, r, b = bbox(np.maximum.reduce([c[..., 3] for c in cut.values()]))
+    size = (HAND_WIDTH, round((b - t) * HAND_WIDTH / (r - l)))
+    for name, pixels in cut.items():
+        im = Image.fromarray(pixels[t:b, l:r], 'RGBA').convert('RGBa').resize(size, Image.LANCZOS).convert('RGBA')
+        im.save(OUT / f'{name}.png', optimize=True)
+    return list(cut)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     LAYOUT_TS.parent.mkdir(parents=True, exist_ok=True)
@@ -653,6 +678,10 @@ def main():
 
     # Placed toppings per bake phase: not placed in the layout, kept at sheet scale
     for name in toppings():
+        record(name, f'{name}.png')
+
+    # Tutorial hand frames: not placed in the layout, sized in code
+    for name in hand_frames():
         record(name, f'{name}.png')
 
     body = json.dumps(rects, indent=2)
