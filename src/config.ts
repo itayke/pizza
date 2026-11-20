@@ -621,6 +621,31 @@ export const DRAG_CUE = {
   restSeconds: 0.8,
 };
 
+// Once the dough is on the peel and still small (covering less than untilCoverage of DOUGH's sauceCoverage), with
+// nothing pressed for idleSeconds, KNEAD shows where SLICE! does and a hand spirals out around the pizza's center,
+// clockwise, over and over: its focus (pivotX, pivotY, fractions of its art) fades in startReach of the rim from the
+// center over fadeInSeconds, holds holdSeconds, winds turns times around out to reach of the rim over moveSeconds, fades
+// out over fadeOutSeconds, then rests restSeconds. It winds by its share of the way to the windPower: 1 turns evenly,
+// so the hand speeds up as it widens, a half keeps it at about one speed, and between, it starts slower. It's handWidth
+// peel px wide; grabSeconds has nothing to switch
+export const KNEAD_CUE = {
+  idleSeconds: 3,
+  untilCoverage: 0.5,
+  handWidth: 420,
+  pivotX: 0.424,
+  pivotY: 0.764,
+  turns: 1.5,
+  startReach: 0.3,
+  reach: 0.6,
+  windPower: 0.848,
+  fadeInSeconds: 0.3,
+  grabSeconds: 0,
+  holdSeconds: 0,
+  moveSeconds: 3.043,
+  fadeOutSeconds: 0.3,
+  restSeconds: 0.4,
+};
+
 // While SLICE! shows, a hand draws its claw down the pizza's upright cut, over and over and fading with it: its tip
 // (pivotX, pivotY, fractions of its art) fades in at the top edge over fadeInSeconds, holds holdSeconds, runs to the
 // bottom edge over moveSeconds (easing in and out), fades out over fadeOutSeconds, then rests restSeconds. Its run

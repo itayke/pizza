@@ -9,6 +9,7 @@ import {
   CHEESE,
   CUTTER,
   DOUGH,
+  DRAG_CUE,
   DRAGON,
   FIRE,
   ROOM_LIGHT,
@@ -17,6 +18,7 @@ import {
   SLICE_HAND,
   HELD,
   INGREDIENT_IDS,
+  KNEAD_CUE,
   ORDER_TRAY,
   ORDERS,
   PEEL,
@@ -38,9 +40,9 @@ import { drawRecipe, type Recipe } from '../orders/Recipe';
 import { Run } from '../orders/Run';
 import { lineAngle, nearestLine, snapLine } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
-import { DragCue } from '../stations/DragCue';
 import { FireBreath } from '../stations/FireBreath';
-import { SliceCue } from '../stations/SliceCue';
+import { HandCue } from '../stations/HandCue';
+import { HandPass } from '../stations/HandPass';
 import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
 import { IngredientBin } from '../stations/IngredientBin';
@@ -55,6 +57,7 @@ const TOPPINGS_READY: readonly IngredientId[] = INGREDIENT_IDS;
 
 type DoughPhase = 'inBowl' | 'held' | 'dropping' | 'onPeel';
 const DEG_TO_RAD = Math.PI / 180;
+const TAU = 2 * Math.PI;
 
 // Stations in drawing order; each holds its art in the wide design space and is placed for the current layout
 const STATIONS = ['bin1', 'bin2', 'bin3', 'bowl', 'orderTray', 'peel', 'dragon', 'gauge', 'bakeButton', 'serveButton'] as const;
@@ -83,9 +86,17 @@ export class KitchenScene extends Container {
   private readonly bakeButton = new StateButton('bake_button', () => BAKE_BUTTON.width);
   private readonly serveButton = new StateButton('serve_button', () => ORDER_TRAY.serveButtonWidth);
   private servePressed = false;
-  private readonly sliceCue = new SliceCue();
-  /** Shows how to drag the dough to the peel while it waits untouched. */
-  private readonly dragCue = new DragCue();
+  /** Tutorial cues, each while its step waits untouched: drag the dough to the peel, knead it, then cut it once baked. */
+  private readonly dragCue = new HandCue(WORDS.drag, new HandPass('hand_open', 'hand_pinch', DRAG_CUE), DRAG_CUE);
+  private readonly kneadCue = new HandCue(
+    WORDS.knead,
+    new HandPass('hand_knead', 'hand_knead', KNEAD_CUE, (u, out) => this.kneadSpiral(u, out)),
+    KNEAD_CUE,
+  );
+  private readonly sliceCue = new HandCue(WORDS.slice, new HandPass('hand_point', 'hand_point', SLICE_HAND), SLICE_CUE);
+  private readonly cues = [this.dragCue, this.kneadCue, this.sliceCue];
+  /** A pointer is down anywhere; no cue shows meanwhile. */
+  private pressed = false;
   /** The last served pizza's slices, leaving the peel over every station. */
   private readonly served = new ServedSlices();
   /** The line the cutter aims along, as a line through the dough's center, and whether it's an existing cut's. */
@@ -178,18 +189,21 @@ export class KitchenScene extends Container {
     this.held.addChild(this.heldArt, this.heldGlow);
     this.held.eventMode = 'none';
     this.dough.toppings.hand = this.held;
-    this.addChild(this.doughBall, this.dragCue, this.served, this.held);
+    this.addChild(this.doughBall, this.dragCue.hand, this.served, this.held);
 
     // Track the pointer everywhere so held things can follow it
     this.eventMode = 'static';
     this.on('globalpointermove', this.trackPointer, this);
     this.on('pointerdown', this.startPainting, this);
-    this.on('pointerdown', () => {
-      this.dragCue.nudge();
-      this.sliceCue.nudge();
-    });
     this.on('pointerup', this.stopPainting, this);
     this.on('pointerupoutside', this.stopPainting, this);
+    // Any press takes the cues off and starts their wait over
+    this.on('pointerdown', () => {
+      this.pressed = true;
+      for (const cue of this.cues) cue.nudge();
+    });
+    this.on('pointerup', () => (this.pressed = false));
+    this.on('pointerupoutside', () => (this.pressed = false));
 
     this.layout();
     this.setTool(null);
@@ -234,7 +248,11 @@ export class KitchenScene extends Container {
     this.placeStation('serveButton', { x: ORDER_TRAY.serveButtonX, y: ORDER_TRAY.serveButtonY });
     this.layoutDragon();
     this.scaleHeld();
-    this.dragCue.layout(this.ballRest, this.peelCenter);
+    // The dough goes from its bowl to the peel's center
+    const { hand } = this.dragCue;
+    hand.from.copyFrom(this.ballRest);
+    hand.to.copyFrom(this.peelCenter);
+    for (const cue of this.cues) cue.hand.layout();
     // Last, once every station has its scale
     keepLabelSizes(this);
   }
@@ -382,22 +400,40 @@ export class KitchenScene extends Container {
     this.dough.setBake(this.bakeLevel);
     // Kneading ends once baking starts; cutting waits for the bake
     this.dough.setKneadable(this.tool === null && this.bakeLevel === 0 && !this.serving);
-    this.updateSliceCue(dt);
-    this.dragCue.update(dt, inBowl && !this.serving);
+    this.updateCues(dt, inBowl);
     // Last, once the pizza is done changing this frame
     this.dough.drawPlain();
   }
 
-  /** Call for cutting while the pizza can be cut and isn't yet, with a picture order's cuts dotted on it as a hint. */
-  private updateSliceCue(dt: number): void {
+  /**
+   * Each cue's moment, never while pressed: dragging while the dough waits in its bowl, kneading while it's still small,
+   * cutting while it can be cut and isn't, with no fire. A picture order's cuts dot the pizza along with the last.
+   */
+  private updateCues(dt: number, inBowl: boolean): void {
     const { current, sliceCue, dough } = this;
+    const free = !this.pressed && !this.serving;
+    this.dragCue.update(dt, free && inBowl);
+    const small = dough.coverage < KNEAD_CUE.untilCoverage * DOUGH.sauceCoverage;
+    this.kneadCue.update(dt, free && this.doughPhase === 'onPeel' && small);
     // Its stroke runs down the upright cut, top edge to bottom, as the dough's edge stands now
     const { hand } = sliceCue;
     hand.from.set(dough.x, dough.y - SLICE_HAND.reach * dough.radiusAt(-Math.PI / 2));
     hand.to.set(dough.x, dough.y + SLICE_HAND.reach * dough.radiusAt(Math.PI / 2));
-    sliceCue.update(dt, this.canCut() && !dough.isCut && !this.breath.firing);
+    sliceCue.update(dt, free && this.canCut() && !dough.isCut && !this.breath.firing);
     const hint = SLICE_CUE.guides && sliceCue.strength > 0 && current.kind === 'picture';
     this.dough.showOrderCuts(hint ? current.recipe.cuts : null, sliceCue.strength);
+  }
+
+  /**
+   * The knead cue's path, a share u of the way: around the pizza's center, winding clockwise out toward the rim, wound
+   * by u to the windPower (see KNEAD_CUE).
+   */
+  private kneadSpiral(u: number, out: Point): void {
+    const { turns, startReach, reach, windPower } = KNEAD_CUE;
+    const wound = u ** windPower;
+    const r = (startReach + (reach - startReach) * wound) * DOUGH.rimRadius;
+    const a = TAU * turns * wound;
+    out.set(this.dough.x + r * Math.cos(a), this.dough.y + r * Math.sin(a));
   }
 
   /** The held ingredient's glow fades up while pressed and back out once released. */
@@ -710,7 +746,7 @@ export class KitchenScene extends Container {
     peel.eventMode = 'static';
     peel.on('pointerdown', this.dropDough, this);
     peel.on('pointerup', this.releaseOverPeel, this);
-    this.stations.peel.addChild(peel, this.dough, this.sliceCue, this.dragCue.word);
+    this.stations.peel.addChild(peel, this.dough, this.kneadCue.hand, this.sliceCue.hand, ...this.cues.map((cue) => cue.word));
   }
 
   /** Place the peel as drawn, with the dough on its face. */
@@ -718,8 +754,7 @@ export class KitchenScene extends Container {
     this.peel.position.copyFrom(artPoint('peel', 0, 0));
     this.dough.position.copyFrom(artPoint('peel', PEEL.faceX, PEEL.faceY));
     // Cue words share one spot above the pizza
-    this.sliceCue.layout(this.dough.x + SLICE_CUE.x, this.dough.y + SLICE_CUE.y);
-    this.dragCue.word.layout(this.dough.x + SLICE_CUE.x, this.dough.y + SLICE_CUE.y);
+    for (const cue of this.cues) cue.word.layout(this.dough.x + SLICE_CUE.x, this.dough.y + SLICE_CUE.y);
     this.placeStation('peel', PEEL, this.dough.x, this.dough.y);
     this.toLocal(ORIGIN, this.dough, this.peelCenter);
     // Over the dough as it shows, though above every station

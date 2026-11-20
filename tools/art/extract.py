@@ -121,6 +121,7 @@ TOPPING_FIT_ROTATE_GAIN = 0.01  # overlap ratio a rotation must add to be used
 HAND_GROUPS = (
     {'hand_open': 'pizza_hand_open.png', 'hand_pinch': 'pizza_hand_pinch.png'},
     {'hand_point': 'pizza_hand_point.png'},
+    {'hand_knead': 'pizza_hand_knead.png'},
 )
 HAND_WIDTH = 512
 HAND_KEY_SOLID = 0.2

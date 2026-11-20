@@ -17,9 +17,13 @@ export type HandPassConfig = {
   restSeconds: number;
 };
 
+/** Where a hand is a share u (0 to 1) of the way through its move, set into out. */
+export type HandPath = (u: number, out: Point) => void;
+
 /**
- * A hand showing a gesture, pass after pass: it fades in at from in its first frame, after grabSeconds switches to its
- * second (the grab), holds, moves to to (easing in and out), fades out, then rests before the next.
+ * A hand showing a gesture, pass after pass: it fades in at the start of its move in its first frame, after grabSeconds
+ * switches to its second (the grab), holds, makes its move, fades out, then rests before the next. Its move is from
+ * to to (easing in and out), or a path of its own, taken at an even pace.
  */
 export class HandPass extends Container {
   private readonly first: Sprite;
@@ -28,7 +32,12 @@ export class HandPass extends Container {
   readonly from = new Point();
   readonly to = new Point();
 
-  constructor(first: TextureName, then: TextureName, private readonly config: HandPassConfig) {
+  constructor(
+    first: TextureName,
+    then: TextureName,
+    private readonly config: HandPassConfig,
+    private readonly path: HandPath | null = null,
+  ) {
     super();
     this.eventMode = 'none';
     this.first = new Sprite(artTexture(first));
@@ -56,8 +65,12 @@ export class HandPass extends Container {
     const period = fadeAt + fadeOutSeconds + restSeconds;
     const t = period > 0 ? age % period : 0;
 
-    const move = easeInOutCubic(moveSeconds > 0 ? Math.min(1, Math.max(0, (t - moveAt) / moveSeconds)) : +(t >= moveAt));
-    this.position.set(this.from.x + (this.to.x - this.from.x) * move, this.from.y + (this.to.y - this.from.y) * move);
+    const u = moveSeconds > 0 ? Math.min(1, Math.max(0, (t - moveAt) / moveSeconds)) : +(t >= moveAt);
+    if (this.path) this.path(u, this.position);
+    else {
+      const move = easeInOutCubic(u);
+      this.position.set(this.from.x + (this.to.x - this.from.x) * move, this.from.y + (this.to.y - this.from.y) * move);
+    }
     const grabbed = t >= grabAt;
     this.first.visible = !grabbed;
     this.then.visible = grabbed;

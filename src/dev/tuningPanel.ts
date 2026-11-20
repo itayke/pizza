@@ -1,6 +1,6 @@
 import type { BindingApi } from '@tweakpane/core';
 import { Pane, type FolderApi } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAG_CUE, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, RECIPE_RAMP, SELECTED_LABEL, SERVED, SHAKE, SLICE_CUE, SLICE_HAND, SLICING, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, KNEAD_CUE, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAG_CUE, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, RECIPE_RAMP, SELECTED_LABEL, SERVED, SHAKE, SLICE_CUE, SLICE_HAND, SLICING, TOPPINGS } from '../config';
 import { gradeOf, type Score } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
@@ -365,6 +365,19 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   for (const key of HAND_STEPS) drag.addBinding(DRAG_CUE, key, { min: 0, max: 3 });
   drag.on('change', layout);
 
+  const knead = pane.addFolder({ title: 'Knead cue', expanded: false });
+  knead.addBinding(KNEAD_CUE, 'idleSeconds', { min: 0, max: 10 });
+  knead.addBinding(KNEAD_CUE, 'untilCoverage', { min: 0, max: 1 });
+  knead.addBinding(KNEAD_CUE, 'handWidth', { min: 50, max: 1000, step: 1 });
+  knead.addBinding(KNEAD_CUE, 'pivotX', { min: 0, max: 1 });
+  knead.addBinding(KNEAD_CUE, 'pivotY', { min: 0, max: 1 });
+  knead.addBinding(KNEAD_CUE, 'turns', { min: 0, max: 6 });
+  knead.addBinding(KNEAD_CUE, 'startReach', { min: 0, max: 1.5 });
+  knead.addBinding(KNEAD_CUE, 'reach', { min: 0, max: 1.5 });
+  knead.addBinding(KNEAD_CUE, 'windPower', { min: 0.3, max: 1.5 });
+  for (const key of HAND_STEPS) knead.addBinding(KNEAD_CUE, key, { min: 0, max: 5 });
+  knead.on('change', layout);
+
   const sliceHand = pane.addFolder({ title: 'Slice hand', expanded: false });
   sliceHand.addBinding(SLICE_HAND, 'handWidth', { min: 50, max: 1000, step: 1 });
   sliceHand.addBinding(SLICE_HAND, 'pivotX', { min: 0, max: 1 });
@@ -480,7 +493,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, SLICE_CUE, SLICE_HAND, DRAG_CUE, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, LABEL_NUDGE }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, SLICE_CUE, SLICE_HAND, DRAG_CUE, KNEAD_CUE, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, LABEL_NUDGE }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

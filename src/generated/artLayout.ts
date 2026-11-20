@@ -384,6 +384,13 @@ export const ART = {
     "y": 0,
     "width": 512,
     "height": 370
+  },
+  "hand_knead": {
+    "file": "hand_knead.png",
+    "x": 0,
+    "y": 0,
+    "width": 512,
+    "height": 257
   }
 } as const;
 
