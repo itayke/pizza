@@ -1,6 +1,6 @@
 import type { BindingApi } from '@tweakpane/core';
 import { Pane, type FolderApi } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVED, SHAKE, SLICE_CUE, SLICING, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, RECIPE_RAMP, SELECTED_LABEL, SERVED, SHAKE, SLICE_CUE, SLICING, TOPPINGS } from '../config';
 import { gradeOf, type Score } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
@@ -17,6 +17,8 @@ const FIRE_KEY = 'f';
 const TOGGLE_KEY = 't';
 const BAKE_LEVEL_REFRESH_MS = 100;
 const ORDER_SCORE_REFRESH_MS = 250;
+// The run slider reaches past the last ramp's end
+const RUN_PASSED_MAX = Math.max(0, ...Object.values(RECIPE_RAMP).map((r) => r.full)) + 1;
 const SCORE_DECIMALS = 2;
 // Rows the score shows at most: a picture's parts, and every sauce or topping
 const SCORE_PARTS = 3;
@@ -231,6 +233,9 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     lastServed.refresh();
   }, ORDER_SCORE_REFRESH_MS);
   orders.addBinding(ORDERS, 'pictures').on('change', () => scene.newOrder());
+  // Jump the run ahead or back; the next order draws at it
+  const runPassed = orders.addBinding(scene.run, 'passed', { label: 'run passed', min: 0, max: RUN_PASSED_MAX, step: 1 });
+  setInterval(() => runPassed.refresh(), ORDER_SCORE_REFRESH_MS);
   for (const n of [4, 6, 8, 10, 12, 14, 16] as const) orders.addBinding(RECIPE, `slices${n}Weight`, { min: 0, max: 5 });
   for (const key of ['bothWeight', 'sauceOnlyWeight', 'cheeseOnlyWeight', 'plainWeight'] as const) orders.addBinding(RECIPE, key, { min: 0, max: 10 });
   orders.addBinding(RECIPE, 'minToppings', { min: 0, max: 4, step: 1 });

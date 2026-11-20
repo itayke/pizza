@@ -309,6 +309,34 @@ export const RECIPE = {
   burntAt: 0.5,
 };
 
+// A run starts on the simplest picture and harder options join as it goes on, counted in orders passed (graded
+// passGrade or better). Each option listed, a RECIPE weight or moreToppings (beyond minToppings), is off until from
+// passed; on that order it's introduced alone (every other choice its simplest), once a run, then it grows to full
+// weight by full passed. Options not listed are in from the start
+export const RUN = {
+  passGrade: 'c' as 'aPlus' | 'a' | 'b' | 'c' | 'd',
+};
+
+export type RampedOption = 'moreToppings' | Extract<keyof typeof RECIPE, `${string}Weight`>;
+
+export const RECIPE_RAMP: Partial<Record<RampedOption, { from: number; full: number }>> = {
+  halfWeight: { from: 2, full: 5 },
+  slices6Weight: { from: 3, full: 6 },
+  slices8Weight: { from: 3, full: 6 },
+  moreToppings: { from: 4, full: 7 },
+  lightWeight: { from: 5, full: 8 },
+  wellWeight: { from: 5, full: 8 },
+  sauceOnlyWeight: { from: 6, full: 9 },
+  cheeseOnlyWeight: { from: 6, full: 9 },
+  otherWeight: { from: 7, full: 10 },
+  slices10Weight: { from: 8, full: 11 },
+  slices12Weight: { from: 8, full: 11 },
+  burntWeight: { from: 9, full: 12 },
+  plainWeight: { from: 11, full: 14 },
+  slices14Weight: { from: 12, full: 15 },
+  slices16Weight: { from: 12, full: 15 },
+};
+
 // Scoring a copied picture, each part 0 to 1. Both pizzas are read a slice at a time: its coverage by sauce and by each
 // topping (as for rule orders, but mapped from clearMax to coverFull onto 0 to 1, so a slice plainly topped counts as
 // full) is spread evenly over bins a cutter grid step wide. cover is how alike the bins are, each sauce or topping on either pizza by its overlap over its union, at

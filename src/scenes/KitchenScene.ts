@@ -34,6 +34,7 @@ import { judge } from '../orders/judge';
 import { drawOrder, type Order } from '../orders/Order';
 import { comparePicture, profileOf, type Profile } from '../orders/picture';
 import { drawRecipe, type Recipe } from '../orders/Recipe';
+import { Run } from '../orders/Run';
 import { lineAngle, nearestLine, snapLine } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { FireBreath } from '../stations/FireBreath';
@@ -104,6 +105,8 @@ export class KitchenScene extends Container {
   current!: CurrentOrder;
   /** How the last served pizza met its order; none served yet. */
   lastScore: Score | null = null;
+  /** This visit's run: orders start simple and grow harder as they're passed. */
+  readonly run = new Run();
   /** The dough ball: waits in the bowl, is carried by hand, then drops onto the peel where the dough takes over. */
   private readonly doughBall = makeDoughBallSprite();
   /** Where and how large the ball sits in the bowl. */
@@ -252,7 +255,7 @@ export class KitchenScene extends Container {
       this.ticket.showRules(this.current.order);
       return;
     }
-    const recipe = drawRecipe();
+    const recipe = drawRecipe(this.run.next());
     this.pictureDough.make(recipe);
     this.current = { kind: 'picture', recipe, profile: profileOf(this.pictureDough.pizza()) };
     this.ticket.showPicture(this.pictureDough.snapshot(PICTURE_SCALE).texture, DOUGH.rimRadius);
@@ -286,6 +289,7 @@ export class KitchenScene extends Container {
    */
   private serve(): void {
     this.lastScore = this.scoreOrder();
+    this.run.record(this.lastScore.total);
     this.ticket.showGrade(gradeOf(this.lastScore.total));
     this.setTool(null);
     this.setFiring(false);

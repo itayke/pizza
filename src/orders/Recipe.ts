@@ -1,4 +1,4 @@
-import { BAKE, CUTTER, DOUGH, ORDER_JUDGE, PLACEMENT, RECIPE, TOPPINGS, WHOLE_TOPPINGS } from '../config';
+import { BAKE, CUTTER, DOUGH, ORDER_JUDGE, PLACEMENT, RECIPE, RECIPE_RAMP, TOPPINGS, WHOLE_TOPPINGS, type RampedOption } from '../config';
 import { between, coinFlip, pick, shuffled, weighted } from '../core/random';
 import { ART } from '../generated/artLayout';
 import type { Topping } from '../stations/ToppingLayer';
@@ -32,6 +32,12 @@ export type Recipe = {
   bakeLevel: number;
 };
 
+/** How far a run has come: orders passed, and the options this order introduces (see RECIPE_RAMP). */
+export type Level = { passed: number; introducing: ReadonlySet<RampedOption> };
+
+/** Every option at full weight, none introduced. */
+export const OPEN_LEVEL: Level = { passed: Infinity, introducing: new Set() };
+
 /** A piece to lay: its topping at a polar spot, its distance a fraction of the rim radius. */
 export type Spot = { topping: Topping; angle: number; fraction: number };
 
@@ -40,27 +46,52 @@ export const gridStep = (): number => (CUTTER.gridDegrees > 0 ? CUTTER.gridDegre
 
 const onGrid = (angle: number, step: number) => Math.abs(angle / step - Math.round(angle / step)) < ON_GRID;
 
-/** A new pizza to copy. */
-export function drawRecipe(): Recipe {
-  const counts = SLICE_COUNTS.filter((n) => onGrid(TAU / n, gridStep())).map((n) => ({ value: n, weight: RECIPE[`slices${n}Weight`] }));
-  const slices = weighted(counts) ?? FALLBACK_SLICES;
+/** A new pizza to copy, as hard as the level allows. */
+export function drawRecipe(level: Level): Recipe {
+  const counts = SLICE_COUNTS.filter((n) => onGrid(TAU / n, gridStep())).map((n) => ({ value: n, option: `slices${n}Weight` as const }));
+  const slices = choose(counts, level) ?? FALLBACK_SLICES;
   const lines = slices / 2;
   const cuts = Array.from({ length: lines }, (_, i) => lineAngle(UPRIGHT + (i * Math.PI) / lines));
-  const count = Math.min(between(RECIPE.minToppings, RECIPE.maxToppings), WHOLE_TOPPINGS.length);
   // The first topping on part of the pizza meets the upright cut; any later one meets that first part's sides
   let anchors = uprightEdges(cuts);
   let anchored = false;
   const toppings = shuffled(WHOLE_TOPPINGS)
-    .slice(0, count)
+    .slice(0, toppingCount(level))
     .map((topping) => {
-      const run = sliceRun(slices, anchors);
+      const run = sliceRun(slices, anchors, level);
       if (!anchored && run.length < slices) {
         anchors = [run[0], (run[run.length - 1] + 1) % slices];
         anchored = true;
       }
       return { topping, slices: run };
     });
-  return { cuts, ...drawBase(), toppings, bakeLevel: drawBakeLevel() };
+  return { cuts, ...drawBase(level), toppings, bakeLevel: drawBakeLevel(level) };
+}
+
+/**
+ * How much of its weight an option has at a level: none before its ramp starts or while another is introduced, then
+ * growing to all of it by the ramp's end. Options without a ramp have all of it.
+ */
+export function reach(option: RampedOption, level: Level): number {
+  const ramp = RECIPE_RAMP[option];
+  if (level.introducing.has(option) || !ramp) return 1;
+  if (level.introducing.size || level.passed < ramp.from) return 0;
+  return Math.min(1, (level.passed - ramp.from + 1) / (Math.max(ramp.full, ramp.from) - ramp.from + 1));
+}
+
+/** One of the options by their RECIPE weights at a level; only the introduced ones if any are; null if none has weight. */
+function choose<T>(items: readonly { value: T; option: Exclude<RampedOption, 'moreToppings'> }[], level: Level): T | null {
+  const introduced = items.filter((item) => level.introducing.has(item.option));
+  return weighted((introduced.length ? introduced : items).map(({ value, option }) => ({ value, weight: RECIPE[option] * reach(option, level) })));
+}
+
+/** How many whole toppings: minToppings, or more as the level allows. */
+function toppingCount(level: Level): number {
+  const max = Math.min(RECIPE.maxToppings, WHOLE_TOPPINGS.length);
+  const min = Math.min(RECIPE.minToppings, max);
+  if (level.introducing.has('moreToppings') && max > min) return between(min + 1, max);
+  const count = between(min, max);
+  return Math.random() < reach('moreToppings', level) ? count : min;
 }
 
 /** The slice edges (each the index of the slice it starts) along the upright cut, at the bottom and the top. */
@@ -71,13 +102,16 @@ export function uprightEdges(cuts: readonly number[]): number[] {
 }
 
 /** Sauce and cheese, either or neither. */
-function drawBase(): { sauce: boolean; cheese: boolean } {
-  const base = weighted([
-    { value: { sauce: true, cheese: true }, weight: RECIPE.bothWeight },
-    { value: { sauce: true, cheese: false }, weight: RECIPE.sauceOnlyWeight },
-    { value: { sauce: false, cheese: true }, weight: RECIPE.cheeseOnlyWeight },
-    { value: { sauce: false, cheese: false }, weight: RECIPE.plainWeight },
-  ]);
+function drawBase(level: Level): { sauce: boolean; cheese: boolean } {
+  const base = choose(
+    [
+      { value: { sauce: true, cheese: true }, option: 'bothWeight' },
+      { value: { sauce: true, cheese: false }, option: 'sauceOnlyWeight' },
+      { value: { sauce: false, cheese: true }, option: 'cheeseOnlyWeight' },
+      { value: { sauce: false, cheese: false }, option: 'plainWeight' },
+    ],
+    level,
+  );
   return base ?? { sauce: true, cheese: true };
 }
 
@@ -85,14 +119,15 @@ function drawBase(): { sauce: boolean; cheese: boolean } {
  * Every slice, half of them, or another run of neighbors short of all of them, starting or ending at one of the anchor
  * edges (each the index of the slice it starts).
  */
-function sliceRun(slices: number, anchors: readonly number[]): number[] {
+function sliceRun(slices: number, anchors: readonly number[], level: Level): number[] {
   const half = slices / 2;
   const others = Array.from({ length: slices - 1 }, (_, i) => i + 1).filter((n) => n !== half);
-  const kind = weighted([
-    { value: 'all', weight: RECIPE.allWeight },
-    { value: 'half', weight: Number.isInteger(half) ? RECIPE.halfWeight : 0 },
-    { value: 'other', weight: others.length ? RECIPE.otherWeight : 0 },
-  ]);
+  const kinds = [
+    { value: 'all', option: 'allWeight' as const },
+    ...(Number.isInteger(half) ? [{ value: 'half', option: 'halfWeight' as const }] : []),
+    ...(others.length ? [{ value: 'other', option: 'otherWeight' as const }] : []),
+  ];
+  const kind = choose(kinds, level);
   const length = kind === 'half' ? half : kind === 'other' ? pick(others) : slices;
   const anchor = anchors.length ? pick(anchors) : 0;
   // Clockwise from the anchor, or up to it
@@ -100,16 +135,19 @@ function sliceRun(slices: number, anchors: readonly number[]): number[] {
   return Array.from({ length }, (_, i) => (start + i) % slices);
 }
 
-function drawBakeLevel(): number {
+function drawBakeLevel(level: Level): number {
   const { minBaked, burntFrom, optimalLevel } = BAKE;
   const baked = (at: number) => minBaked + (burntFrom - minBaked) * at;
-  const level = weighted([
-    { value: baked(RECIPE.lightAt), weight: RECIPE.lightWeight },
-    { value: optimalLevel, weight: RECIPE.rightWeight },
-    { value: baked(RECIPE.wellAt), weight: RECIPE.wellWeight },
-    { value: burntFrom + (1 - burntFrom) * RECIPE.burntAt, weight: RECIPE.burntWeight },
-  ]);
-  return level ?? optimalLevel;
+  const bake = choose(
+    [
+      { value: baked(RECIPE.lightAt), option: 'lightWeight' },
+      { value: optimalLevel, option: 'rightWeight' },
+      { value: baked(RECIPE.wellAt), option: 'wellWeight' },
+      { value: burntFrom + (1 - burntFrom) * RECIPE.burntAt, option: 'burntWeight' },
+    ],
+    level,
+  );
+  return bake ?? optimalLevel;
 }
 
 /** A topping piece's half size at rest, design px, before jitter. */

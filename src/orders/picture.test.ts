@@ -4,7 +4,7 @@ import { ART } from '../generated/artLayout';
 import type { PlacedPiece, Topping } from '../stations/ToppingLayer';
 import { gradeOf } from './grade';
 import { comparePicture, profileOf, type CutPizza } from './picture';
-import { drawRecipe, gridStep, recipeSpots, uprightEdges, type Recipe, type Spot } from './Recipe';
+import { drawRecipe, gridStep, OPEN_LEVEL, recipeSpots, uprightEdges, type Recipe, type Spot } from './Recipe';
 import { edgesOf, lineAngle, slicesOf } from './slicing';
 
 const DRAWS = 500;
@@ -48,7 +48,7 @@ function lay(recipe: Recipe, { spots = recipeSpots(recipe), turn = 0, cuts = rec
 /** A recipe with toppings, drawn until one comes up that fits a test. */
 function recipeWhere(fits: (recipe: Recipe) => boolean): Recipe {
   for (;;) {
-    const recipe = drawRecipe();
+    const recipe = drawRecipe(OPEN_LEVEL);
     if (recipe.toppings.length && fits(recipe)) return recipe;
   }
 }
@@ -56,7 +56,7 @@ function recipeWhere(fits: (recipe: Recipe) => boolean): Recipe {
 const onGrid = (angle: number) => Math.abs(angle / gridStep() - Math.round(angle / gridStep())) < ON_GRID;
 
 describe('picture recipes', () => {
-  const recipes = Array.from({ length: DRAWS }, drawRecipe);
+  const recipes = Array.from({ length: DRAWS }, () => drawRecipe(OPEN_LEVEL));
 
   it('keep to their limits', () => {
     for (const recipe of recipes) {
@@ -111,7 +111,7 @@ describe('picture recipes', () => {
 describe('copying a picture', () => {
   it('scores full for the very pizza, however it is turned', () => {
     for (let i = 0; i < DRAWS / 10; i++) {
-      const recipe = drawRecipe();
+      const recipe = drawRecipe(OPEN_LEVEL);
       const spots = recipeSpots(recipe);
       const picture = profileOf(lay(recipe, { spots }));
       const turn = Math.floor(Math.random() * Math.round(TAU / gridStep())) * gridStep();
@@ -121,7 +121,7 @@ describe('copying a picture', () => {
 
   it('scores nearly full for the same toppings laid afresh', () => {
     for (let i = 0; i < DRAWS / 10; i++) {
-      const recipe = drawRecipe();
+      const recipe = drawRecipe(OPEN_LEVEL);
       expect(comparePicture(profileOf(lay(recipe)), profileOf(lay(recipe))).cover).toBeGreaterThan(NEAR_FULL);
     }
   });
@@ -152,7 +152,7 @@ describe('copying a picture', () => {
   });
 
   it('keeps the bake score within its slack and loses it past its tolerance', () => {
-    const recipe = drawRecipe();
+    const recipe = drawRecipe(OPEN_LEVEL);
     const spots = recipeSpots(recipe);
     const bakedOff = (off: number) => comparePicture(profileOf(lay(recipe, { spots })), profileOf(lay(recipe, { spots, bakeLevel: recipe.bakeLevel + off }))).bake;
     expect(bakedOff(-PICTURE_JUDGE.bakeSlack)).toBeCloseTo(1);
