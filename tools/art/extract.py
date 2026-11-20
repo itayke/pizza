@@ -115,13 +115,14 @@ TOPPING_FIT_ANGLES = np.arange(-15, 15.5, 1)  # degrees
 TOPPING_FIT_SCALES = np.arange(0.84, 1.161, 0.02)
 TOPPING_FIT_ROTATE_GAIN = 0.01  # overlap ratio a rotation must add to be used
 
-# Tutorial hand frames, drawn on white: cut onto one shared canvas (so they swap in place) of this width, sized in code.
-# The body is solid; outside it, ink is unmixed from the paper so its dust trail stays soft
+# Tutorial hand frames, drawn on a red screen: keyed out and cut onto one shared canvas (so they swap in place) of this
+# width, sized in code. Keying reads redness (red over the larger of green and blue) as a fraction of the screen's: at
+# or below solid it's opaque, at or above clear it's gone, and between, the red is unmixed out
 HAND_FRAMES = {'hand_open': 'pizza_hand_open.png', 'hand_pinch': 'pizza_hand_pinch.png'}
 HAND_WIDTH = 512
-HAND_INK_LUM = 235  # its light green would let the flood in, so anything short of paper blocks it
-HAND_SEAL = 2  # closes the gaps where the body breaks into dust, px
-HAND_DUST_MIN = 0.04  # fainter dust than this is dropped, as alpha
+HAND_KEY_SOLID = 0.2
+HAND_KEY_CLEAR = 0.75
+HAND_SPECK_MIN = 0.04  # fainter specks than this are dropped, as alpha
 
 
 def load(name):
@@ -574,15 +575,22 @@ def orient_fire(pixels):
     return np.ascontiguousarray(out)
 
 
+def redness(img):
+    return img[..., 0] - img[..., 1:].max(-1)
+
+
 def hand_frames():
-    """Cut the tutorial hand frames onto one canvas; returns their asset names."""
+    """Key the tutorial hand frames off their red screen onto one canvas; returns their asset names."""
     cut = {}
     for name, source in HAND_FRAMES.items():
         img = load(source)
-        paper = estimate_paper(img)
-        body = ndimage.binary_fill_holes(largest(foreground(img, paper, use_chroma=True, ink_lum=HAND_INK_LUM, seal=HAND_SEAL)))
-        dust = inkness(img, paper)
-        cut[name] = rgba(img, paper, np.where(body, 1.0, np.where(dust >= HAND_DUST_MIN, dust, 0.0)).astype(np.float32))
+        screen = np.median(np.concatenate([img[0], img[-1], img[:, 0], img[:, -1]]), axis=0)
+        k = redness(img) / redness(screen)
+        alpha = np.clip((HAND_KEY_CLEAR - k) / (HAND_KEY_CLEAR - HAND_KEY_SOLID), 0, 1)
+        pixels = rgba(img, screen, np.where(alpha >= HAND_SPECK_MIN, alpha, 0).astype(np.float32))
+        # Despill: the hand has no reds, so red left past green and blue is the screen's
+        pixels[..., 0] = np.minimum(pixels[..., 0], pixels[..., 1:3].max(-1))
+        cut[name] = pixels
     l, t, r, b = bbox(np.maximum.reduce([c[..., 3] for c in cut.values()]))
     size = (HAND_WIDTH, round((b - t) * HAND_WIDTH / (r - l)))
     for name, pixels in cut.items():

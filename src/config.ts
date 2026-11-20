@@ -611,10 +611,10 @@ export const SLICE_CUE = {
 export const DRAG_CUE = {
   idleSeconds: 3,
   handWidth: 380,
-  pivotX: 0.86,
-  pivotY: 0.42,
+  pivotX: 0.95,
+  pivotY: 0.43,
   fadeInSeconds: 0.3,
-  openSeconds: 0.4,
+  openSeconds: 0,
   pinchSeconds: 0.2,
   slideSeconds: 1.2,
   fadeOutSeconds: 0.4,

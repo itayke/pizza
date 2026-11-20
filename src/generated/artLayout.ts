@@ -369,14 +369,14 @@ export const ART = {
     "x": 0,
     "y": 0,
     "width": 512,
-    "height": 329
+    "height": 339
   },
   "hand_pinch": {
     "file": "hand_pinch.png",
     "x": 0,
     "y": 0,
     "width": 512,
-    "height": 329
+    "height": 339
   }
 } as const;
 
