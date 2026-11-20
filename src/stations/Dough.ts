@@ -1,5 +1,5 @@
 import { Circle, Container, Graphics, Matrix, Mesh, Point, RenderTexture, RopeGeometry, Sprite, Texture, UniformGroup, type BLEND_MODES, type ColorSource, type FederatedPointerEvent, type PointData, type Renderer } from 'pixi.js';
-import { CHEESE, COLORS, CUTTER, DOUGH, PLACEMENT, SAUCE, SLICING, type ScatterConfig } from '../config';
+import { CHEESE, COLORS, CUTTER, DOUGH, PLACEMENT, SAUCE, SLICE_CUE, SLICING, type ScatterConfig } from '../config';
 import { artTexture } from '../core/art';
 import { bakeCurve } from '../core/bake';
 import { easeOutCirc, easeOutCubic } from '../core/easing';
@@ -63,8 +63,13 @@ export class Dough extends Container {
   private readonly lines: DrawnCut[] = [];
   private groove: Texture | null = null;
   private lip: Texture | null = null;
-  /** Where the cutter aims. */
+  /** Dotted guides over the pizza: where the cutter aims, over the order's cuts. */
+  private readonly guides = new Container();
   private readonly guide = new Graphics();
+  private readonly orderGuide = new Graphics();
+  /** The order cuts drawn, if any, and in what style. */
+  private orderCuts: readonly number[] | null = null;
+  private orderGuideStyle = '';
   /** The pizza without sauce, for later sauce passes to multiply over; redrawn when it changes while there are any. */
   private readonly plain: RenderTexture;
   private readonly plainUniforms = new UniformGroup({ uPlainExtent: { value: 0, type: 'f32' } });
@@ -87,8 +92,9 @@ export class Dough extends Container {
     this.rim = this.buildRim();
     const size = 2 * plainExtent();
     this.plain = RenderTexture.create({ width: size, height: size });
-    this.guide.eventMode = 'none';
-    this.addChild(this.rim, this.body, this.toppings, this.cuts, this.guide);
+    this.guides.eventMode = 'none';
+    this.guides.addChild(this.orderGuide, this.guide);
+    this.addChild(this.rim, this.body, this.toppings, this.cuts, this.guides);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -201,13 +207,13 @@ export class Dough extends Container {
    * The caller owns the texture.
    */
   snapshot(scale: number): { texture: RenderTexture; half: number; reach: number } {
-    this.rim.visible = this.guide.visible = false;
+    this.rim.visible = this.guides.visible = false;
     const bounds = this.getLocalBounds();
     const reach = Math.max(-bounds.minX, bounds.maxX, -bounds.minY, bounds.maxY);
     const half = reach + SLICING.wobble + SNAPSHOT_MARGIN;
     const texture = RenderTexture.create({ width: 2 * half, height: 2 * half, resolution: this.renderer.resolution * scale });
     this.renderer.render({ container: this, target: texture, clear: true, clearColor: TRANSPARENT, transform: new Matrix().translate(half, half) });
-    this.rim.visible = this.guide.visible = true;
+    this.rim.visible = this.guides.visible = true;
     return { texture, half, reach };
   }
 
@@ -257,20 +263,45 @@ export class Dough extends Container {
   showGuide(angle: number | null, at: number | null = null): void {
     const g = this.guide.clear();
     if (angle === null) return;
-    const { guideDot, guideGap, guideColor, guideAlpha, span } = CUTTER;
+    const { guideDot, guideGap, span } = CUTTER;
+    this.dotLine(g, angle, guideDot, guideGap);
+    fillRimmed(g, CUTTER);
+    if (at === null) return;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const { guideColor, guideAlpha, guideOutline, guideOutlineColor, guideOutlineAlpha } = CUTTER;
+    const bar = () => g.moveTo(dx * (at - span / 2), dy * (at - span / 2)).lineTo(dx * (at + span / 2), dy * (at + span / 2));
+    // The bar's rim is a wider stroke under it
+    if (guideOutline > 0) {
+      bar().stroke({ width: guideDot + 2 * guideOutline, color: guideOutlineColor, alpha: guideOutlineAlpha, cap: 'round' });
+    }
+    bar().stroke({ width: guideDot, color: guideColor, alpha: guideAlpha, cap: 'round' });
+  }
+
+  /** Dot the order's cuts (lines through the center, by angle) across the pizza as a hint at some fade, or take them off. */
+  showOrderCuts(cuts: readonly number[] | null, fade = 1): void {
+    this.orderGuide.alpha = fade;
+    const { guideDot, guideGap, guideColor, guideAlpha, guideOutline, guideOutlineColor, guideOutlineAlpha } = SLICE_CUE;
+    // Redrawn when the cuts or their tuning change
+    const style = [guideDot, guideGap, guideColor, guideAlpha, guideOutline, guideOutlineColor, guideOutlineAlpha].join('|');
+    if (cuts === this.orderCuts && style === this.orderGuideStyle) return;
+    this.orderCuts = cuts;
+    this.orderGuideStyle = style;
+    const g = this.orderGuide.clear();
+    if (!cuts) return;
+    for (const angle of cuts) this.dotLine(g, angle, guideDot, guideGap);
+    fillRimmed(g, SLICE_CUE);
+  }
+
+  /** Dots dot across, gap apart, along a line through the center (angle): one on the center, the rest out to either edge. */
+  private dotLine(g: Graphics, angle: number, dot: number, gap: number): void {
+    if (gap <= 0) return;
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
     const ahead = this.radiusAt(angle);
-    // A dot on the center, the rest stepping out to either edge
-    if (guideGap > 0) {
-      for (let along = -Math.floor(this.radiusAt(angle + Math.PI) / guideGap) * guideGap; along <= ahead; along += guideGap) {
-        g.circle(dx * along, dy * along, guideDot / 2);
-      }
-      g.fill({ color: guideColor, alpha: guideAlpha });
+    for (let along = -Math.floor(this.radiusAt(angle + Math.PI) / gap) * gap; along <= ahead; along += gap) {
+      g.circle(dx * along, dy * along, dot / 2);
     }
-    if (at === null) return;
-    g.moveTo(dx * (at - span / 2), dy * (at - span / 2)).lineTo(dx * (at + span / 2), dy * (at + span / 2));
-    g.stroke({ width: guideDot, color: guideColor, alpha: guideAlpha, cap: 'round' });
   }
 
   /** Redraw a cut line: a groove per span with a lip lit along the side away from the light, whose slice edge faces it. */
@@ -342,6 +373,7 @@ export class Dough extends Container {
     this.lip?.destroy(true);
     this.groove = this.lip = null;
     this.guide.clear();
+    this.showOrderCuts(null);
   }
 
   /** Show the dough body and accept kneading, or hide it (rim stays visible). */
@@ -351,8 +383,9 @@ export class Dough extends Container {
     this.updateInput();
   }
 
-  /** Kneading is off while a tool is in hand. */
+  /** Kneading is off while a tool is in hand, and once baking starts. Unchanged, a knead in progress carries on. */
   setKneadable(kneadable: boolean): void {
+    if (kneadable === this.kneadable) return;
     this.kneadable = kneadable;
     this.updateInput();
   }
@@ -422,14 +455,14 @@ export class Dough extends Container {
     this.plain.source.resize(2 * extent, 2 * extent);
     this.plainUniforms.uniforms.uPlainExtent = extent;
     this.rim.visible = false;
-    this.cuts.visible = this.guide.visible = false;
+    this.cuts.visible = this.guides.visible = false;
     this.toppings.setSaucePassesVisible(false);
     this.body.setSauceShown(false);
     // Dough-local, with its center in the middle of the texture
     const transform = this.plainTransform.identity().translate(extent, extent);
     this.renderer.render({ container: this, target: this.plain, clear: true, clearColor: TRANSPARENT, transform });
     this.rim.visible = true;
-    this.cuts.visible = this.guide.visible = true;
+    this.cuts.visible = this.guides.visible = true;
     this.toppings.setSaucePassesVisible(true);
     this.body.setSauceShown(true);
     this.plainStale = false;
@@ -673,4 +706,13 @@ function cutStrip(points: Point[], widths: number[], texture: Texture, width: nu
 function destroyStrip(strip: Mesh): void {
   strip.geometry.destroy();
   strip.destroy();
+}
+
+type DotStyle = { guideColor: string; guideAlpha: number; guideOutline: number; guideOutlineColor: string; guideOutlineAlpha: number };
+
+/** Fill the dots just drawn, over a faint rim that keeps them visible on a dark crust (the fill reuses the stroked dots). */
+function fillRimmed(g: Graphics, style: DotStyle): void {
+  const { guideColor, guideAlpha, guideOutline, guideOutlineColor, guideOutlineAlpha } = style;
+  if (guideOutline > 0) g.stroke({ width: 2 * guideOutline, color: guideOutlineColor, alpha: guideOutlineAlpha });
+  g.fill({ color: guideColor, alpha: guideAlpha });
 }

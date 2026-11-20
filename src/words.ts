@@ -1,7 +1,7 @@
 import type { IngredientId } from './config';
 
 // What each label says, as written; LABEL_TEXT decides whether it's set in capitals
-export const WORDS: Record<IngredientId | 'dough' | 'order' | 'bakeLevel', string> = {
+export const WORDS: Record<IngredientId | 'dough' | 'order' | 'bakeLevel' | 'slice', string> = {
   sauce: 'Sauce',
   cheese: 'Cheese',
   pepperoni: 'Pepperoni',
@@ -11,4 +11,5 @@ export const WORDS: Record<IngredientId | 'dough' | 'order' | 'bakeLevel', strin
   dough: 'Dough',
   order: 'Order',
   bakeLevel: 'Bake level',
+  slice: 'Slice!',
 };

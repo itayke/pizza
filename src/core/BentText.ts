@@ -20,11 +20,14 @@ export class BentText extends Mesh {
     super({ geometry: new MeshGeometry({}), texture: Texture.EMPTY });
   }
 
-  /** Show text with capitals capHeight design px tall, bent with curvature (1 / radius; positive lifts the ends). */
-  set(text: string, capHeight: number, curvature: number): void {
+  /**
+   * Show text with capitals capHeight design px tall, bent with curvature (1 / radius; positive lifts the ends),
+   * swollen by an outline design px all around if given (a backing for a word drawn over it).
+   */
+  set(text: string, capHeight: number, curvature: number, outline = 0): void {
     const { weight, condense, resolution, segment } = LABEL_TEXT;
     const word = cased(text);
-    const key = [word, capHeight, curvature, weight, condense, resolution, segment].join('|');
+    const key = [word, capHeight, curvature, outline, weight, condense, resolution, segment].join('|');
     if (key === this.drawn) return;
     this.drawn = key;
 
@@ -33,17 +36,26 @@ export class BentText extends Mesh {
     const size = capHeight / capRatio(context);
     context.font = font(size);
     const ink = context.measureText(word);
+    const pad = PAD + outline;
     // Condensing squeezes the word sideways only
-    const width = (ink.actualBoundingBoxLeft + ink.actualBoundingBoxRight) * condense + 2 * PAD;
-    const height = ink.actualBoundingBoxAscent + ink.actualBoundingBoxDescent + 2 * PAD;
+    const width = (ink.actualBoundingBoxLeft + ink.actualBoundingBoxRight) * condense + 2 * pad;
+    const height = ink.actualBoundingBoxAscent + ink.actualBoundingBoxDescent + 2 * pad;
     canvas.width = Math.ceil(width * resolution);
     canvas.height = Math.ceil(height * resolution);
     // Resizing the canvas resets its state
     context.scale(resolution * condense, resolution);
     context.font = font(size);
     context.fillStyle = 'white';
-    const baseline = PAD + ink.actualBoundingBoxAscent;
-    context.fillText(word, PAD / condense + ink.actualBoundingBoxLeft, baseline);
+    const baseline = pad + ink.actualBoundingBoxAscent;
+    const left = pad / condense + ink.actualBoundingBoxLeft;
+    context.fillText(word, left, baseline);
+    if (outline > 0) {
+      // The stroke straddles the glyph edge, so twice the outline reaches it all around
+      context.strokeStyle = 'white';
+      context.lineJoin = 'round';
+      context.lineWidth = 2 * outline;
+      context.strokeText(word, left, baseline);
+    }
 
     const old = this.texture;
     this.texture = new Texture({ source: new CanvasSource({ resource: canvas, autoGenerateMipmaps: true }) });

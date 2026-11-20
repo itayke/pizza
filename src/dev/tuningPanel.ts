@@ -1,6 +1,6 @@
 import type { BindingApi } from '@tweakpane/core';
 import { Pane, type FolderApi } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVE_BUTTON, SERVED, SHAKE, SLICING, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, SELECTED_LABEL, SERVED, SHAKE, SLICE_CUE, SLICING, TOPPINGS } from '../config';
 import { gradeOf, type Score } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
@@ -205,6 +205,9 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   orderTray.addBinding(ORDER_TRAY, 'ticketScale', { min: 0.5, max: 2 });
   orderTray.addBinding(ORDER_TRAY, 'labelX', { min: -200, max: 200, step: 1 });
   orderTray.addBinding(ORDER_TRAY, 'labelY', { min: -200, max: 200, step: 1 });
+  orderTray.addBinding(ORDER_TRAY, 'serveButtonX', X_RANGE);
+  orderTray.addBinding(ORDER_TRAY, 'serveButtonY', Y_RANGE);
+  orderTray.addBinding(ORDER_TRAY, 'serveButtonWidth', { min: 40, max: 600, step: 1 });
   orderTray.on('change', layout);
 
   // Live scores of the pizza on the peel against the order, a line per part then the total
@@ -287,8 +290,6 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   slicing.addBinding(SERVED, 'fadeFrom', { label: 'servedFadeFrom', min: 0, max: 0.99 });
 
   const cutter = pane.addFolder({ title: 'Cutter', expanded: false });
-  addPlace(cutter, CUTTER).forEach((binding) => binding.on('change', layout));
-  cutter.addBinding(CUTTER, 'size', { min: 40, max: 400, step: 1 }).on('change', layout);
   cutter.addBinding(CUTTER, 'span', { min: 5, max: 200, step: 1 });
   cutter.addBinding(CUTTER, 'completeAt', { min: 0, max: 1 });
   cutter.addBinding(CUTTER, 'snapToCut', { min: 0, max: 45 });
@@ -299,6 +300,9 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   cutter.addBinding(CUTTER, 'guideGap', { min: 2, max: 60 });
   cutter.addBinding(CUTTER, 'guideColor');
   cutter.addBinding(CUTTER, 'guideAlpha', { min: 0, max: 1 });
+  cutter.addBinding(CUTTER, 'guideOutline', { min: 0, max: 10, step: 0.5 });
+  cutter.addBinding(CUTTER, 'guideOutlineColor');
+  cutter.addBinding(CUTTER, 'guideOutlineAlpha', { min: 0, max: 1 });
   orders.addBinding(ORDER_JUDGE, 'coverFull', { min: 0.1, max: 1 });
   orders.addBinding(ORDER_JUDGE, 'clearMax', { min: 0, max: 0.5 });
   orders.addBinding(ORDER_JUDGE, 'coverRadius', { min: 0.2, max: 1.5 });
@@ -321,6 +325,30 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
     orders.addBinding(ORDER_ICON_SCALE, key, { label: `${key}Icon`, min: 0.5, max: 2 });
   }
   orders.on('change', layout);
+
+  const cue = pane.addFolder({ title: 'Slice cue', expanded: false });
+  cue.addBinding(SLICE_CUE, 'cap', { min: 20, max: 300, step: 1 });
+  cue.addBinding(SLICE_CUE, 'color');
+  cue.addBinding(SLICE_CUE, 'outline', { min: 0, max: 40, step: 0.5 });
+  cue.addBinding(SLICE_CUE, 'outlineColor');
+  cue.addBinding(SLICE_CUE, 'tilt', { min: -45, max: 45, step: 0.5 });
+  cue.addBinding(SLICE_CUE, 'x', { min: -600, max: 600, step: 1 });
+  cue.addBinding(SLICE_CUE, 'y', { min: -600, max: 600, step: 1 });
+  cue.addBinding(SLICE_CUE, 'popScale', { min: 1, max: 5 });
+  cue.addBinding(SLICE_CUE, 'popSeconds', { min: 0, max: 2 });
+  cue.addBinding(SLICE_CUE, 'pulse', { min: 0, max: 0.5 });
+  cue.addBinding(SLICE_CUE, 'pulseSpeed', { min: 0, max: 5 });
+  cue.addBinding(SLICE_CUE, 'showSeconds', { min: 0, max: 10 });
+  cue.addBinding(SLICE_CUE, 'fadeSeconds', { min: 0, max: 3 });
+  cue.addBinding(SLICE_CUE, 'guides');
+  cue.addBinding(SLICE_CUE, 'guideDot', { min: 1, max: 30 });
+  cue.addBinding(SLICE_CUE, 'guideGap', { min: 2, max: 80 });
+  cue.addBinding(SLICE_CUE, 'guideColor');
+  cue.addBinding(SLICE_CUE, 'guideAlpha', { min: 0, max: 1 });
+  cue.addBinding(SLICE_CUE, 'guideOutline', { min: 0, max: 10, step: 0.5 });
+  cue.addBinding(SLICE_CUE, 'guideOutlineColor');
+  cue.addBinding(SLICE_CUE, 'guideOutlineAlpha', { min: 0, max: 1 });
+  cue.on('change', layout);
 
   const peel = pane.addFolder({ title: 'Peel', expanded: false });
   addPlace(peel, PEEL);
@@ -422,11 +450,6 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   bake.addBinding(BAKE_GAUGE, 'sweep', { min: 0, max: Math.PI / 2 });
   bake.on('change', layout);
 
-  const serve = pane.addFolder({ title: 'Serve', expanded: false });
-  addPlace(serve, SERVE_BUTTON);
-  serve.addBinding(SERVE_BUTTON, 'width', { min: 40, max: 600, step: 1 });
-  serve.on('change', layout);
-
 
   // After every folder is in, so it can sit above the first
   addPaneFilter(pane);
@@ -434,7 +457,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, SERVE_BUTTON, LABEL_NUDGE }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, SLICE_CUE, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, LABEL_NUDGE }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

@@ -123,7 +123,8 @@ export const BOWL = {
 
 // Order spot, where the tray is drawn (the tray itself isn't shown for now), with its caption below: its center on the
 // stage and the scale of both. ticketScale scales the order alone about its center, and labelX/labelY move the caption
-// from its drawn spot; the caption keeps its size
+// from its drawn spot; the caption keeps its size. The serve button, enabled once the pizza is baked enough
+// (BAKE.minBaked), has its center on the stage and drawn width
 export const ORDER_TRAY = {
   x: 280,
   y: 1112,
@@ -131,6 +132,9 @@ export const ORDER_TRAY = {
   ticketScale: 1.25,
   labelX: 0,
   labelY: 36,
+  serveButtonX: 885,
+  serveButtonY: 1337,
+  serveButtonWidth: 421.6,
 };
 
 // Order ticket in the tray, a row of icons per rule: within width × height of the tray (fractions of its art),
@@ -226,16 +230,14 @@ export const SERVED = {
   fadeFrom: 0.9,
 };
 
-// The cutter, picked up from its button (center x, y on the stage and size design px) once the pizza is baked. Aimed at the pizza
-// (out to reach times its edge) it shows the line through the center toward the pointer, held while within
-// deadZone of the center, snapping to a cut line within snapToCut degrees. A press snaps to the nearest gridDegrees
-// unless it snapped to a cut line, then cuts span design px along the line where the pointer meets it, sweeping as it
-// drags. Lifted, a line cut along completeAt of it edge to edge is cut whole, and left uncut short of that. The aim shows as dots guideDot
-// across, guideGap apart, of guideColor at guideAlpha; the cutter on its line as a bar of the same
+// Cutting, with an empty hand once the pizza is baked enough (BAKE.minBaked). Over the pizza (out to reach times its
+// edge) the aim shows the line through the center toward the pointer, held while within deadZone of the center,
+// snapping to a cut line within snapToCut degrees. A press snaps to the nearest gridDegrees unless it snapped to a cut
+// line, then cuts span design px along the line where the pointer meets it, sweeping as it drags. Lifted, a line cut
+// along completeAt of it edge to edge is cut whole, and left uncut short of that. The aim shows as dots guideDot
+// across, guideGap apart, of guideColor at guideAlpha, rimmed guideOutline px in guideOutlineColor at
+// guideOutlineAlpha; the cutter on its line as a bar of the same
 export const CUTTER = {
-  x: 2200,
-  y: 880,
-  size: 195,
   reach: 1.5,
   deadZone: 30,
   snapToCut: 8,
@@ -246,6 +248,9 @@ export const CUTTER = {
   guideGap: 22,
   guideColor: '#000000',
   guideAlpha: 0.333,
+  guideOutline: 3,
+  guideOutlineColor: '#ffffff',
+  guideOutlineAlpha: 0.4,
 };
 // Toppings a share may ask for; counts and apart pairs use whole toppings, never scattered cheese
 export const SHARE_TOPPINGS = ['cheese', 'pepperoni', 'basil', 'pineapple', 'olives'] as const;
@@ -334,8 +339,8 @@ export const GRADE = {
   cap: 110,
   color: '#c0392b',
   tilt: -12,
-  x: -150,
-  y: -160,
+  x: 230,
+  y: -20,
   popScale: 2.5,
   popSeconds: 0.25,
 };
@@ -539,6 +544,36 @@ export const BAKE_GAUGE = {
   sweep: 1.45,
 };
 
+// Once per pizza, when it can first be cut and the dragon stops breathing, SLICE! shows by it in the hand font with
+// capitals cap peel px tall in color, outlined outline peel px in outlineColor, tilted tilt degrees clockwise, x, y
+// peel px off the pizza's center. It lands from popScale times its size over popSeconds, then pulses by pulse of its
+// size pulseSpeed times a second. With it, guides dots a picture order's cuts across the pizza: dots guideDot across,
+// guideGap apart, of guideColor at guideAlpha, rimmed guideOutline px in guideOutlineColor at guideOutlineAlpha. Both
+// stay showSeconds after it appears, then fade out over fadeSeconds; the first cut takes them off
+export const SLICE_CUE = {
+  cap: 85,
+  color: '#c0392b',
+  outline: 10,
+  outlineColor: '#fff3d6',
+  tilt: -8,
+  x: 0,
+  y: -330,
+  popScale: 2.5,
+  popSeconds: 0.25,
+  pulse: 0.06,
+  pulseSpeed: 1.5,
+  showSeconds: 3,
+  fadeSeconds: 0.5,
+  guides: true,
+  guideDot: 12,
+  guideGap: 26,
+  guideColor: '#3a2216',
+  guideAlpha: 0.8,
+  guideOutline: 3,
+  guideOutlineColor: '#ffffff',
+  guideOutlineAlpha: 0.4,
+};
+
 // Bake button above the gauge: center on the stage and drawn width. Pressing it breathes fire, same as pressing the dragon
 export const BAKE_BUTTON = {
   x: 2641,
@@ -659,11 +694,4 @@ export const HAPTICS = {
   kickMs: 150,
   pulseMs: 50,
   everyMs: 70,
-};
-
-// Serve button: center on the stage and drawn width. Enabled once the pizza is baked enough (BAKE.minBaked); does nothing yet
-export const SERVE_BUTTON = {
-  x: 885,
-  y: 1337,
-  width: 421.6,
 };
