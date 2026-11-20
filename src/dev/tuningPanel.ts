@@ -1,6 +1,6 @@
 import type { BindingApi } from '@tweakpane/core';
 import { Pane, type FolderApi } from 'tweakpane';
-import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAG_CUE, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, RECIPE_RAMP, SELECTED_LABEL, SERVED, SHAKE, SLICE_CUE, SLICING, TOPPINGS } from '../config';
+import { BAKE, BAKE_BUTTON, DESIGN_HEIGHT, DESIGN_WIDTH, INGREDIENT_IDS, BAKE_GAUGE, BIN_LAYOUT, BOWL, BURY, DOUGH, CHEESE, CUTTER, DRAG_CUE, DRAGON, EMBERS, FIRE, FIREBALLS, GRADE, HAPTICS, HELD, LANDING, PEEL, PIECES, PULSE, PLACEMENT, ROOM_LIGHT, SAUCE, LABEL_NUDGE, LABEL_TEXT, ORDER_ICON_SCALE, ORDER_JUDGE, ORDER_TICKET, ORDER_TRAY, ORDERS, PICTURE_JUDGE, RECIPE, RECIPE_RAMP, SELECTED_LABEL, SERVED, SHAKE, SLICE_CUE, SLICE_HAND, SLICING, TOPPINGS } from '../config';
 import { gradeOf, type Score } from '../orders/grade';
 import type { Order, Rule } from '../orders/Order';
 import type { Recipe } from '../orders/Recipe';
@@ -28,6 +28,8 @@ const STAGE_MARGIN = 400;
 const X_RANGE = { min: -STAGE_MARGIN, max: DESIGN_WIDTH + STAGE_MARGIN, step: 1 };
 const Y_RANGE = { min: -STAGE_MARGIN, max: DESIGN_HEIGHT + STAGE_MARGIN, step: 1 };
 const SCALE_RANGE = { min: 0.2, max: 2.5 };
+// A hand pass's steps, each in seconds
+const HAND_STEPS = ['fadeInSeconds', 'grabSeconds', 'holdSeconds', 'moveSeconds', 'fadeOutSeconds', 'restSeconds'] as const;
 
 /** Bind a station's place on the stage (x, y and scale if it has one), labeled after prefix if given. */
 function addPlace(folder: FolderApi, place: { x: number; y: number; scale?: number }, prefix = ''): BindingApi[] {
@@ -360,10 +362,16 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   drag.addBinding(DRAG_CUE, 'handWidth', { min: 50, max: 1000, step: 1 });
   drag.addBinding(DRAG_CUE, 'pivotX', { min: 0, max: 1 });
   drag.addBinding(DRAG_CUE, 'pivotY', { min: 0, max: 1 });
-  for (const key of ['fadeInSeconds', 'openSeconds', 'pinchSeconds', 'slideSeconds', 'fadeOutSeconds', 'restSeconds'] as const) {
-    drag.addBinding(DRAG_CUE, key, { min: 0, max: 3 });
-  }
+  for (const key of HAND_STEPS) drag.addBinding(DRAG_CUE, key, { min: 0, max: 3 });
   drag.on('change', layout);
+
+  const sliceHand = pane.addFolder({ title: 'Slice hand', expanded: false });
+  sliceHand.addBinding(SLICE_HAND, 'handWidth', { min: 50, max: 1000, step: 1 });
+  sliceHand.addBinding(SLICE_HAND, 'pivotX', { min: 0, max: 1 });
+  sliceHand.addBinding(SLICE_HAND, 'pivotY', { min: 0, max: 1 });
+  sliceHand.addBinding(SLICE_HAND, 'reach', { min: 0, max: 1.5 });
+  for (const key of HAND_STEPS) sliceHand.addBinding(SLICE_HAND, key, { min: 0, max: 3 });
+  sliceHand.on('change', layout);
 
   const peel = pane.addFolder({ title: 'Peel', expanded: false });
   addPlace(peel, PEEL);
@@ -472,7 +480,7 @@ export function createTuningPanel(scene: KitchenScene, refit: () => void): void 
   const save = pane.addButton({ title: 'Save to config.ts' });
   save.on('click', async () => {
     // The config file change triggers a page reload with the saved values
-    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, SLICE_CUE, DRAG_CUE, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, LABEL_NUDGE }) });
+    const res = await fetch(TUNING_SAVE_ENDPOINT, { method: 'POST', body: JSON.stringify({ DOUGH, SAUCE, BAKE, BAKE_GAUGE, BAKE_BUTTON, DRAGON, FIRE, FIREBALLS, EMBERS, ROOM_LIGHT, SHAKE, HAPTICS, BIN_LAYOUT, HELD, TOPPINGS, BURY, CHEESE, PLACEMENT, PEEL, BOWL, ORDER_TRAY, ORDER_TICKET, ORDER_ICON_SCALE, ORDERS, RECIPE, PICTURE_JUDGE, GRADE, SLICING, SERVED, CUTTER, SLICE_CUE, SLICE_HAND, DRAG_CUE, ORDER_JUDGE, PIECES, LANDING, PULSE, SELECTED_LABEL, LABEL_TEXT, LABEL_NUDGE }) });
     save.title = res.ok ? 'Saved' : `Save failed: ${await res.text()}`;
   });
 }

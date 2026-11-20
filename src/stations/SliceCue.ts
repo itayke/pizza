@@ -8,7 +8,7 @@ export class SliceCue extends CueWord {
   /** Whether it has played for this pizza, so it doesn't play again. */
   private played = false;
   /** Seconds since it was shown. */
-  private age = 0;
+  private shownFor = 0;
 
   constructor() {
     super(WORDS.slice);
@@ -19,7 +19,7 @@ export class SliceCue extends CueWord {
     if (this.played) return;
     this.played = true;
     this.shown = true;
-    this.age = 0;
+    this.shownFor = 0;
     this.update(0);
   }
 
@@ -40,13 +40,18 @@ export class SliceCue extends CueWord {
   get strength(): number {
     if (!this.shown) return 0;
     const { showSeconds, fadeSeconds } = SLICE_CUE;
-    const past = this.age - showSeconds;
+    const past = this.shownFor - showSeconds;
     if (past <= 0) return 1;
     return fadeSeconds > 0 ? Math.max(0, 1 - past / fadeSeconds) : 0;
   }
 
+  /** Seconds since it was shown, for what plays along with it. */
+  get age(): number {
+    return this.shownFor;
+  }
+
   update(dt: number): void {
-    this.age += dt;
-    this.pose(this.age, this.strength);
+    this.shownFor += dt;
+    this.pose(this.shownFor, this.strength);
   }
 }

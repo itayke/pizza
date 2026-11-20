@@ -377,6 +377,13 @@ export const ART = {
     "y": 0,
     "width": 512,
     "height": 339
+  },
+  "hand_point": {
+    "file": "hand_point.png",
+    "x": 0,
+    "y": 0,
+    "width": 512,
+    "height": 370
   }
 } as const;
 

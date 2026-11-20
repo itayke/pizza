@@ -14,6 +14,7 @@ import {
   ROOM_LIGHT,
   SHAKE,
   SLICE_CUE,
+  SLICE_HAND,
   HELD,
   INGREDIENT_IDS,
   ORDER_TRAY,
@@ -39,6 +40,7 @@ import { lineAngle, nearestLine, snapLine } from '../orders/slicing';
 import { BakeGauge } from '../stations/BakeGauge';
 import { DragCue } from '../stations/DragCue';
 import { FireBreath } from '../stations/FireBreath';
+import { HandPass } from '../stations/HandPass';
 import { SliceCue } from '../stations/SliceCue';
 import { StateButton } from '../stations/StateButton';
 import { Dough, landedBallScale, makeDoughBallSprite } from '../stations/Dough';
@@ -83,6 +85,8 @@ export class KitchenScene extends Container {
   private readonly serveButton = new StateButton('serve_button', () => ORDER_TRAY.serveButtonWidth);
   private servePressed = false;
   private readonly sliceCue = new SliceCue();
+  /** Plays with SLICE!, drawing a claw down the pizza's upright cut. */
+  private readonly sliceHand = new HandPass('hand_point', 'hand_point', SLICE_HAND);
   /** Shows how to drag the dough to the peel while it waits untouched. */
   private readonly dragCue = new DragCue();
   /** The last served pizza's slices, leaving the peel over every station. */
@@ -392,6 +396,11 @@ export class KitchenScene extends Container {
     if (!this.canCut() || this.dough.isCut) sliceCue.hide();
     else if (!this.breath.firing) sliceCue.play();
     sliceCue.update(dt);
+    // Down the upright cut, top edge to bottom, as the dough's edge stands now
+    const { sliceHand, dough } = this;
+    sliceHand.from.set(dough.x, dough.y - SLICE_HAND.reach * dough.radiusAt(-Math.PI / 2));
+    sliceHand.to.set(dough.x, dough.y + SLICE_HAND.reach * dough.radiusAt(Math.PI / 2));
+    sliceHand.pose(sliceCue.age, sliceCue.strength);
     const hint = SLICE_CUE.guides && sliceCue.strength > 0 && current.kind === 'picture';
     this.dough.showOrderCuts(hint ? current.recipe.cuts : null, sliceCue.strength);
   }
@@ -706,7 +715,7 @@ export class KitchenScene extends Container {
     peel.eventMode = 'static';
     peel.on('pointerdown', this.dropDough, this);
     peel.on('pointerup', this.releaseOverPeel, this);
-    this.stations.peel.addChild(peel, this.dough, this.sliceCue, this.dragCue.word);
+    this.stations.peel.addChild(peel, this.dough, this.sliceHand, this.sliceCue, this.dragCue.word);
   }
 
   /** Place the peel as drawn, with the dough on its face. */
@@ -716,6 +725,7 @@ export class KitchenScene extends Container {
     // Cue words share one spot above the pizza
     this.sliceCue.layout(this.dough.x + SLICE_CUE.x, this.dough.y + SLICE_CUE.y);
     this.dragCue.word.layout(this.dough.x + SLICE_CUE.x, this.dough.y + SLICE_CUE.y);
+    this.sliceHand.layout();
     this.placeStation('peel', PEEL, this.dough.x, this.dough.y);
     this.toLocal(ORIGIN, this.dough, this.peelCenter);
     // Over the dough as it shows, though above every station

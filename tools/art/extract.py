@@ -115,10 +115,13 @@ TOPPING_FIT_ANGLES = np.arange(-15, 15.5, 1)  # degrees
 TOPPING_FIT_SCALES = np.arange(0.84, 1.161, 0.02)
 TOPPING_FIT_ROTATE_GAIN = 0.01  # overlap ratio a rotation must add to be used
 
-# Tutorial hand frames, drawn on a red screen: keyed out and cut onto one shared canvas (so they swap in place) of this
-# width, sized in code. Keying reads redness (red over the larger of green and blue) as a fraction of the screen's: at
+# Tutorial hand frames, drawn on a red screen: keyed out, each group cut onto one shared canvas (so its frames swap in
+# place) of this width, sized in code. Keying reads redness (red over the larger of green and blue) as a fraction of the screen's: at
 # or below solid it's opaque, at or above clear it's gone, and between, the red is unmixed out
-HAND_FRAMES = {'hand_open': 'pizza_hand_open.png', 'hand_pinch': 'pizza_hand_pinch.png'}
+HAND_GROUPS = (
+    {'hand_open': 'pizza_hand_open.png', 'hand_pinch': 'pizza_hand_pinch.png'},
+    {'hand_point': 'pizza_hand_point.png'},
+)
 HAND_WIDTH = 512
 HAND_KEY_SOLID = 0.2
 HAND_KEY_CLEAR = 0.75
@@ -580,9 +583,13 @@ def redness(img):
 
 
 def hand_frames():
-    """Key the tutorial hand frames off their red screen onto one canvas; returns their asset names."""
+    """Key the tutorial hand frames off their red screen, each group onto one canvas; returns their asset names."""
+    return [name for group in HAND_GROUPS for name in hand_group(group)]
+
+
+def hand_group(frames):
     cut = {}
-    for name, source in HAND_FRAMES.items():
+    for name, source in frames.items():
         img = load(source)
         screen = np.median(np.concatenate([img[0], img[-1], img[:, 0], img[:, -1]]), axis=0)
         k = redness(img) / redness(screen)

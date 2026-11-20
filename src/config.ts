@@ -604,8 +604,8 @@ export const SLICE_CUE = {
 };
 
 // While the dough waits in its bowl with nothing pressed for idleSeconds, a hand shows dragging it to the peel, over and
-// over: it fades in open at the ball over fadeInSeconds, holds openSeconds, pinches and holds pinchSeconds, slides to
-// the peel's center over slideSeconds (easing in and out), fades out over fadeOutSeconds, then rests restSeconds. It's
+// over: it fades in open at the ball over fadeInSeconds, pinches grabSeconds later and holds holdSeconds, slides to the
+// peel's center over moveSeconds (easing in and out), fades out over fadeOutSeconds, then rests restSeconds. It's
 // handWidth design px wide, its pinch at pivotX, pivotY (fractions of its art). With it, DRAG shows where SLICE! does,
 // styled the same. Any press takes both off, fading out over SLICE_CUE's fadeSeconds
 export const DRAG_CUE = {
@@ -614,11 +614,28 @@ export const DRAG_CUE = {
   pivotX: 0.95,
   pivotY: 0.43,
   fadeInSeconds: 0.3,
-  openSeconds: 0,
-  pinchSeconds: 0.2,
-  slideSeconds: 1.2,
+  grabSeconds: 0,
+  holdSeconds: 0.2,
+  moveSeconds: 1.2,
   fadeOutSeconds: 0.4,
   restSeconds: 0.8,
+};
+
+// While SLICE! shows, a hand draws its claw down the pizza's upright cut, over and over and fading with it: its tip
+// (pivotX, pivotY, fractions of its art) fades in at the top edge over fadeInSeconds, holds holdSeconds, runs to the
+// bottom edge over moveSeconds (easing in and out), fades out over fadeOutSeconds, then rests restSeconds. Its run
+// reaches reach of the way from the center to each edge; it's handWidth peel px wide. grabSeconds has nothing to switch
+export const SLICE_HAND = {
+  handWidth: 270,
+  pivotX: 0.955,
+  pivotY: 0.543,
+  reach: 1,
+  fadeInSeconds: 0.3,
+  grabSeconds: 0,
+  holdSeconds: 0.2,
+  moveSeconds: 1,
+  fadeOutSeconds: 0.3,
+  restSeconds: 0.5,
 };
 
 // Bake button above the gauge: center on the stage and drawn width. Pressing it breathes fire, same as pressing the dragon
